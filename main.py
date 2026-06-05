@@ -2,6 +2,8 @@ import webbrowser
 
 import eel
 
+import os
+
 from core import ConfigManager, MacroEngine, updater
 
 # ---------------------------------------------------------------------------
@@ -170,15 +172,19 @@ def open_url(url):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print(f"[Finnerich] Config folder: {config.dir}")
+    profile_dir = os.path.join(config.dir, "web_profile")
+    
     try:
         eel.start(
             "index.html",
             size=(900, 900),
             mode="chrome",
             cmdline_args=[
+                f'--user-data-dir={profile_dir}',
                 '--no-first-run',
-                '--guest',
             ],
-            port=0)
+            port=0
+        )
+        
     except (SystemExit, MemoryError, KeyboardInterrupt):
         engine.stop()
