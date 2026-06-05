@@ -25,13 +25,16 @@ def get_config_dir() -> Path:
 
 def _default_config() -> dict:
     return {
-        "version": "0.1.1",
+        "version": "0.1.2",
         "accounts": [],   # {id, name, link, avatar}
         "webhooks": [],
         "biomeCounts": biomes.empty_counts(),
         "unknownBiomes": {},
         "settings": {
             "accentIndex": 0,
+            "antiAfkEnabled": False,
+            "antiAfkAction": "space",
+            "antiAfkInterval": 300,
         },
     }
 

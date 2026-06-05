@@ -48,6 +48,9 @@
             <button class="nav-item" data-tab="routing">
                 <i class="fa-brands fa-discord"></i><span>Webhooks</span>
             </button>
+            <button class="nav-item" data-tab="antiafk">
+                <i class="fa-solid fa-person-running"></i><span>Anti-AFK</span>
+            </button>
             <div class="nav-item-coming-soon-wrapper">
                 <div class="nav-item nav-item-disabled">
                     <i class="fa-solid fa-fish"></i><span>Fishing</span>
@@ -172,6 +175,56 @@
                 <div class="empty-state" id="whEmpty">
                     <i class="fa-brands fa-discord"></i>
                     <p>No webhooks yet.</p>
+                </div>
+            </section>
+
+            <!-- ---------- ANTI-AFK ---------- -->
+            <section class="tab" id="antiafk">
+                <header class="page-head">
+                    <h1>Anti-AFK</h1>
+                    <p>Keep every open Roblox instance active while the biome logger runs.</p>
+                </header>
+
+                <div class="glass card setting-row" data-reveal>
+                    <div class="setting-info">
+                        <span class="setting-name">Anti-AFK</span>
+                        <span class="setting-desc">Runs only while the biome logger is active. Locked while logging.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="antiAfkToggle" onchange="onAntiAfkToggle(this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-sliders"></i> Settings</div>
+                        <span class="badge badge-soft" id="antiAfkStateBadge">Inactive</span>
+                    </div>
+
+                    <div class="afk-setting">
+                        <div class="afk-setting-info">
+                            <span class="afk-setting-name">Action type</span>
+                            <span class="afk-setting-desc">Sent into each Roblox instance on every trigger.</span>
+                        </div>
+                        <div class="segmented" id="antiAfkAction">
+                            <button class="seg-btn" data-action="space" onclick="setAntiAfkAction('space')">Space</button>
+                            <button class="seg-btn" data-action="zoom" onclick="setAntiAfkAction('zoom')">Zoom (I/O)</button>
+                        </div>
+                    </div>
+
+                    <div class="afk-divider"></div>
+
+                    <div class="afk-setting afk-setting-col">
+                        <div class="afk-setting-info">
+                            <span class="afk-setting-name">Interval</span>
+                            <span class="afk-setting-desc">Time between each Anti-AFK trigger.</span>
+                        </div>
+                        <div class="afk-slider-row">
+                            <input type="range" class="afk-range" id="antiAfkInterval" min="30" max="900" step="30" value="300" oninput="onAntiAfkIntervalInput(this)" onchange="onAntiAfkIntervalChange(this)">
+                            <span class="afk-interval-value" id="antiAfkIntervalValue">5m 00s</span>
+                        </div>
+                    </div>
                 </div>
             </section>
 

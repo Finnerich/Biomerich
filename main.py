@@ -125,6 +125,8 @@ def set_routing(wh_id, acc_id, enabled):
 # ---------------------------------------------------------------------------
 @eel.expose
 def set_setting(key, value):
+    if key == "antiAfkEnabled" and engine.running:
+        return _state_with_status()
     config.set_setting(key, value)
     return _state_with_status()
 

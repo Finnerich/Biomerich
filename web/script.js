@@ -8,6 +8,7 @@ let statusInterval = null;
 
 let unknownBiomes = {};
 let appVersion = "";
+let appSettings = {};
 const collapsedTiers = new Set();
 
 const hasEel = typeof eel !== "undefined";
@@ -177,6 +178,7 @@ function applyState(state) {
   if (Array.isArray(state.webhooks)) webhooks = state.webhooks;
   if (state.biomeCounts) biomeCounts = state.biomeCounts;
   if (state.unknownBiomes) unknownBiomes = state.unknownBiomes;
+  if (state.settings) appSettings = state.settings;
   if (state.version) setVersion(state.version);
   renderAll();
   setRunning(!!state.running, state.uptime || 0);
@@ -194,6 +196,7 @@ function renderAll() {
   renderAccounts();
   renderWebhooks();
   renderStats();
+  renderAntiAfk();
 }
 
 function switchTab(tabId, btn) {
@@ -302,6 +305,7 @@ function setRunning(running, uptime = 0) {
 
   lockUI(running);
   renderLogs();
+  renderAntiAfk();
 }
 
 function lockUI(running) {
@@ -894,6 +898,87 @@ async function openUpdatePage() {
     window.open(_updateUrl, "_blank");
   }
   closeUpdateModal();
+}
+
+function clampInterval(v) {
+  if (!Number.isFinite(v)) return 300;
+  return Math.max(30, Math.min(900, Math.round(v / 30) * 30));
+}
+
+function formatInterval(sec) {
+  if (sec >= 60) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}m ${s.toString().padStart(2, "0")}s`;
+  }
+  return `${sec}s`;
+}
+
+function renderAntiAfk() {
+  const toggle = document.getElementById("antiAfkToggle");
+  if (!toggle) return;
+
+  const enabled = !!appSettings.antiAfkEnabled;
+  const action = appSettings.antiAfkAction === "zoom" ? "zoom" : "space";
+  const interval = clampInterval(parseInt(appSettings.antiAfkInterval, 10));
+
+  toggle.checked = enabled;
+  toggle.disabled = isRunning;
+
+  document.querySelectorAll("#antiAfkAction .seg-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.action === action);
+  });
+
+  const range = document.getElementById("antiAfkInterval");
+  const value = document.getElementById("antiAfkIntervalValue");
+  if (range) {
+    range.value = interval;
+    const pct = ((interval - 30) / (900 - 30)) * 100;
+    range.style.backgroundSize = `${pct}% 100%`;
+  }
+  if (value) value.textContent = formatInterval(interval);
+
+  const badge = document.getElementById("antiAfkStateBadge");
+  if (badge) {
+    if (isRunning && enabled) badge.textContent = "Running";
+    else if (enabled) badge.textContent = "Ready";
+    else badge.textContent = "Inactive";
+  }
+}
+
+async function onAntiAfkToggle(el) {
+  if (isRunning) {
+    el.checked = !el.checked;
+    return;
+  }
+  const val = el.checked;
+  appSettings.antiAfkEnabled = val;
+  if (hasEel) {
+    applyState(await callPy("set_setting", "antiAfkEnabled", val));
+  } else {
+    renderAntiAfk();
+  }
+}
+
+function setAntiAfkAction(action) {
+  appSettings.antiAfkAction = action;
+  renderAntiAfk();
+  if (hasEel) callPy("set_setting", "antiAfkAction", action);
+}
+
+function onAntiAfkIntervalInput(el) {
+  const v = clampInterval(parseInt(el.value, 10));
+  appSettings.antiAfkInterval = v;
+  const value = document.getElementById("antiAfkIntervalValue");
+  if (value) value.textContent = formatInterval(v);
+  const pct = ((v - 30) / (900 - 30)) * 100;
+  el.style.backgroundSize = `${pct}% 100%`;
+}
+
+function onAntiAfkIntervalChange(el) {
+  const v = clampInterval(parseInt(el.value, 10));
+  appSettings.antiAfkInterval = v;
+  if (hasEel) callPy("set_setting", "antiAfkInterval", v);
 }
 
 function renderSwatches() {

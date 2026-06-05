@@ -442,7 +442,6 @@ animation: rareGlow 1.7s ease-in-out infinite;
 .log-empty { color: var(--text-faint); font-size: 13px; text-align: center; padding: 18px; }
 
 .biome-groups { display: flex; flex-direction: column; gap: 20px; }
-.biome-group {}
 .tier-head { display: flex;
 align-items: center;
 gap: 9px;
@@ -803,6 +802,86 @@ flex-wrap: wrap;
 .setting-info { display: flex; flex-direction: column; gap: 4px; }
 .setting-name { font-family: 'Sora'; font-weight: 600; font-size: 15px; }
 .setting-desc { font-size: 13px; color: var(--text-dim); }
+
+.afk-setting { display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 18px;
+padding: 8px 2px;
+flex-wrap: wrap;
+}
+.afk-setting-col { flex-direction: column; align-items: stretch; gap: 14px; }
+.afk-setting-info { display: flex; flex-direction: column; gap: 4px; }
+.afk-setting-name { font-family: 'Sora'; font-weight: 600; font-size: 14px; }
+.afk-setting-desc { font-size: 12.5px; color: var(--text-dim); }
+.afk-divider { height: 1px; background: var(--stroke-soft); margin: 16px 0; }
+
+.segmented { display: inline-flex;
+background: rgba(0,0,0,0.28);
+border: 1px solid var(--stroke);
+border-radius: var(--r-sm);
+padding: 4px;
+gap: 4px;
+flex-shrink: 0;
+}
+.seg-btn { font-family: 'Sora';
+font-weight: 600;
+font-size: 13px;
+color: var(--text-dim);
+background: transparent;
+border: none;
+cursor: pointer;
+padding: 8px 16px;
+border-radius: 8px;
+transition: color 0.2s var(--ease), background 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { color: #fff;
+background: linear-gradient(135deg, var(--accent), var(--accent-2));
+box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+.afk-slider-row { display: flex; align-items: center; gap: 16px; }
+.afk-range { -webkit-appearance: none;
+appearance: none;
+flex: 1 1 auto;
+height: 6px;
+border-radius: 99px;
+background: linear-gradient(90deg, var(--accent), var(--accent-2)) no-repeat,
+            rgba(255,255,255,0.12);
+background-size: 50% 100%;
+outline: none;
+cursor: pointer;
+}
+.afk-range::-webkit-slider-thumb { -webkit-appearance: none;
+appearance: none;
+width: 18px;
+height: 18px;
+border-radius: 50%;
+background: #fff;
+border: 3px solid var(--accent);
+box-shadow: 0 2px 8px var(--accent-glow);
+transition: transform 0.18s var(--spring);
+}
+.afk-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.afk-range::-moz-range-thumb { width: 16px;
+height: 16px;
+border-radius: 50%;
+background: #fff;
+border: 3px solid var(--accent);
+box-shadow: 0 2px 8px var(--accent-glow);
+}
+.afk-interval-value { font-family: var(--mono);
+font-size: 14px;
+font-weight: 500;
+color: var(--accent);
+min-width: 70px;
+text-align: right;
+flex-shrink: 0;
+}
+
+body.locked #antiAfkToggle { pointer-events: none; }
+body.locked #antiAfkToggle + .slider { opacity: 0.5; cursor: not-allowed; }
 .swatches { display: flex; gap: 10px; }
 .swatch-btn { width: 28px;
 height: 28px;

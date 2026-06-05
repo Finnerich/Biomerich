@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import requests
 
 from . import biomes, roblox_logs, webhooks
+from .anti_afk import AntiAfk
 
 
 def _is_roblox_link(link: str) -> bool:
@@ -39,6 +40,7 @@ class MacroEngine:
         self._start_ts = None
         self._lock = threading.RLock()
         self._states = {}   # acc_id -> _AccountState
+        self.anti_afk = AntiAfk(config, lambda: self._running)
 
     # ----------------------------------------------------------- Status
     @property
@@ -103,6 +105,7 @@ class MacroEngine:
 
             self._thread = threading.Thread(target=self._tracker_loop, daemon=True)
             self._thread.start()
+            self.anti_afk.start()
             print("[Engine] Biomerich started.")
 
         webhooks.macro_started(self._all_active_urls(), self._tracked_account_names(), self._current_version())
@@ -111,6 +114,7 @@ class MacroEngine:
     def stop(self) -> dict:
         report = "00:00:00"
         biome_total = sum(self.config.biome_counts.values())
+        self.anti_afk.stop()
         with self._lock:
             if self._running:
                 report = self._session_report()
