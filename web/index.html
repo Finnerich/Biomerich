@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biomerich</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="stylesheet" href="style.css">
+
+    <script type="text/javascript" src="/eel.js"></script>
+    <meta name="application-name" content="Biomerich">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+</head>
+<body>
+
+    <div class="grain"></div>
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar glass">
+        <div class="brand">
+            <div class="brand-mark"><i class="fa-solid fa-satellite-dish"></i></div>
+            <div class="brand-text">
+                <div class="brand-top">
+                    <span class="brand-name">Biomerich</span>
+                    <span class="version-tag" id="versionTag">v0.0.1</span>
+                </div>
+                <span class="brand-sub">Biome Logger (rizz)</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <button class="nav-item active" data-tab="stats">
+                <i class="fa-solid fa-chart-simple"></i><span>Stats</span>
+            </button>
+            <button class="nav-item" data-tab="accounts">
+                <i class="fa-solid fa-users"></i><span>Accounts</span>
+            </button>
+            <button class="nav-item" data-tab="routing">
+                <i class="fa-brands fa-discord"></i><span>Webhooks</span>
+            </button>
+            <div class="nav-item-coming-soon-wrapper">
+                <div class="nav-item nav-item-disabled">
+                    <i class="fa-solid fa-fish"></i><span>Fishing</span>
+                </div>
+            </div>
+            <button class="nav-item" data-tab="settings">
+                <i class="fa-solid fa-sliders"></i><span>Settings</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="https://discord.gg/X7dbbQ5pXV" target="_blank" class="support-link">
+                <i class="fa-brands fa-discord"></i><span>Support Server</span>
+            </a>
+            <div class="made-by">Made by Finnerich</div>
+        </div>
+    </aside>
+
+    <!-- ============ RIGHT COLUMN ============ -->
+    <div class="right-col">
+
+        <!-- ============ TOP BAR ============ -->
+        <div class="topbar glass">
+            <div class="topbar-engine">
+                <button id="toggleBtn" class="power-btn stopped" onclick="toggleMacro()">
+                    <i class="fa-solid fa-power-off"></i>
+                    <span>Start</span>
+                </button>
+                <div class="topbar-status">
+                    <span class="dot stopped" id="statusDot"></span>
+                    <div class="engine-pill-text">
+                        <span class="ep-value" id="statusText">Offline</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-time">
+                <i class="fa-solid fa-stopwatch topbar-time-icon"></i>
+                <span class="time-value" id="uptime">00:00:00</span>
+            </div>
+        </div>
+
+        <!-- ============ MAIN ============ -->
+        <main class="main">
+
+            <section class="tab active-tab" id="stats">
+                <header class="page-head">
+                    <h1>Statistics</h1>
+                    <p>Biome monitoring, biome rarity breakdown and lifetime biome counts.</p>
+                </header>
+
+                <div class="stat-row stats-head" id="statsHead" data-reveal></div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-signal-stream"></i> Active Accounts</div>
+                        <span class="badge badge-soft" id="onlineBadge">0 online</span>
+                    </div>
+                    <div class="log-list" id="logList"></div>
+                </div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-layer-group"></i> Rarity Breakdown</div>
+                        <span class="badge badge-soft" id="rarityTotal">0 logged</span>
+                    </div>
+                    <div class="rarity-bar" id="rarityBar"></div>
+                    <div class="rarity-legend" id="rarityLegend"></div>
+                </div>
+
+                <div class="glass card panel rare-panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-gem"></i> Rare Biome Spotlight</div>
+                        <span class="badge badge-rare"><i class="fa-solid fa-bolt"></i> Extremely Rare</span>
+                    </div>
+                    <div class="rare-spotlight" id="rareSpotlight"></div>
+                </div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-mountain-sun"></i> Biome Counts</div>
+                        <span class="badge badge-sync"><span id="biomeTotal">0</span> total</span>
+                    </div>
+                    <div class="biome-groups" id="biomeGrid"></div>
+                </div>
+            </section>
+
+            <!-- ---------- ACCOUNTS ---------- -->
+            <section class="tab" id="accounts">
+                <header class="page-head">
+                    <h1>Roblox Accounts</h1>
+                    <p>Register the Private Servers you want the logger to monitor.</p>
+                </header>
+
+                <div class="glass card input-bar" data-reveal>
+                    <input type="text" id="accName" class="field" placeholder="Username">
+                    <input type="text" id="accLink" class="field" placeholder="Private Server URL">
+                    <button class="btn-add" onclick="addAccount()"><i class="fa-solid fa-plus"></i> Add</button>
+                </div>
+
+                <div class="card-grid" id="accountList"></div>
+                <div class="empty-state" id="accEmpty">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <p>No accounts yet. Add one above to start monitoring.</p>
+                </div>
+            </section>
+
+            <!-- ---------- WEBHOOKS ---------- -->
+            <section class="tab" id="routing">
+                <header class="page-head">
+                    <h1>Webhooks</h1>
+                    <p>Add Webhooks from your Glitch Hunt Servers.</p>
+                </header>
+
+                <div class="glass card input-bar" data-reveal>
+                    <input type="text" id="whName" class="field" placeholder="Server Name">
+                    <input type="text" id="whUrl" class="field" placeholder="Webhook URL">
+                    <button class="btn-add" onclick="addWebhook()"><i class="fa-solid fa-plus"></i> Add</button>
+                </div>
+
+                <div class="card-grid" id="webhookList"></div>
+                <div class="empty-state" id="whEmpty">
+                    <i class="fa-brands fa-discord"></i>
+                    <p>No webhooks yet.</p>
+                </div>
+            </section>
+
+            <!-- ---------- SETTINGS ---------- -->
+            <section class="tab" id="settings">
+                <header class="page-head">
+                    <h1>Settings</h1>
+                    <p>Optimize your experience. 🤑</p>
+                </header>
+
+                <div class="glass card setting-row" data-reveal>
+                    <div class="setting-info">
+                        <span class="setting-name">Accent color</span>
+                        <span class="setting-desc">Recolor highlights and buttons.</span>
+                    </div>
+                    <div class="swatches" id="swatches"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ============ EDIT MODAL ============ -->
+    <div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
+        <div class="modal glass">
+            <div class="modal-head">
+                <span class="modal-title" id="modalTitle">Edit</span>
+                <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-foot">
+                <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                <button class="btn-save" id="modalSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ UPDATE MODAL ============ -->
+    <div class="modal-overlay" id="updateModal" onclick="closeUpdateModal(event)">
+        <div class="modal glass update-modal">
+            <div class="update-icon"><i class="fa-solid fa-rocket"></i></div>
+            <div class="update-head">
+                <span class="update-title">New version of Biomerich available</span>
+                <span class="update-sub">Wanna upgrade?</span>
+            </div>
+            <div class="update-versions">
+                <div class="uv-box">
+                    <span class="uv-label">Current</span>
+                    <span class="uv-val" id="updCurrent">v0.0.0</span>
+                </div>
+                <i class="fa-solid fa-arrow-right uv-arrow"></i>
+                <div class="uv-box new">
+                    <span class="uv-label">New</span>
+                    <span class="uv-val" id="updLatest">v0.0.0</span>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn-cancel" onclick="closeUpdateModal()">Later</button>
+                <button class="btn-save" id="updateGoBtn"><i class="fa-solid fa-arrow-up-right-from-square"></i> Upgrade</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

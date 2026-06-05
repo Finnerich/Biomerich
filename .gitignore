@@ -1,0 +1,7 @@
+build/
+dist/
+tempCodeRunnerFile.py
+Biomerich.zip
+__pycache__/
+*.pyc
+upx.exe
