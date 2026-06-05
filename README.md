@@ -1,6 +1,6 @@
 # 🌟 Biomerich - Advanced Sol's RNG Logger & Macro
 
-Welcome to the official repository for **Biomerich**, a powerful, highly analytical logger and utility tool built for Roblox Sol's RNG[cite: 1].
+Welcome to the official repository for **Biomerich**, a powerful, highly analytical logger and utility tool built for Roblox Sol's RNG.
 
 Designed with a clean, modern Web User Interface and powered by a robust Python backend, Biomerich is built to be the ultimate companion for dedicated Sol's RNG players. It seamlessly tracks your game data in real-time and lays the groundwork for advanced automation.
 
@@ -35,3 +35,5 @@ _(Note: End users can simply download the compiled `.exe` from the Releases tab 
 ## 📄 License
 
 This project is licensed under the Apache 2.0 License. See the `LICENSE` file for details.
+
+yes i wrote this readme with ai because i suck at it
