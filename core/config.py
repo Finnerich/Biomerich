@@ -25,7 +25,7 @@ def get_config_dir() -> Path:
 
 def _default_config() -> dict:
     return {
-        "version": "0.1.2",
+        "version": "0.1.2-hotfix",
         "accounts": [],   # {id, name, link, avatar}
         "webhooks": [],
         "biomeCounts": biomes.empty_counts(),
