@@ -174,19 +174,36 @@ def open_url(url):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print(f"[Finnerich] Config folder: {config.dir}")
+    
     profile_dir = os.path.join(config.dir, "web_profile")
     
-    try:
-        eel.start(
-            "index.html",
-            size=(900, 900),
-            mode="chrome",
-            cmdline_args=[
-                f'--user-data-dir={profile_dir}',
-                '--no-first-run',
-            ],
-            port=0
-        )
-        
-    except (SystemExit, MemoryError, KeyboardInterrupt):
-        engine.stop()
+    browser_modes = ["chrome", "edge", "default"]
+    
+    for mode in browser_modes:
+        try:
+            print(f"[Biomerich] Trying to run app in '{mode}' mode...")
+            
+            cmd_args = []
+            if mode in ["chrome", "edge"]:
+                cmd_args = [
+                    f'--user-data-dir={profile_dir}',
+                    '--no-first-run',
+                ]
+            
+            eel.start(
+                "index.html",
+                size=(900, 900),
+                mode=mode,
+                cmdline_args=cmd_args,
+                port=0
+            )
+            
+            break
+            
+        except (EnvironmentError, ValueError) as e:
+            print(f"[Biomerich] Mode '{mode}' failed. Trying next mode...")
+            continue
+            
+        except (SystemExit, MemoryError, KeyboardInterrupt):
+            engine.stop()
+            break
