@@ -10,7 +10,6 @@ from . import biomes
 APP_FOLDER = "Biomerich"
 CONFIG_FILENAME = "config.json"
 
-
 def get_config_dir() -> Path:
     base = os.getenv("LOCALAPPDATA")
     if not base:
@@ -22,11 +21,35 @@ def get_config_dir() -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
+def _default_automation() -> dict:
+    return {
+        "mode": "idle",
+        "biomeRandomizer": False,
+        "strangeController": False,
+        "preset": "",
+        "amount": "1",
+        "pixels": {
+            "inventory_button": None,
+            "item_tab": None,
+            "search_bar": None,
+            "first_item_slot": None,
+            "amount_box": None,
+            "use_button": None,
+        },
+        "intervals": {
+            "strangeController": 21 * 60,
+            "biomeRandomizer": 36 * 60,
+        },
+        "searchTerms": {
+            "strangeController": "Strange Controller",
+            "biomeRandomizer": "Biome Randomizer",
+        },
+    }
 
 def _default_config() -> dict:
     return {
-        "version": "0.1.2-hotfix",
-        "accounts": [],   # {id, name, link, avatar}
+        "version": "0.1.3",
+        "accounts": [],
         "webhooks": [],
         "biomeCounts": biomes.empty_counts(),
         "unknownBiomes": {},
@@ -35,9 +58,10 @@ def _default_config() -> dict:
             "antiAfkEnabled": False,
             "antiAfkAction": "space",
             "antiAfkInterval": 300,
+            "hotkey": "F5",
         },
+        "automation": _default_automation(),
     }
-
 
 class ConfigManager:
     def __init__(self):
@@ -46,7 +70,6 @@ class ConfigManager:
         self._lock = threading.RLock()
         self.data = self._load()
 
-    # ---------------------------------------------------------------- IO
     def _load(self) -> dict:
         cfg = _default_config()
         if self.path.exists():
@@ -59,6 +82,15 @@ class ConfigManager:
                             cfg[key].update(saved[key])
                         else:
                             cfg[key] = saved[key]
+
+                saved_auto = saved.get("automation")
+                if isinstance(saved_auto, dict):
+                    auto = cfg["automation"]
+                    for k, v in saved_auto.items():
+                        if isinstance(auto.get(k), dict) and isinstance(v, dict):
+                            auto[k].update(v)
+                        else:
+                            auto[k] = v
                 for k, v in (saved.get("biomeCounts") or {}).items():
                     if k in cfg["biomeCounts"] and isinstance(v, (int, float)):
                         cfg["biomeCounts"][k] = int(v)
@@ -79,7 +111,6 @@ class ConfigManager:
             except OSError as e:
                 print(f"[Config] Saving failed: {e}")
 
-    # ----------------------------------------------------------- getter
     @property
     def accounts(self) -> list:
         return self.data["accounts"]
@@ -100,6 +131,10 @@ class ConfigManager:
     def settings(self) -> dict:
         return self.data["settings"]
 
+    @property
+    def automation(self) -> dict:
+        return self.data.setdefault("automation", _default_automation())
+
     def state(self) -> dict:
         with self._lock:
             return {
@@ -109,12 +144,12 @@ class ConfigManager:
                 "biomeCounts": dict(self.biome_counts),
                 "unknownBiomes": dict(self.unknown_biomes),
                 "settings": dict(self.settings),
+                "automation": json.loads(json.dumps(self.automation)),
             }
 
     def _find(self, items, item_id):
         return next((x for x in items if x.get("id") == item_id), None)
 
-    # --------------------------------------------------------- accs
     def add_account(self, name: str, link: str = "", avatar: str = "", acc_id=None) -> dict:
         with self._lock:
             acc = {
@@ -150,7 +185,6 @@ class ConfigManager:
             self.save()
             return len(self.accounts) != before
 
-    # --------------------------------------------------------- Webhooks
     def add_webhook(self, name: str, url: str) -> dict:
         with self._lock:
             wh = {
@@ -205,13 +239,59 @@ class ConfigManager:
             self.save()
             return True
 
-    # --------------------------------------------------------- Settings
     def set_setting(self, key: str, value) -> None:
         with self._lock:
             self.settings[key] = value
             self.save()
 
-    # ----------------------------------------------------------- Biomes
+    def set_automation(self, key: str, value) -> None:
+        with self._lock:
+            self.automation[key] = value
+            self.save()
+
+    def set_automation_task(self, task: str, enabled: bool) -> None:
+        if task not in ("strangeController", "biomeRandomizer"):
+            return
+        with self._lock:
+            self.automation[task] = bool(enabled)
+            self.save()
+
+    def set_search_term(self, task: str, term: str) -> None:
+        if task not in ("strangeController", "biomeRandomizer"):
+            return
+        with self._lock:
+            terms = self.automation.setdefault("searchTerms", {})
+            terms[task] = (term or "").strip()
+            self.save()
+
+    def set_amount(self, value: str) -> None:
+        with self._lock:
+            v = "".join(ch for ch in str(value) if ch.isdigit()) or "1"
+            self.automation["amount"] = v
+            self.save()
+
+    def set_pixel(self, slot: str, xy) -> None:
+        with self._lock:
+            pixels = self.automation.setdefault("pixels", {})
+            if xy is None:
+                pixels[slot] = None
+            else:
+                pixels[slot] = [int(xy[0]), int(xy[1])]
+            self.save()
+
+    def load_preset_pixels(self, name: str) -> bool:
+        from . import presets
+        coords = presets.get_preset(name)
+        if not coords:
+            return False
+        with self._lock:
+            pixels = self.automation.setdefault("pixels", {})
+            for slot, pos in coords.items():
+                pixels[slot] = [int(pos[0]), int(pos[1])]
+            self.automation["preset"] = name
+            self.save()
+            return True
+
     def increment_biome(self, key: str) -> None:
         with self._lock:
             if key in self.biome_counts:
@@ -226,7 +306,6 @@ class ConfigManager:
             self.unknown_biomes[name] = self.unknown_biomes.get(name, 0) + 1
             self.save()
 
-    # -------------------------------------------------------------- IDs
     _last_id = 0
 
     def _new_id(self) -> int:

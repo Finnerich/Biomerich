@@ -10,9 +10,7 @@ _HEADERS = {
     "User-Agent": "Biomerich-Updater",
 }
 
-
 def _parse_version(v: str) -> tuple:
-    """'v0.2.1' / '0.2.1-beta' -> (0, 2, 1). Robust gegen Muell."""
     v = (v or "").strip().lstrip("vV")
     parts = []
     for chunk in re.split(r"[.\-+_]", v):
@@ -22,10 +20,8 @@ def _parse_version(v: str) -> tuple:
             break
     return tuple(parts) if parts else (0,)
 
-
 def _is_newer(latest: str, current: str) -> bool:
     return _parse_version(latest) > _parse_version(current)
-
 
 def check_for_update(current_version: str, repo: str = GITHUB_REPO) -> dict:
     result = {

@@ -9,7 +9,18 @@ let statusInterval = null;
 let unknownBiomes = {};
 let appVersion = "";
 let appSettings = {};
+let appAutomation = {};
+let presetNames = [];
 const collapsedTiers = new Set();
+
+const PIXEL_SLOTS = [
+  ["inventory_button", "Inventory Button"],
+  ["item_tab", "Item Tab"],
+  ["search_bar", "Search Bar"],
+  ["first_item_slot", "First Item Slot"],
+  ["amount_box", "Amount Box"],
+  ["use_button", "Use Button"],
+];
 
 const hasEel = typeof eel !== "undefined";
 
@@ -178,7 +189,11 @@ function applyState(state) {
   if (Array.isArray(state.webhooks)) webhooks = state.webhooks;
   if (state.biomeCounts) biomeCounts = state.biomeCounts;
   if (state.unknownBiomes) unknownBiomes = state.unknownBiomes;
-  if (state.settings) appSettings = state.settings;
+  if (state.settings) {
+    appSettings = state.settings;
+    initHotkey(state.settings.hotkey || "F5");
+  }
+  if (state.automation) appAutomation = state.automation;
   if (state.version) setVersion(state.version);
   renderAll();
   setRunning(!!state.running, state.uptime || 0);
@@ -197,6 +212,7 @@ function renderAll() {
   renderWebhooks();
   renderStats();
   renderAntiAfk();
+  renderAutomation();
 }
 
 function switchTab(tabId, btn) {
@@ -306,6 +322,7 @@ function setRunning(running, uptime = 0) {
   lockUI(running);
   renderLogs();
   renderAntiAfk();
+  renderAutomation();
 }
 
 function lockUI(running) {
@@ -981,6 +998,168 @@ function onAntiAfkIntervalChange(el) {
   if (hasEel) callPy("set_setting", "antiAfkInterval", v);
 }
 
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (el && el.value !== value) el.value = value;
+}
+
+function renderAutomation() {
+  const biomeT = document.getElementById("autoBiomeToggle");
+  if (!biomeT) return;
+  const strangeT = document.getElementById("autoStrangeToggle");
+  const a = appAutomation || {};
+
+  biomeT.checked = !!a.biomeRandomizer;
+  strangeT.checked = !!a.strangeController;
+  biomeT.disabled = isRunning;
+  strangeT.disabled = isRunning;
+
+  const terms = a.searchTerms || {};
+  setVal("autoBiomeTerm", terms.biomeRandomizer ?? "Biome Randomizer");
+  setVal("autoStrangeTerm", terms.strangeController ?? "Strange Controller");
+  setVal("autoAmount", a.amount ?? "1");
+  ["autoBiomeTerm", "autoStrangeTerm", "autoAmount"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = isRunning;
+  });
+
+  updateModeBtn();
+  renderPresetSelect();
+  renderPixels();
+}
+
+function updateModeBtn() {
+  const btn = document.getElementById("modeBtn");
+  if (!btn) return;
+  const txt = document.getElementById("modeBtnText");
+  const on = ((appAutomation && appAutomation.mode) || "idle") === "automation";
+  btn.className = "mode-btn " + (on ? "auto" : "idle");
+  if (txt) txt.textContent = on ? "Automation" : "Idle";
+}
+
+async function toggleAutomationMode() {
+  const cur = (appAutomation && appAutomation.mode) || "idle";
+  const next = cur === "automation" ? "idle" : "automation";
+  appAutomation.mode = next;
+  updateModeBtn();
+  if (hasEel) applyState(await callPy("set_automation_mode", next));
+}
+
+async function onAutoTaskToggle(task, el) {
+  if (isRunning) {
+    el.checked = !el.checked;
+    return;
+  }
+  appAutomation[task] = el.checked;
+  if (hasEel) applyState(await callPy("set_automation_task", task, el.checked));
+}
+
+async function onAutoSearch(task, el) {
+  if (isRunning) return;
+  if (hasEel) applyState(await callPy("set_automation_search", task, el.value));
+}
+
+async function onAutoAmount(el) {
+  if (isRunning) return;
+  if (hasEel) applyState(await callPy("set_automation_amount", el.value));
+}
+
+function renderPresetSelect() {
+  const sel = document.getElementById("presetSelect");
+  if (!sel) return;
+  const cur = (appAutomation && appAutomation.preset) || "";
+  const has = presetNames.length > 0;
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = has ? "Select preset…" : "No presets yet";
+  sel.appendChild(opt0);
+  presetNames.forEach((n) => {
+    const o = document.createElement("option");
+    o.value = n;
+    o.textContent = n;
+    if (n === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.disabled = isRunning || !has;
+  const btn = document.getElementById("presetLoadBtn");
+  if (btn) btn.disabled = isRunning || !has;
+}
+
+async function loadPresetList() {
+  if (!hasEel) return;
+  const r = await callPy("get_automation_presets");
+  if (r && Array.isArray(r.presets)) {
+    presetNames = r.presets;
+    renderPresetSelect();
+  }
+}
+
+async function loadPreset() {
+  if (isRunning || !hasEel) return;
+  const sel = document.getElementById("presetSelect");
+  const name = sel ? sel.value : "";
+  if (!name) return;
+  applyState(await callPy("load_automation_preset", name));
+}
+
+function renderPixels() {
+  const wrap = document.getElementById("pixelList");
+  if (!wrap) return;
+  const px = (appAutomation && appAutomation.pixels) || {};
+  let setCount = 0;
+  wrap.innerHTML = "";
+
+  PIXEL_SLOTS.forEach(([key, label]) => {
+    const pos = px[key];
+    const isSet = Array.isArray(pos) && pos.length === 2;
+    if (isSet) setCount++;
+
+    const row = document.createElement("div");
+    row.className = "pixel-row" + (isSet ? " set" : "");
+    row.id = "pxrow-" + key;
+    row.innerHTML = `
+      <span class="px-name">${label}</span>
+      <span class="px-coord">${isSet ? `${pos[0]}, ${pos[1]}` : "Not set"}</span>
+      <button class="px-set-btn" ${isRunning ? "disabled" : ""} onclick="capturePixel('${key}')">
+        <i class="fa-solid fa-crosshairs"></i> Set
+      </button>`;
+    wrap.appendChild(row);
+  });
+
+  const badge = document.getElementById("pixelBadge");
+  if (badge) badge.textContent = `${setCount}/${PIXEL_SLOTS.length} set`;
+}
+
+async function capturePixel(key) {
+  if (isRunning || !hasEel) return;
+
+  const row = document.getElementById("pxrow-" + key);
+  const btn = row ? row.querySelector(".px-set-btn") : null;
+  const coord = row ? row.querySelector(".px-coord") : null;
+
+  if (row) row.classList.add("listening");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Waiting…';
+  }
+  if (coord) coord.textContent = "Click your target…";
+
+  const res = await callPy("capture_pixel", key);
+
+  if (res && res.ok) {
+    applyState(await callPy("get_state"));
+    return;
+  }
+
+  if (row) row.classList.remove("listening");
+  if (coord) {
+    coord.textContent =
+      res && res.error === "timeout" ? "No click detected" : "Failed";
+  }
+  setTimeout(() => renderAutomation(), 1300);
+}
+
 function renderSwatches() {
   const wrap = document.getElementById("swatches");
   if (!wrap) return;
@@ -1051,6 +1230,39 @@ function esc(str) {
     .replace(/"/g, "&quot;");
 }
 
+eel.expose(js_on_hotkey_start);
+function js_on_hotkey_start(result) {
+  if (result && result.ok === false) {
+    showErrors(result.errors || ["Unknown error."]);
+    return;
+  }
+  setRunning(true, result ? result.uptime : 0);
+  startPolling();
+}
+
+eel.expose(js_on_hotkey_stop);
+function js_on_hotkey_stop(result) {
+  stopPolling();
+  setRunning(false);
+}
+
+let _hotkey = "F5";
+
+function initHotkey(key) {
+  _hotkey = key || "F5";
+  const badge = document.getElementById("hotkeyBadge");
+  if (badge) badge.textContent = _hotkey;
+  const sel = document.getElementById("hotkeySelect");
+  if (sel) sel.value = _hotkey;
+}
+
+async function onHotkeyChange(sel) {
+  _hotkey = sel.value;
+  const badge = document.getElementById("hotkeyBadge");
+  if (badge) badge.textContent = _hotkey;
+  if (hasEel) await callPy("set_setting", "hotkey", _hotkey);
+}
+
 function blockDevtools() {
   document.addEventListener(
     "keydown",
@@ -1071,9 +1283,6 @@ function blockDevtools() {
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
-/* =====================================================================
-   INIT
-   ===================================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
   blockDevtools();
 
@@ -1102,8 +1311,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   renderSwatches();
 
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== _hotkey) return;
+    const tag = (document.activeElement || {}).tagName || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    e.preventDefault();
+    toggleMacro();
+  });
+
   if (hasEel) {
     applyState(await callPy("get_state"));
+    loadPresetList();
     checkForUpdate();
   } else {
     renderAll();

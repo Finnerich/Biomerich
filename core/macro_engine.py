@@ -6,7 +6,7 @@ import requests
 
 from . import biomes, roblox_logs, webhooks
 from .anti_afk import AntiAfk
-
+from .automation import AutomationEngine
 
 def _is_roblox_link(link: str) -> bool:
     try:
@@ -17,7 +17,6 @@ def _is_roblox_link(link: str) -> bool:
         return host == "roblox.com" or host.endswith(".roblox.com")
     except Exception:
         return False
-
 
 class _AccountState:
     __slots__ = ("acc_id", "username", "reader", "current_biome",
@@ -31,7 +30,6 @@ class _AccountState:
         self.online = False
         self.last_line_ts = 0.0
 
-
 class MacroEngine:
     def __init__(self, config):
         self.config = config
@@ -39,10 +37,10 @@ class MacroEngine:
         self._thread = None
         self._start_ts = None
         self._lock = threading.RLock()
-        self._states = {}   # acc_id -> _AccountState
+        self._states = {}
         self.anti_afk = AntiAfk(config, lambda: self._running)
+        self.automation = AutomationEngine(config, lambda: self._running, self.anti_afk)
 
-    # ----------------------------------------------------------- Status
     @property
     def running(self) -> bool:
         return self._running
@@ -89,7 +87,6 @@ class MacroEngine:
 
         return errors
 
-    # ----------------------------------------------------- Start / Stop
     def start(self) -> dict:
         with self._lock:
             if self._running:
@@ -105,7 +102,7 @@ class MacroEngine:
 
             self._thread = threading.Thread(target=self._tracker_loop, daemon=True)
             self._thread.start()
-            self.anti_afk.start()
+            self._sync_subsystems()
             print("[Engine] Biomerich started.")
 
         webhooks.macro_started(self._all_active_urls(), self._tracked_account_names(), self._current_version())
@@ -115,6 +112,7 @@ class MacroEngine:
         report = "00:00:00"
         biome_total = sum(self.config.biome_counts.values())
         self.anti_afk.stop()
+        self.automation.stop()
         with self._lock:
             if self._running:
                 report = self._session_report()
@@ -131,7 +129,6 @@ class MacroEngine:
         secs = self.uptime
         return f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:{secs % 60:02d}"
 
-    # --------------------------------------------------- State / Routing
     def _routed_account_ids(self):
         return {
             aid
@@ -154,7 +151,7 @@ class MacroEngine:
                 seen.add(url)
                 urls.append(url)
         return urls
-    
+
     def _current_version(self):
         if self.config.data.get("version"):
             return self.config.data["version"]
@@ -188,7 +185,6 @@ class MacroEngine:
                 st.online = True
             self._states[acc.get("id")] = st
 
-    # ----------------------------------------------------- tracking loop
     def _tracker_loop(self):
         rescan_counter = 0
         while self._running:
@@ -264,11 +260,23 @@ class MacroEngine:
             print(f"[Engine] '{st.username}' detected UNKNOWN biome: '{name}'.")
             return
 
-        # Bekanntes Biome.
         self.config.increment_biome(biome_key)
         webhooks.biome_started(urls, acc, biome_key, report, self._current_version())
 
-    # ----------------------------------------------------------- Avatar
+    def _sync_subsystems(self):
+        auto_active = self._running and self.config.automation.get("mode") == "automation"
+        self.automation.sync()
+        if auto_active or not self._running:
+            self.anti_afk.stop()
+        else:
+            self.anti_afk.start()
+
+    def set_automation_mode(self, mode):
+        mode = "automation" if mode == "automation" else "idle"
+        self.config.set_automation("mode", mode)
+        self._sync_subsystems()
+        return mode
+
     @staticmethod
     def get_roblox_avatar(username: str) -> str:
         username = (username or "").strip()

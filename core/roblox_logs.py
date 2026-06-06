@@ -18,15 +18,12 @@ _DISCONNECT_MARKERS = (
     "[FLog::SingleSurfaceApp] handleLeaveUniverse",
 )
 
-
 def roblox_log_dir():
-    """%LOCALAPPDATA%\\Roblox\\logs oder None."""
     local = os.getenv("LOCALAPPDATA")
     if not local:
         return None
     path = os.path.join(local, "Roblox", "logs")
     return path if os.path.isdir(path) else None
-
 
 def list_logs(limit=12):
     log_dir = roblox_log_dir()
@@ -36,13 +33,11 @@ def list_logs(limit=12):
     files.sort(key=lambda f: _safe_mtime(f), reverse=True)
     return files[:limit]
 
-
 def _safe_mtime(path):
     try:
         return os.path.getmtime(path)
     except OSError:
         return 0
-
 
 def username_of_log(log_file):
     try:
@@ -63,7 +58,6 @@ def username_of_log(log_file):
         pass
     return ""
 
-
 def match_logs_to_usernames(usernames, limit=12):
     wanted = {u.strip().lower() for u in usernames if u and u.strip()}
     result = {}
@@ -77,7 +71,6 @@ def match_logs_to_usernames(usernames, limit=12):
                 break
     return result
 
-
 def line_is_disconnect(line):
     if not line:
         return False
@@ -86,7 +79,6 @@ def line_is_disconnect(line):
         if marker.lower() in low:
             return True
     return False
-
 
 class LogReader:
 

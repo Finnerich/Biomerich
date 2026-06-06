@@ -25,7 +25,6 @@
     <div class="glow-orb glow-orb-2"></div>
     <div class="glow-orb glow-orb-3"></div>
 
-    <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar glass">
         <div class="brand">
             <div class="brand-mark"><i class="fa-solid fa-satellite-dish"></i></div>
@@ -51,6 +50,9 @@
             <button class="nav-item" data-tab="antiafk">
                 <i class="fa-solid fa-person-running"></i><span>Anti-AFK</span>
             </button>
+            <button class="nav-item" data-tab="automation">
+                <i class="fa-solid fa-robot"></i><span>Automation</span>
+            </button>
             <div class="nav-item-coming-soon-wrapper">
                 <div class="nav-item nav-item-disabled">
                     <i class="fa-solid fa-fish"></i><span>Fishing</span>
@@ -69,16 +71,23 @@
         </div>
     </aside>
 
-    <!-- ============ RIGHT COLUMN ============ -->
     <div class="right-col">
 
-        <!-- ============ TOP BAR ============ -->
         <div class="topbar glass">
             <div class="topbar-engine">
-                <button id="toggleBtn" class="power-btn stopped" onclick="toggleMacro()">
-                    <i class="fa-solid fa-power-off"></i>
-                    <span>Start</span>
-                </button>
+                <div class="engine-stack">
+                    <div class="engine-btn-row">
+                        <button id="toggleBtn" class="power-btn stopped" onclick="toggleMacro()">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>Start</span>
+                        </button>
+                        <div class="hotkey-badge" id="hotkeyBadge" title="Start / Stop Hotkey">F5</div>
+                    </div>
+                    <button id="modeBtn" class="mode-btn idle" onclick="toggleAutomationMode()" title="Toggle automation mode">
+                        <span class="mode-dot"></span>
+                        <span id="modeBtnText">Idle</span>
+                    </button>
+                </div>
                 <div class="topbar-status">
                     <span class="dot stopped" id="statusDot"></span>
                     <div class="engine-pill-text">
@@ -93,7 +102,6 @@
             </div>
         </div>
 
-        <!-- ============ MAIN ============ -->
         <main class="main">
 
             <section class="tab active-tab" id="stats">
@@ -138,7 +146,6 @@
                 </div>
             </section>
 
-            <!-- ---------- ACCOUNTS ---------- -->
             <section class="tab" id="accounts">
                 <header class="page-head">
                     <h1>Roblox Accounts</h1>
@@ -158,7 +165,6 @@
                 </div>
             </section>
 
-            <!-- ---------- WEBHOOKS ---------- -->
             <section class="tab" id="routing">
                 <header class="page-head">
                     <h1>Webhooks</h1>
@@ -178,7 +184,6 @@
                 </div>
             </section>
 
-            <!-- ---------- ANTI-AFK ---------- -->
             <section class="tab" id="antiafk">
                 <header class="page-head">
                     <h1>Anti-AFK</h1>
@@ -228,7 +233,85 @@
                 </div>
             </section>
 
-            <!-- ---------- SETTINGS ---------- -->
+            <section class="tab" id="automation">
+                <header class="page-head">
+                    <h1>Automation</h1>
+                    <p>Auto-use Strange Controllers &amp; Biome Randomizers from your inventory.</p>
+                </header>
+
+                <div class="glass card setting-row" data-reveal>
+                    <div class="setting-info">
+                        <span class="setting-name">Biome Randomizer</span>
+                        <span class="setting-desc">Auto-uses Biome Randomizer each <b>36 minutes</b>. Locked while tracking.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autoBiomeToggle" onchange="onAutoTaskToggle('biomeRandomizer', this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="glass card setting-row" data-reveal>
+                    <div class="setting-info">
+                        <span class="setting-name">Strange Controller</span>
+                        <span class="setting-desc">Auto-uses a Strange Controller each <b>21 minutes</b>. Locked while tracking.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autoStrangeToggle" onchange="onAutoTaskToggle('strangeController', this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="glass glass-warning card auto-note" data-reveal>
+                    <i class="fa-solid fa-circle-info"></i>
+                    <p><b>WARNING!</b> Enabling automation features may cause the macro, to use the wrong items. Failsafe will be added in future updates. Use at your own risk.</p>
+                </div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-crosshairs"></i> Click Points</div>
+                        <span class="badge badge-soft" id="pixelBadge">0/6 set</span>
+                    </div>
+
+                    <div class="afk-setting">
+                        <div class="afk-setting-info">
+                            <span class="afk-setting-name">Resolution preset</span>
+                            <span class="afk-setting-desc">Load known coordinates, then fine-tune below.</span>
+                        </div>
+                        <div class="preset-row">
+                            <select id="presetSelect" class="field auto-select"></select>
+                            <button class="btn-add" id="presetLoadBtn" onclick="loadPreset()">Load</button>
+                        </div>
+                    </div>
+
+                    <div class="afk-divider"></div>
+
+                    <div class="pixel-list" id="pixelList"></div>
+
+                    <p class="pixel-hint">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                        Click <b>Set</b>, switch to Roblox and click the exact spot. That's it.
+                    </p>
+                </div>
+
+                <div class="glass card panel" data-reveal>
+                    <div class="panel-head">
+                        <div class="panel-title"><i class="fa-solid fa-keyboard"></i> Search &amp; Amount</div>
+                    </div>
+                    <div class="auto-field-row">
+                        <label>Biome Randomizer</label>
+                        <input type="text" id="autoBiomeTerm" class="field" placeholder="Biome Randomizer" onchange="onAutoSearch('biomeRandomizer', this)">
+                    </div>
+                    <div class="auto-field-row">
+                        <label>Strange Controller</label>
+                        <input type="text" id="autoStrangeTerm" class="field" placeholder="Strange Controller" onchange="onAutoSearch('strangeController', this)">
+                    </div>
+                    <div class="auto-field-row">
+                        <label>Amount</label>
+                        <input type="text" id="autoAmount" class="field auto-amount" placeholder="1" onchange="onAutoAmount(this)">
+                    </div>
+                </div>
+            </section>
+
             <section class="tab" id="settings">
                 <header class="page-head">
                     <h1>Settings</h1>
@@ -242,12 +325,29 @@
                     </div>
                     <div class="swatches" id="swatches"></div>
                 </div>
+
+                <div class="glass card setting-row" data-reveal>
+                    <div class="setting-info">
+                        <span class="setting-name">Start / Stop Hotkey</span>
+                        <span class="setting-desc">Keyboard shortcut to Start and Stop the macro.</span>
+                    </div>
+                    <select class="field hotkey-select" id="hotkeySelect" onchange="onHotkeyChange(this)">
+                        <option value="F1">F1</option>
+                        <option value="F2">F2</option>
+                        <option value="F3">F3</option>
+                        <option value="F4">F4</option>
+                        <option value="F5">F5</option>
+                        <option value="F6">F6</option>
+                        <option value="F7">F7</option>
+                        <option value="F8">F8</option>
+                        <option value="F9">F9</option>
+                    </select>
+                </div>
             </section>
 
         </main>
     </div>
 
-    <!-- ============ EDIT MODAL ============ -->
     <div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
         <div class="modal glass">
             <div class="modal-head">
@@ -262,7 +362,6 @@
         </div>
     </div>
 
-    <!-- ============ UPDATE MODAL ============ -->
     <div class="modal-overlay" id="updateModal" onclick="closeUpdateModal(event)">
         <div class="modal glass update-modal">
             <div class="update-icon"><i class="fa-solid fa-rocket"></i></div>

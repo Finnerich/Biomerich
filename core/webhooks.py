@@ -13,10 +13,8 @@ COLOR_RED = 0xED4245
 COLOR_ORANGE = 0xFAA61A
 COLOR_GREY = 0x4F5460
 
-
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()
-
 
 def _post(url, embed, content="", components=None):
     if not url:
@@ -40,7 +38,6 @@ def _post(url, embed, content="", components=None):
         print(error_msg)
         return False
 
-
 def _base_embed(description, title=None, color=0x4F5460, thumbnail=None, author=None, fields=None, version="?"):
     embed = {
         "description": description,
@@ -58,7 +55,6 @@ def _base_embed(description, title=None, color=0x4F5460, thumbnail=None, author=
         embed["fields"] = fields
     return embed
 
-
 def _author_for(account):
     if not account:
         return None
@@ -67,10 +63,6 @@ def _author_for(account):
         a["icon_url"] = account["avatar"]
     return a
 
-
-# ---------------------------------------------------------------------------
-# status embeds (Start / Stop)
-# ---------------------------------------------------------------------------
 def macro_started(urls, account_names, version):
     name_count = len(account_names) if account_names else 0
     webhook_count = len(urls) if urls else 0
@@ -83,7 +75,6 @@ def macro_started(urls, account_names, version):
     for url in urls:
         _post(url, embed)
 
-
 def macro_stopped(urls, session_time, version):
     embed = _base_embed(
         description=f"## Biomerich Stopped\n**Session Time: ** {session_time}\n**Version: ** v{version}\n\n**[Support Server]({DISCORD_INVITE})**",
@@ -94,10 +85,6 @@ def macro_stopped(urls, session_time, version):
     for url in urls:
         _post(url, embed)
 
-
-# ---------------------------------------------------------------------------
-# biome embeds (Start / Ende)
-# ---------------------------------------------------------------------------
 def biome_started(urls, account, biome_key, session_time, version, unknown=False):
     name = biomes.display_name(biome_key)
 
@@ -117,23 +104,18 @@ def biome_started(urls, account, biome_key, session_time, version, unknown=False
     for url in urls:
         _post(url, embed, content=content)
 
-
 def biome_ended(urls, account, biome_key, session_time, version):
     name = biomes.display_name(biome_key)
     embed = _base_embed(
         description=f"## Biome Ended - {name}\n> ### **[Support Server]({DISCORD_INVITE})**\n**Account: **{(account or {}).get('name','?')}\n**Session Time: ** {session_time}",
         color=biomes.color_of(biome_key),
-        thumbnail=biomes.thumbnail(biome_key) or None, 
+        thumbnail=biomes.thumbnail(biome_key) or None,
         author=_author_for(account),
         version=version
     )
     for url in urls:
         _post(url, embed)
 
-
-# ---------------------------------------------------------------------------
-# disconnect embeds
-# ---------------------------------------------------------------------------
 def roblox_disconnected(urls, account, version):
     link = (account or {}).get("link", "")
     embed = _base_embed(

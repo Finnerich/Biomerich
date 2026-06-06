@@ -148,10 +148,21 @@ if _IS_WINDOWS:
         if previous:
             _force_foreground(previous)
 
+    def focus_roblox():
+        targets = _roblox_windows()
+        if not targets:
+            return False
+        ok = _force_foreground(targets[0])
+        if ok:
+            time.sleep(0.25)
+        return ok
+
 else:
     def _run_cycle(action):
         return
 
+    def focus_roblox():
+        return False
 
 class AntiAfk:
     def __init__(self, config, is_running):
@@ -201,6 +212,14 @@ class AntiAfk:
 
     def _fire(self):
         if self._stop.is_set() or not self._is_running() or not self.enabled():
+            return
+        try:
+            _run_cycle(self._action())
+        except Exception as e:
+            print(f"[AntiAfk] Cycle failed: {e}")
+
+    def fire_now(self):
+        if not _IS_WINDOWS or not self.enabled():
             return
         try:
             _run_cycle(self._action())
