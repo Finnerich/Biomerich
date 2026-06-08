@@ -48,13 +48,14 @@ def _default_automation() -> dict:
 
 def _default_config() -> dict:
     return {
-        "version": "0.1.3",
+        "version": "0.1.4",
         "accounts": [],
         "webhooks": [],
         "biomeCounts": biomes.empty_counts(),
         "unknownBiomes": {},
         "settings": {
             "accentIndex": 0,
+            "firstStartDone": True,
             "antiAfkEnabled": False,
             "antiAfkAction": "space",
             "antiAfkInterval": 300,
