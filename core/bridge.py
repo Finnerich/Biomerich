@@ -310,6 +310,54 @@ def _launch_browser(url: str, mode: str, profile_dir: str):
     return False
 
 
+def _log_ui_fallback(reason: str):
+    
+    try:
+        from .config import get_config_dir
+        with open(os.path.join(get_config_dir(), "ui_launch.log"), "w", encoding="utf-8") as fh:
+            fh.write(f"Native window failed, used browser fallback.\nReason: {reason}\n")
+    except Exception:
+        pass
+
+
+def _clear_ui_fallback_log():
+    try:
+        from .config import get_config_dir
+        p = os.path.join(get_config_dir(), "ui_launch.log")
+        if os.path.isfile(p):
+            os.remove(p)
+    except Exception:
+        pass
+
+
+def _open_native_window(url: str, size) -> bool:
+    
+    _clear_ui_fallback_log()
+    try:
+        import webview
+    except Exception as e:
+        _log_ui_fallback(f"pywebview not bundled / import failed: {e}")
+        return False
+    try:
+        w, h = size or (1080, 720)
+        webview.create_window("SolRich", url, width=int(w), height=int(h), min_size=(940, 640))
+    except Exception as e:
+        print(f"[Bridge] Native window unavailable ({e}); falling back to browser.")
+        _log_ui_fallback(f"create_window failed: {e}")
+        return False
+    ico = _resolve_icon()
+    if ico:
+
+        threading.Thread(target=_apply_native_window_icon, args=(os.getpid(), ico), daemon=True).start()
+    try:
+        webview.start()
+        return True
+    except Exception as e:
+        print(f"[Bridge] Native window failed to start ({e}); falling back to browser.")
+        _log_ui_fallback(f"webview.start failed: {e}")
+        return False
+
+
 def start(page: str, size=None, mode: str = "chrome",
           cmdline_args=None, port: int = 0,
           **kwargs):
@@ -335,38 +383,46 @@ def start(page: str, size=None, mode: str = "chrome",
                             log_config=None)
     server = uvicorn.Server(config)
 
-    launch = {"ok": None}
-
-    def _open_when_ready():
-        import time as _t
-        for _ in range(50):
-            try:
-                s = socket.create_connection(("127.0.0.1", port), timeout=0.2)
-                s.close()
-                break
-            except OSError:
-                _t.sleep(0.1)
-        ok = _launch_browser(url, mode, profile_dir)
-        launch["ok"] = ok
-        if not ok:
-            print(f"[Bridge] Could not launch browser in '{mode}' mode")
-            server.should_exit = True
-            return
-
-        _watch_browser(server)
-
-    threading.Thread(target=_open_when_ready, daemon=True).start()
-
     async def _serve():
         global _loop
         _loop = asyncio.get_event_loop()
         desktop_task = asyncio.ensure_future(server.serve())
         await desktop_task
 
-    asyncio.run(_serve())
 
-    if launch["ok"] is False:
-        raise EnvironmentError(f"Could not launch browser in '{mode}' mode")
+
+    server_thread = threading.Thread(target=lambda: asyncio.run(_serve()), daemon=True)
+    server_thread.start()
+
+    import time as _t
+    for _ in range(50):
+        try:
+            s = socket.create_connection(("127.0.0.1", port), timeout=0.2)
+            s.close()
+            break
+        except OSError:
+            _t.sleep(0.1)
+
+
+
+
+    ui_ok = _open_native_window(url, size)
+    if not ui_ok:
+        if _launch_browser(url, mode, profile_dir):
+            _watch_browser(server)
+            ui_ok = True
+        else:
+            print(f"[Bridge] Could not launch the UI in '{mode}' mode")
+
+
+    if _loop is not None:
+        _loop.call_soon_threadsafe(lambda: setattr(server, "should_exit", True))
+    else:
+        server.should_exit = True
+    server_thread.join(timeout=5)
+
+    if not ui_ok:
+        raise EnvironmentError(f"Could not launch the UI in '{mode}' mode")
 
 def _watch_browser(server):
 

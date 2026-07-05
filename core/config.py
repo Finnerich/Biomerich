@@ -22,7 +22,7 @@ from .time_tracking import default_tracking as _default_time_tracking, TIME_MODU
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.0-hotfix"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"

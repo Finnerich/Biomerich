@@ -7,6 +7,20 @@ import sys
 import time
 import threading
 
+
+
+
+
+if sys.platform == "win32":
+    import subprocess as _subprocess
+    _CREATE_NO_WINDOW = 0x08000000
+    _orig_popen_init = _subprocess.Popen.__init__
+    def _quiet_popen_init(self, *args, **kwargs):
+        if not kwargs.get("creationflags"):
+            kwargs["creationflags"] = _CREATE_NO_WINDOW
+        _orig_popen_init(self, *args, **kwargs)
+    _subprocess.Popen.__init__ = _quiet_popen_init
+
 try:
     import keyboard
     _KEYBOARD_AVAILABLE = True
@@ -1680,7 +1694,7 @@ def run():
 
             eel.start(
                 "index.html",
-                size=(1100, 1100),
+                size=(1080, 720),
                 mode=mode,
                 cmdline_args=cmd_args,
                 port=0,

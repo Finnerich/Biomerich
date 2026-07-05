@@ -7,3 +7,5 @@ websockets
 requests
 pytesseract
 pillow
+pywebview
+keyboard
