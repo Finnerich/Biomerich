@@ -1,9 +1,16 @@
 build/
 dist/
 tempCodeRunnerFile.py
-Biomerich.zip
+SolRich.zip
+SolRich-Dev.zip
 __pycache__/
 *.pyc
 upx.exe
-BiomerichOLD.zip
-Test Plugin Installer.spec
+SolRichOLD.zip
+*.spec
+web-react-dist/
+*.apk
+.vscode/
+build.bat
+release_hook.py
+dist/

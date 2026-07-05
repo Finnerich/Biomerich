@@ -1,0 +1,193 @@
+.ap-region-state {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 6px 10px;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--stroke-soft);
+    background: var(--inset);
+    white-space: nowrap;
+}
+.ap-region-state.set {
+    color: var(--success);
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.35);
+}
+.ap-region-state.missing {
+    color: var(--warning);
+    border-color: rgba(232, 163, 61, 0.40);
+    background: rgba(232, 163, 61, 0.08);
+}
+.ap-required {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--track-caps);
+    color: var(--warning);
+    background: rgba(232, 163, 61, 0.12);
+    border: 1px solid rgba(232, 163, 61, 0.30);
+    padding: 2px 7px;
+    border-radius: var(--r-xs);
+    margin-left: 7px;
+    vertical-align: middle;
+}
+.ap-unknown-tag {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--track-caps);
+    color: var(--text-faint);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--stroke-soft);
+    padding: 2px 6px;
+    border-radius: var(--r-xs);
+    margin-left: 2px;
+}
+.ap-biome-card.ap-unknown { border-style: dashed; }
+
+.ap-preset-bar {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.ap-preset-bar .custom-select-wrap { min-width: 200px; flex: 1 1 200px; }
+.ap-preset-spacer { flex: 1 1 12px; }
+.ap-preset-msg {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--success);
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+}
+.ap-preset-msg.show { opacity: 1; transform: translateY(0); }
+
+.ap-acc-list { display: flex; flex-direction: column; gap: 8px; }
+.ap-acc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--stroke-soft);
+    background: var(--glass-soft);
+}
+.ap-acc-avatar {
+    width: 34px; height: 34px; border-radius: var(--r-xs); object-fit: cover;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--stroke-soft);
+}
+.ap-acc-name { font-family: var(--font); font-weight: 600; font-size: 14px; color: var(--text); }
+.ap-acc-switch { margin-left: auto; }
+
+.ap-biome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+}
+.ap-biome-card {
+    position: relative;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--stroke-soft);
+    background: var(--glass-soft);
+    padding: 13px 14px 12px;
+    overflow: hidden;
+    transition: border-color var(--t-med) var(--ease), background var(--t-med) var(--ease);
+}
+
+.ap-biome-card::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--bg);
+    opacity: 0;
+    transition: opacity var(--t-slow) var(--ease);
+    pointer-events: none;
+}
+.ap-biome-card.on { border-color: color-mix(in srgb, var(--gl) 55%, transparent); }
+.ap-biome-card.on::before { opacity: 0.13; }
+
+.ap-biome-top {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 9px;
+}
+.ap-biome-dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--bg);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+    flex-shrink: 0;
+}
+.ap-biome-name {
+    font-family: var(--font); font-weight: 600; font-size: 14px; color: var(--text);
+}
+.ap-biome-switch { margin-left: auto; }
+
+.ap-biome-edit {
+    position: relative; z-index: 1;
+    margin-top: 11px;
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 11px;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--stroke-soft);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--font); font-size: var(--fs-body);
+    transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+                color var(--t-fast) var(--ease);
+}
+.ap-biome-edit:hover:not(:disabled) {
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.35);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.08);
+    color: var(--text);
+}
+.ap-biome-edit:disabled { opacity: 0.5; cursor: not-allowed; }
+.ap-biome-count i { margin-right: 5px; opacity: 0.7; }
+.ap-biome-count.has { color: var(--accent); }
+.ap-biome-edit-cta { font-weight: 600; opacity: 0.85; }
+.ap-biome-edit-cta i { margin-right: 4px; }
+
+.ap-modal-hint {
+    display: flex; gap: 8px;
+    font-size: var(--fs-body); color: var(--text-faint); line-height: 1.5;
+    margin: 0 0 14px;
+}
+.ap-modal-hint i { color: var(--accent); margin-top: 2px; }
+.ap-item-head {
+    display: grid; grid-template-columns: 1fr 116px 38px; gap: 9px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: var(--track-caps);
+    color: var(--text-faint); padding: 0 2px 6px; font-weight: 600;
+}
+.ap-item-row {
+    display: grid; grid-template-columns: 1fr 116px 38px; gap: 9px 9px;
+    margin-bottom: 8px; align-items: center;
+}
+.ap-item-row .ap-item-amt { display: flex; justify-content: center; }
+
+.ap-item-all {
+    grid-column: 1 / -1;
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: var(--fs-caption); color: var(--text-dim); cursor: pointer;
+    margin: 2px 0 6px 2px; user-select: none;
+}
+.ap-item-all .switch.sm { flex: none; }
+
+.ap-item-all-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 38px; border-radius: var(--r-xs); font-size: var(--fs-body); font-weight: 600;
+    letter-spacing: 0.03em; color: var(--accent);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.12);
+    border: 1px solid rgba(var(--ar), var(--ag), var(--ab), 0.32);
+}
+.ap-item-del {
+    width: 38px; height: 38px; border-radius: var(--r-xs);
+    border: 1px solid var(--stroke-soft); background: rgba(255, 255, 255, 0.03);
+    color: var(--text-faint); cursor: pointer;
+    transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+                background var(--t-fast) var(--ease);
+}
+.ap-item-del:hover {
+    color: var(--danger); border-color: rgba(242, 109, 120, 0.40);
+    background: rgba(242, 109, 120, 0.08);
+}
+.ap-add-item { margin-top: 4px; }

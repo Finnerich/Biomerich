@@ -129,7 +129,7 @@ if _IS_WINDOWS:
         time.sleep(0.04)
         _send_scan(scan, True)
 
-    def _run_cycle(action):
+    def _run_cycle(action, settle=0.18):
         previous = _foreground_window()
         targets = _roblox_windows()
         if not targets:
@@ -137,7 +137,7 @@ if _IS_WINDOWS:
         for hwnd in targets:
             if not _force_foreground(hwnd):
                 continue
-            time.sleep(0.18)
+            time.sleep(settle)
             if action == "zoom":
                 _tap_key(VK_I)
                 time.sleep(0.05)
@@ -174,6 +174,9 @@ class AntiAfk:
     def enabled(self):
         return bool(self.config.settings.get("antiAfkEnabled", False))
 
+    def standalone(self):
+        return bool(self.config.settings.get("antiAfkStandalone", False))
+
     def _action(self):
         value = self.config.settings.get("antiAfkAction", "space")
         return "zoom" if value == "zoom" else "space"
@@ -184,6 +187,11 @@ class AntiAfk:
         except (TypeError, ValueError):
             value = 300
         return max(30, min(900, value))
+
+    def _settle(self):
+        if self.config.settings.get("throttleEnabled", False):
+            return 3.0
+        return 0.18
 
     def start(self):
         if not _IS_WINDOWS:
@@ -211,10 +219,12 @@ class AntiAfk:
             self._fire()
 
     def _fire(self):
-        if self._stop.is_set() or not self._is_running() or not self.enabled():
+        if self._stop.is_set() or not self.enabled():
+            return
+        if not (self._is_running() or self.standalone()):
             return
         try:
-            _run_cycle(self._action())
+            _run_cycle(self._action(), self._settle())
         except Exception as e:
             print(f"[AntiAfk] Cycle failed: {e}")
 
@@ -222,6 +232,6 @@ class AntiAfk:
         if not _IS_WINDOWS or not self.enabled():
             return
         try:
-            _run_cycle(self._action())
+            _run_cycle(self._action(), self._settle())
         except Exception as e:
             print(f"[AntiAfk] Cycle failed: {e}")

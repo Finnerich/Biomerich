@@ -6,7 +6,7 @@ _TUTORIAL_RE = re.compile(
     r'Players\.([^.\'"\s]+)\.PlayerGui:WaitForChild\(\s*["\']TutorialCursor["\']',
     re.IGNORECASE,
 )
-_PLAYERS_RE = re.compile(r'Players\.([A-Za-z0-9_]{3,20})\.', re.IGNORECASE)
+_PLAYERS_RE = re.compile(r'Players\.([A-Za-z0-9_]{3,20})\.PlayerGui', re.IGNORECASE)
 
 _DISCONNECT_MARKERS = (
     "[FLog::Network] Client:Disconnect",
@@ -58,17 +58,40 @@ def username_of_log(log_file):
         pass
     return ""
 
-def match_logs_to_usernames(usernames, limit=12):
+def is_log_active(log_file):
+
+    try:
+        size = os.path.getsize(log_file)
+        read_tail = min(size, 8000)
+        with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+            f.seek(max(0, size - read_tail))
+            tail = f.read()
+        for marker in _DISCONNECT_MARKERS:
+            if marker.lower() in tail.lower():
+                return False
+        return True
+    except OSError:
+        return True
+
+def match_logs_to_usernames(usernames, limit=30):
     wanted = {u.strip().lower() for u in usernames if u and u.strip()}
     result = {}
     if not wanted:
         return result
-    for log_file in list_logs(limit=limit):
+
+    candidates = list_logs(limit=limit)
+    for log_file in candidates:
+        owner = username_of_log(log_file)
+        if owner and owner in wanted and owner not in result:
+            if is_log_active(log_file):
+                result[owner] = log_file
+
+    for log_file in candidates:
+        if len(result) == len(wanted):
+            break
         owner = username_of_log(log_file)
         if owner and owner in wanted and owner not in result:
             result[owner] = log_file
-            if len(result) == len(wanted):
-                break
     return result
 
 def line_is_disconnect(line):

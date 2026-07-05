@@ -1,0 +1,8 @@
+.sb2 .brand-live-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--success);
+    animation: pulse 2.4s var(--ease) infinite;
+}
+
+
+.sb2-edge { display: none; }

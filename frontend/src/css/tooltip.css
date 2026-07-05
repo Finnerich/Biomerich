@@ -1,0 +1,43 @@
+.tipz {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+    max-width: 280px;
+    padding: 6px 10px;
+    border-radius: var(--r-xs);
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--glass-strong);
+    border: 1px solid var(--stroke-strong);
+    box-shadow: var(--shadow-md);
+    transition: opacity 0.12s var(--ease);
+    white-space: normal;
+    word-break: break-word;
+}
+
+
+.tipz::after {
+    content: "";
+    position: absolute;
+    left: var(--tip-arrow-x, 50%);
+    width: 8px;
+    height: 8px;
+    transform: translateX(-50%) rotate(45deg);
+    background: var(--glass-strong);
+    border: 1px solid var(--stroke-strong);
+}
+.tipz[data-arrow="bottom"]::after {
+    bottom: -5px;
+    border-top: none;
+    border-left: none;
+}
+.tipz[data-arrow="top"]::after {
+    top: -5px;
+    border-bottom: none;
+    border-right: none;
+}
+
+.perf-lite .tipz { transition: none; }

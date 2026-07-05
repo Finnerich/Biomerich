@@ -1,0 +1,116 @@
+.tess-modal {
+  max-width: 460px;
+  text-align: center;
+}
+
+.tess-icon {
+  width: 64px;
+  height: 64px;
+  margin: 4px auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  font-size: 28px;
+  color: var(--accent);
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.10);
+}
+
+.tess-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.tess-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.tess-sub {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.tess-ok { color: var(--success); margin-right: 6px; }
+.tess-err { color: var(--danger); margin-right: 6px; }
+
+
+.tess-bar {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 6px 0 12px;
+}
+.tess-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s var(--ease);
+}
+.tess-bar-fill::after {
+  content: none;
+}
+
+.tess-bar.indeterminate .tess-bar-fill {
+  width: 40% !important;
+  animation: tess-indet 1.2s ease-in-out infinite;
+}
+.tess-bar.indeterminate .tess-bar-fill::after { animation: none; }
+
+@keyframes tess-indet {
+  0% { margin-left: -40%; }
+  100% { margin-left: 100%; }
+}
+
+.tess-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+.tess-mb { color: var(--text-dim); }
+.tess-pct {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+
+.tess-install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: var(--accent);
+  transition: filter var(--t-fast) var(--ease);
+}
+.tess-install-btn:hover { filter: brightness(1.08); }
+.tess-install-btn:active { filter: brightness(0.92); }
+.tess-install-btn.sm { padding: 3px 9px; font-size: var(--fs-caption); }
+
+
+button.mb-lock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-xs);
+  color: #fff;
+  background: var(--accent);
+  transition: filter var(--t-fast) var(--ease);
+}
+button.mb-lock-btn:hover { filter: brightness(1.08); }

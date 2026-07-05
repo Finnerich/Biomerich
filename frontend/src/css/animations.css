@@ -1,0 +1,30 @@
+body.locked .switch,
+body.locked .route-opt,
+body.locked .routing-list,
+body.locked .edit-btn,
+body.locked .del-btn,
+body.locked .btn-add,
+body.locked .input-bar .field {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.45;
+    filter: grayscale(0.35);
+    transition: opacity var(--t-med) var(--ease), filter var(--t-med) var(--ease);
+}
+
+body.locked .data-card { position: relative; }
+body.locked .data-card .dc-actions::after {
+    content: "\f023";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 11px;
+    color: var(--text-faint);
+    opacity: 0.8;
+    margin-left: 6px;
+    align-self: center;
+}
+
+body.locked .input-bar {
+    opacity: 0.6;
+    filter: grayscale(0.3);
+}

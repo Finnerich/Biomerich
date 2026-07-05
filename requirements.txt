@@ -1,2 +1,9 @@
-eel>=0.16.0
-requests>=2.31.0
+# Runtime dependencies for running SolRich from source.
+# Windows only. Everything Windows-specific goes through the standard library
+# ctypes, so there is no pywin32 here.
+fastapi
+uvicorn
+websockets
+requests
+pytesseract
+pillow

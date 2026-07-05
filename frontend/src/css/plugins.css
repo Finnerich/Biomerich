@@ -1,0 +1,91 @@
+.plugin-hint {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.plugin-empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.plugin-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+.plugin-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.plugin-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.10);
+  color: var(--accent);
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.plugin-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.plugin-ver {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.plugin-desc {
+  font-size: var(--fs-body);
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.plugin-author {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.plugin-uninstall {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(242, 109, 120, 0.10);
+  border: 1px solid rgba(242, 109, 120, 0.25);
+  color: var(--danger);
+  border-radius: var(--r-sm);
+  padding: 9px 14px;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+.plugin-uninstall:hover {
+  background: rgba(242, 109, 120, 0.16);
+  border-color: rgba(242, 109, 120, 0.4);
+}
+
+.plugin-tab-body {
+  min-height: 40px;
+}

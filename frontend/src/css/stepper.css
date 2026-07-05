@@ -1,0 +1,34 @@
+.stepper {
+  display: inline-flex; align-items: center; border-radius: var(--r-xs); overflow: hidden;
+  background: var(--inset); border: 1px solid var(--stroke-soft);
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.stepper:focus-within { border-color: rgba(var(--ar), var(--ag), var(--ab), 0.6); box-shadow: var(--focus-ring); }
+.stepper.disabled { opacity: 0.5; pointer-events: none; }
+
+.stepper-btn {
+  width: 30px; height: 32px; flex: none; display: grid; place-items: center;
+  border: none; cursor: pointer; background: transparent; color: var(--text-faint);
+  font-size: 11px; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.stepper-btn:hover:not(:disabled) { color: var(--accent); background: rgba(var(--ar), var(--ag), var(--ab), 0.12); }
+.stepper-btn:active:not(:disabled) { background: rgba(var(--ar), var(--ag), var(--ab), 0.18); }
+.stepper-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.stepper-val {
+  min-width: 44px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 0 8px; cursor: text; position: relative; overflow: hidden;
+}
+.stepper-num {
+  font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; animation: stepper-pop 0.22s var(--ease-out);
+}
+@keyframes stepper-pop {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.stepper-suffix { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+.stepper-input {
+  width: 100%; min-width: 30px; border: none; background: transparent; outline: none; text-align: center;
+  font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text);
+}

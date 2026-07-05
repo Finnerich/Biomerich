@@ -1,0 +1,33 @@
+.agreement-modal { max-width: 640px; width: min(94vw, 640px); padding: 24px 26px 22px; display: flex; flex-direction: column; max-height: 86vh; }
+.agr-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.agr-icon {
+  width: 46px; height: 46px; flex-shrink: 0; display: grid; place-items: center; font-size: 19px;
+  border-radius: var(--r-sm);
+  color: var(--accent); background: rgba(var(--ar),var(--ag),var(--ab),0.10);
+}
+.agr-title { display: block; font-size: 19px; font-weight: 700; letter-spacing: 0.3px; color: var(--text); }
+.agr-sub { display: block; margin-top: 3px; font-size: var(--fs-body); color: var(--text-dim); }
+.agr-body {
+  flex: 1; overflow-y: auto; min-height: 0; padding: 4px 14px 4px 2px; margin-bottom: 14px;
+  border-top: 1px solid var(--stroke-soft); border-bottom: 1px solid var(--stroke-soft);
+}
+.agr-body h4 { font-family: var(--font); font-size: var(--fs-ui); font-weight: 700; color: var(--text); margin: 16px 0 5px; }
+.agr-body h4:first-child { margin-top: 8px; }
+.agr-body p { font-size: var(--fs-body); line-height: 1.6; color: var(--text-dim); margin-bottom: 6px; }
+.agr-body b { color: var(--text); }
+.agr-final { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--stroke-soft); color: var(--text) !important; font-weight: 600; }
+.agr-scrollhint {
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px;
+  font-size: 12px; font-weight: 600; color: var(--accent);
+}
+.agr-foot { display: flex; justify-content: flex-end; }
+.agr-accept {
+  display: inline-flex; align-items: center; gap: 9px; padding: 12px 22px;
+  font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; color: #fff;
+  border: none; border-radius: var(--r-sm);
+  background: var(--accent);
+  transition: filter var(--t-fast) var(--ease), opacity var(--t-med) var(--ease);
+}
+.agr-accept:hover:not(:disabled) { filter: brightness(1.08); }
+.agr-accept:active:not(:disabled) { filter: brightness(0.92); }
+.agr-accept:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }

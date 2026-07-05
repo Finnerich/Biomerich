@@ -1,0 +1,79 @@
+.streak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--stroke);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  user-select: none;
+}
+
+.streak-flame {
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.streak-count {
+  display: inline-block;
+  min-width: 10px;
+  text-align: center;
+  will-change: transform;
+}
+
+
+.st-0 .streak-flame {
+  color: #6b7280;
+}
+
+.st-1 .streak-flame {
+  color: #fb923c;
+}
+
+.st-2 {
+  border-color: rgba(255, 140, 0, 0.35);
+}
+
+.st-2 .streak-flame {
+  color: #ff7a18;
+}
+
+.st-3 {
+  border-color: rgba(245, 197, 66, 0.45);
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.st-3 .streak-flame {
+  color: var(--t-rare);
+}
+
+.st-3 .streak-count {
+  color: var(--t-rare);
+}
+
+
+.streak-pop {
+  animation: streakPop 0.28s var(--ease-out);
+}
+
+@keyframes streakPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+
+.streak-upgrade .streak-flame {
+  animation: streakBurst 0.3s var(--ease-out);
+}
+
+@keyframes streakBurst {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}

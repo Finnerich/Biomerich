@@ -1,39 +1,59 @@
-# 🌟 Biomerich - Advanced Sol's RNG Logger & Macro
+# SolRich
 
-Welcome to the official repository for **Biomerich**, a powerful, highly analytical logger and utility tool built for Roblox Sol's RNG.
+A biome logger and automation tool for the Roblox game Sol's RNG. SolRich was previously called Biomerich.
 
-Designed with a clean, modern Web User Interface and powered by a robust Python backend, Biomerich is built to be the ultimate companion for dedicated Sol's RNG players. It seamlessly tracks your game data in real-time and lays the groundwork for advanced automation.
+SolRich reads your game in real time, keeps a full history of the biomes you roll, sends Discord alerts for the things you care about, and runs the repetitive parts of Sol's RNG for you across one account or many. It runs on Windows with a desktop interface.
 
-## ✨ Current Features (v0.1.0)
+## Features
 
-The current MVP focuses on precise tracking and user experience:
+- Real time biome logging. Reads the Roblox log as you play and records every biome, with lifetime counts and a tier breakdown in the Stats tab.
+- Discord webhooks. Send biome, merchant, and fishing alerts to your own server, with screenshots. Each account can post to a different webhook.
+- Automation modules you turn on per account:
+  - Strange Controller and Biome Randomizer, which use inventory items on a timer to reroll or shuffle your biome.
+  - Merchant Detection, which teleports to a merchant, reads who arrived, and can buy for you.
+  - Auto Pop, which fires items the moment a chosen biome starts.
+  - Fishing, which casts, reels, and sells your catch on a walking route.
+- Eden mode, which parks one account at the Eden spawn and claims Eden the instant it appears.
+- Multiple accounts. Add as many as you want, each with its own modules and settings, and run them side by side.
+- Performance tab. Throttles the Roblox windows you are not looking at to keep your PC responsive, and gives the focused window full speed.
+- Safety tools. Anti-AFK to prevent disconnects, automatic RAM trimming, and failsafes that catch a missed action before it breaks a run.
+- Calibration presets. Match SolRich to your resolution once, then fine tune any point. A live overlay shows you where every click will land.
+- Quality of life. Start and stop hotkeys, a guided setup walkthrough, an updater built into the app, and a Patchlog tab that shows what changed in every version.
 
-- **Real-Time Log Parsing:** Accurately reads and processes Roblox logs on the fly using our custom engine (`roblox_logs.py`)[cite: 1].
-- **Biome Tracking:** Instant detection and logging of current in-game biomes (`biomes.py`)[cite: 1].
-- **Discord Webhooks:** Push notifications directly to your Discord server for rare events and biome changes (`webhooks.py`)[cite: 1].
-- **Interactive Web UI:** A sleek, lightweight dashboard built with HTML/CSS/JS, powered by Eel (`web/index.html`)[cite: 1].
+## Getting started
 
-## 🚀 Roadmap (Upcoming Features)
+Most people should download the latest `SolRich.exe` from the [Releases](../../releases) page and run it. No Python needed, and your settings live in your local app data folder.
 
-Biomerich is constantly evolving. The macro engine (`macro_engine.py`) is already implemented in the core[cite: 1], and the following features are actively being developed for upcoming releases:
+The first time you open it, a short setup guide walks you through adding an account, matching your screen, and starting your first run.
 
-- 🎣 **Fishing Macro:** Fully automated fishing for continuous resource gathering.
-- 🚫 **Anti AFK:** Smart movement to prevent game disconnections.
-- 🛡️ **Anti Fake Biome Ping:** Algorithmic filtering to ignore false or manipulated biome alerts.
-- 🛠️ **Auto Crafting:** Streamlined crafting system to save time and optimize inventory.
-- 🌌 **Limbo Macro:** Specialized automation for Limbo events.
+## Running from source
 
-## ⚙️ Technical Requirements
+If you would rather run the code directly:
 
-If you wish to run the source code directly instead of using the provided executable:
+1. Install Python 3.11 or newer.
+2. Install the dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Build the interface (Node 20 or newer):
+   ```
+   cd frontend
+   npm install
+   npm run build
+   ```
+4. Start it from the project root:
+   ```
+   python main.py
+   ```
 
-- Python 3.x
-- Dependencies: `eel >= 0.16.0`, `requests >= 2.31.0`[cite: 1]
+## Text reading
 
-_(Note: End users can simply download the compiled `.exe` from the Releases tab without installing Python.)_
+Merchant Detection, Auto Pop, and the fishing failsafes read text on your screen, which needs Tesseract. You do not have to install it yourself. If it is missing, a single button inside SolRich downloads and sets it up for you.
 
-## 📄 License
+## License
 
-This project is licensed under the Apache 2.0 License. See the `LICENSE` file for details.
+SolRich is open source under the Apache License 2.0. See the [LICENSE](LICENSE) file for the full text, and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the components it builds on.
 
-yes i wrote this readme with ai because i suck at it
+## Disclaimer
+
+SolRich is a fan made tool for Sol's RNG. It is not affiliated with the game or its developers. Use it at your own risk.

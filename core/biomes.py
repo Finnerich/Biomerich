@@ -6,10 +6,16 @@ ALL_KEYS = [
     "windy", "rainy", "snowy", "sandstorm", "hell",
     "starfall", "corruption", "null", "heaven",
     "graveyard", "singularity", "aurora",
-    "glitched", "dreamspace", "cyberspace"
+    "glitched", "dreamspace", "cyberspace",
+    "the_citadel_of_orders",
 ]
 
 PING_BIOMES = ["glitched", "dreamspace", "cyberspace"]
+
+RARE_PING_BIOMES = ["glitched", "dreamspace", "cyberspace", "singularity"]
+
+def is_rare_ping(key) -> bool:
+    return key in RARE_PING_BIOMES
 
 DISPLAY_NAMES = {
     "windy": "Windy", "rainy": "Rainy", "snowy": "Snowy",
@@ -17,6 +23,7 @@ DISPLAY_NAMES = {
     "corruption": "Corruption", "null": "Null", "heaven": "Heaven",
     "graveyard": "Graveyard", "singularity": "Singularity", "aurora": "Aurora",
     "glitched": "Glitched", "dreamspace": "Dreamspace", "cyberspace": "Cyberspace",
+    "the_citadel_of_orders": "THE CITADEL OF ORDERS",
 }
 
 THUMBNAILS = {
@@ -53,6 +60,7 @@ BIOME_COLORS = {
     "glitched": 0xFF1493,
     "dreamspace": 0xFF69B4,
     "cyberspace": 0x00FFFF,
+    "the_citadel_of_orders": 0xFFD700,
 }
 
 RARITY = {
@@ -110,6 +118,8 @@ _HOVER_TO_KEY = {
     "dream space": "dreamspace",
     "cyberspace": "cyberspace",
     "cyber space": "cyberspace",
+    "the citadel of orders": "the_citadel_of_orders",
+    "citadel of orders": "the_citadel_of_orders",
 }
 
 _HOVER_BLACKLIST = {

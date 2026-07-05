@@ -1,0 +1,109 @@
+.bl-list { display: flex; flex-direction: column; gap: 6px; }
+.bl-note { font-size: var(--fs-body); color: var(--text-dim); line-height: 1.5; margin-bottom: 4px; }
+.bl-note b { color: var(--text); }
+.bl-everyone {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: var(--fs-body);
+  color: var(--danger);
+  padding: 7px 13px;
+  border-radius: var(--r-xs);
+  background: rgba(242, 109, 120, 0.10);
+  flex-shrink: 0;
+}
+.bl-group { display: flex; flex-direction: column; gap: 6px; }
+
+.bl-sep {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 14px 2px 6px;
+}
+.bl-sep:first-child { margin-top: 2px; }
+.bl-sep-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bl-sep-label {
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+.bl-sep-line {
+  flex: 1;
+  height: 1px;
+  background: var(--stroke-soft);
+}
+
+.bl-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--stroke-soft);
+  background: var(--glass-soft);
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.bl-row.on {
+  border-color: rgba(var(--ar), var(--ag), var(--ab), 0.35);
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.08);
+}
+.bl-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bl-name {
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bl-select {
+  width: 130px;
+  flex-shrink: 0;
+}
+.bl-input {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--inset);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-xs);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 9px 11px;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.bl-input::placeholder {
+  font-family: var(--font);
+  color: var(--text-faint);
+}
+.bl-input:focus {
+  outline: none;
+  border-color: rgba(var(--ar), var(--ag), var(--ab), 0.6);
+  box-shadow: var(--focus-ring);
+}
+.bl-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .bl-row { flex-wrap: wrap; }
+  .bl-name { flex-basis: 100%; }
+  .bl-select { width: 120px; }
+  .bl-input { flex: 1 1 auto; width: auto; }
+}

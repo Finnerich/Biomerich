@@ -1,0 +1,99 @@
+.cs-wrap {
+    position: relative;
+    display: inline-flex;
+    min-width: 160px;
+    width: 100%;
+    user-select: none;
+}
+
+.cs-trigger {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 9px 13px;
+    background: var(--inset);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    color: var(--text);
+    transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.cs-trigger:hover {
+    border-color: var(--stroke-strong);
+}
+.cs-wrap.open .cs-trigger {
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.55);
+    box-shadow: var(--focus-ring);
+    border-radius: var(--r-sm) var(--r-sm) 0 0;
+}
+.cs-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-label.placeholder { color: var(--text-faint); }
+.cs-arrow {
+    font-size: 11px; color: var(--text-faint); flex-shrink: 0;
+    transition: transform var(--t-med) var(--ease-out);
+}
+.cs-wrap.open .cs-arrow { transform: rotate(180deg); }
+
+.cs-dropdown {
+    position: absolute;
+    top: 100%; left: 0; right: 0; z-index: 200;
+    background: var(--glass-strong);
+    border: 1px solid var(--stroke-strong);
+    border-top: none;
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+    box-shadow: var(--shadow-md);
+    max-height: 240px; overflow-y: auto;
+    display: none;
+    animation: csOpen 0.14s var(--ease-out);
+}
+@keyframes csOpen {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.cs-wrap.open .cs-dropdown { display: block; }
+
+.cs-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 13px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    color: var(--text-dim);
+    transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.cs-option:hover, .cs-option.highlighted {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+}
+.cs-option.selected {
+    color: var(--text);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.08);
+}
+.cs-option.selected::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free'; font-weight: 900;
+    font-size: 10px; color: var(--accent);
+    margin-left: auto;
+}
+
+.cs-wrap.cs-hotkey .cs-trigger { font-family: var(--mono); font-weight: 500; }
+.cs-wrap.cs-hotkey .cs-option  { font-family: var(--mono); font-weight: 500; }
+
+.cs-wrap.disabled .cs-trigger {
+    opacity: 0.45; cursor: not-allowed; pointer-events: none;
+}
+
+.custom-select-wrap::after { display: none !important; }
+
+.cs-wrap select {
+    display: none !important;
+}
+
+.glass.card.setting-row .cs-wrap,
+.glass.card.setting-row select.hotkey-select {
+    min-width: 90px;
+    width: auto;
+    flex-shrink: 0;
+}
+
+
+.glass.card:has(.cs-wrap.open) {
+    z-index: 50;
+}

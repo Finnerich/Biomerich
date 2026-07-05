@@ -23,8 +23,11 @@ if IS_WINDOWS:
     MOUSEEVENTF_MOVE = 0x0001
     MOUSEEVENTF_LEFTDOWN = 0x0002
     MOUSEEVENTF_LEFTUP = 0x0004
+    MOUSEEVENTF_WHEEL = 0x0800
     MOUSEEVENTF_ABSOLUTE = 0x8000
     MOUSEEVENTF_VIRTUALDESK = 0x4000
+
+    WHEEL_DELTA = 120
 
     SM_XVIRTUALSCREEN = 76
     SM_YVIRTUALSCREEN = 77
@@ -37,6 +40,33 @@ if IS_WINDOWS:
     VK_BACK = 0x08
     VK_CONTROL = 0x11
     VK_A = 0x41
+
+    _VK_NAMES = {
+        "space": 0x20,
+        "enter": 0x0D,
+        "return": 0x0D,
+        "esc": 0x1B,
+        "escape": 0x1B,
+        "tab": 0x09,
+        "shift": 0x10,
+        "ctrl": 0x11,
+        "alt": 0x12,
+        "backspace": 0x08,
+        "up": 0x26,
+        "down": 0x28,
+        "left": 0x25,
+        "right": 0x27,
+    }
+
+    def _vk_for(name):
+        key = str(name).lower().strip()
+        if key in _VK_NAMES:
+            return _VK_NAMES[key]
+        if len(key) == 1:
+            ch = key.upper()
+            if "A" <= ch <= "Z" or "0" <= ch <= "9":
+                return ord(ch)
+        return None
 
     class MOUSEINPUT(ctypes.Structure):
         _fields_ = [
@@ -143,6 +173,42 @@ if IS_WINDOWS:
         _send_mouse(MOUSEEVENTF_LEFTUP)
         time.sleep(0.06)
 
+    def click_here(settle=0.02):
+        _send_mouse(MOUSEEVENTF_LEFTDOWN)
+        time.sleep(0.02)
+        _send_mouse(MOUSEEVENTF_LEFTUP)
+        if settle > 0:
+            time.sleep(settle)
+
+    def look(dx, dy, steps=20, step_delay=0.008):
+        
+        dx, dy = int(dx), int(dy)
+        steps = max(1, int(steps))
+        accx = accy = 0.0
+        sx, sy = dx / steps, dy / steps
+        for _ in range(steps):
+            accx += sx
+            accy += sy
+            ix, iy = int(round(accx)), int(round(accy))
+            accx -= ix
+            accy -= iy
+            if ix or iy:
+                _send_mouse(MOUSEEVENTF_MOVE, ix, iy)
+            time.sleep(step_delay)
+
+    def _send_wheel(amount):
+        inp = INPUT()
+        inp.type = INPUT_MOUSE
+        inp.u.mi = MOUSEINPUT(0, 0, amount & 0xFFFFFFFF, MOUSEEVENTF_WHEEL, 0, 0)
+        user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+
+    def scroll(notches, step_delay=0.02):
+        notches = int(notches)
+        direction = 1 if notches >= 0 else -1
+        for _ in range(abs(notches)):
+            _send_wheel(direction * WHEEL_DELTA)
+            time.sleep(step_delay)
+
     def _send_key_vk(vk, key_up):
         scan = user32.MapVirtualKeyW(vk, MAPVK_VK_TO_VSC)
         flags = KEYEVENTF_SCANCODE | (KEYEVENTF_KEYUP if key_up else 0)
@@ -154,6 +220,34 @@ if IS_WINDOWS:
     def _tap_vk(vk):
         _send_key_vk(vk, False)
         time.sleep(0.02)
+        _send_key_vk(vk, True)
+
+    def key_down(name):
+        vk = _vk_for(name)
+        if vk is not None:
+            _send_key_vk(vk, False)
+
+    def key_up(name):
+        vk = _vk_for(name)
+        if vk is not None:
+            _send_key_vk(vk, True)
+
+    def press_key(name, settle=0.0):
+        vk = _vk_for(name)
+        if vk is None:
+            return
+        _send_key_vk(vk, False)
+        time.sleep(0.04)
+        _send_key_vk(vk, True)
+        if settle > 0:
+            time.sleep(settle)
+
+    def hold_key(name, duration):
+        vk = _vk_for(name)
+        if vk is None:
+            return
+        _send_key_vk(vk, False)
+        time.sleep(max(0.0, float(duration)))
         _send_key_vk(vk, True)
 
     def _send_unicode_char(ch):
@@ -214,6 +308,27 @@ else:
     def click_at(x, y, settle=0.12):
         return
 
+    def click_here(settle=0.02):
+        return
+
+    def scroll(notches, step_delay=0.02):
+        return
+
+    def look(dx, dy, steps=20, step_delay=0.008):
+        return
+
+    def key_down(name):
+        return
+
+    def key_up(name):
+        return
+
+    def press_key(name, settle=0.0):
+        return
+
+    def hold_key(name, duration):
+        return
+
     def type_text(text, per_char=0.012):
         return
 
@@ -222,6 +337,3 @@ else:
 
     def capture_next_click(timeout=30.0, should_cancel=None, poll=0.01):
         return None
-
-# i didnt make that script myself btw that looks like some morse code to me :skull: please forgive me
-# i did make the other scripts tho myself tho, ITS NOT AI SLOP :ragepotion:

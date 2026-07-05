@@ -1,0 +1,182 @@
+.fish-rot.glass.card.panel > .section-hint { margin: -2px 0 16px; line-height: 1.6; }
+.fish-rot .section-hint b { color: var(--text); }
+.fish-rot .section-hint .fa-gear { color: var(--accent); }
+
+
+.fish-rot-now {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text); padding: 6px 12px; border-radius: 99px;
+  background: rgba(62, 207, 142, 0.10); border: 1px solid rgba(62, 207, 142, 0.30);
+}
+.fish-rot-now b { color: var(--text); font-weight: 600; }
+.fish-rot-now-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+  animation: pulse 2.4s var(--ease) infinite;
+}
+
+
+.fish-rot-list { display: flex; flex-direction: column; gap: 10px; }
+
+.fish-rot-row {
+  display: grid;
+  grid-template-columns: auto 28px 38px minmax(120px, 1fr) auto auto 36px 36px;
+  align-items: center; gap: 12px;
+  padding: 11px 14px; border-radius: var(--r-sm); position: relative; overflow: hidden;
+  background: var(--glass-soft); border: 1px solid var(--stroke-soft);
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.fish-rot-row::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.35); opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.fish-rot-row:hover { border-color: var(--stroke-strong); }
+.fish-rot-row.active {
+  border-color: rgba(62, 207, 142, 0.45); background: rgba(62, 207, 142, 0.07);
+}
+.fish-rot-row.active::before { background: var(--success); opacity: 1; }
+
+.fish-rot-row.no-dur {
+  grid-template-columns: auto 28px 38px minmax(120px, 1fr) auto 36px 36px;
+}
+
+
+.fish-rot-row.cyc-row {
+  display: flex; align-items: center; gap: 12px;
+  grid-template-columns: none;
+}
+.fish-rot-row.cyc-row .fish-rot-name { flex: 1 1 auto; }
+.fish-rot-row.cyc-row .cyc-type { flex: 0 0 190px; min-width: 190px; }
+.fish-rot-row.cyc-row .fish-rot-bind { flex: none; }
+
+.fish-rot-row.cyc-row .cyc-dur-slot {
+  flex: 0 0 232px; width: 232px; display: flex; justify-content: flex-end; align-items: center;
+}
+.cyc-afk { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.cyc-afk-label { font-size: var(--fs-caption); font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.fish-rot-row.cyc-row .fish-rot-bind { min-width: 96px; justify-content: center; }
+
+.fish-rot-row.cyc-row:has(.cs-wrap.open) { overflow: visible; z-index: 30; }
+
+
+.cyc-act-ico {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: var(--r-xs); font-size: 15px; color: #fff;
+  background: var(--act-grad, linear-gradient(135deg, #3a3f4b, #23262e));
+  border: 1px solid var(--stroke);
+}
+
+.fish-rot-reorder { display: flex; flex-direction: column; gap: 3px; }
+.fish-rot-move {
+  width: 22px; height: 17px; display: grid; place-items: center;
+  border: none; border-radius: var(--r-xs); cursor: pointer;
+  background: rgba(255, 255, 255, 0.05); color: var(--text-faint); font-size: 10px;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.fish-rot-move:hover:not(:disabled) {
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.14); color: var(--accent);
+}
+.fish-rot-move:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.fish-rot-num {
+  width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-xs);
+  font-family: var(--mono); font-weight: 700; font-size: 13px;
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.12); color: var(--accent);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.fish-rot-row.active .fish-rot-num {
+  background: var(--success); color: #04130d;
+}
+
+.fish-rot-avatar { width: 38px; height: 38px; border-radius: var(--r-xs); object-fit: cover; background: rgba(255, 255, 255, 0.05); }
+.fish-rot-avatar.sm { width: 30px; height: 30px; border-radius: var(--r-xs); }
+
+.fish-rot-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fish-rot-acc { font-family: var(--font); font-weight: 600; font-size: var(--fs-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fish-rot-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--success); }
+
+
+.fish-rot-dur { display: flex; align-items: center; gap: 7px; }
+
+
+.fish-rot-bind {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+}
+.fish-rot-bind.ok { color: var(--success); background: rgba(62, 207, 142, 0.12); }
+.fish-rot-bind.warn { color: var(--warning); background: rgba(232, 163, 61, 0.12); }
+
+.fish-rot-gear, .fish-rot-del {
+  width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r-xs); cursor: pointer;
+  border: 1px solid var(--stroke-soft); background: rgba(255, 255, 255, 0.04); color: var(--text-faint);
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              background var(--t-fast) var(--ease);
+}
+.fish-rot-gear:hover { color: var(--accent); border-color: rgba(var(--ar), var(--ag), var(--ab), 0.35); }
+.fish-rot-del:hover:not(:disabled) { color: var(--danger); border-color: rgba(242, 109, 120, 0.40); background: rgba(242, 109, 120, 0.08); }
+.fish-rot-del:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fish-rot-loop {
+  display: inline-flex; align-items: center; gap: 8px; align-self: center; margin-top: 4px;
+  font-size: var(--fs-caption); color: var(--text-faint);
+}
+.fish-rot-loop .fa-rotate-right { color: var(--accent); }
+
+
+.fish-rot-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  padding: 30px 16px; text-align: center; color: var(--text-faint);
+  border: 1px dashed var(--stroke-soft); border-radius: var(--r-sm);
+}
+.fish-rot-empty .fa-fish { font-size: 28px; color: rgba(var(--ar), var(--ag), var(--ab), 0.7); }
+.fish-rot-empty p { margin: 0; font-size: 13px; }
+
+
+.fish-rot-add { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--stroke-soft); }
+.fish-rot-add-head {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 12px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--text-faint);
+}
+.fish-rot-add-head .fa-plus { color: var(--accent); font-size: 12px; }
+.fish-rot-add-empty { font-size: var(--fs-body); color: var(--text-faint); margin: 0; }
+.fish-rot-add-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(244px, 1fr)); gap: 9px; }
+
+.fish-rot-add-item {
+  display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-sm);
+  background: var(--glass-soft); border: 1px solid var(--stroke-soft);
+  transition: border-color var(--t-fast) var(--ease);
+}
+.fish-rot-add-item:hover { border-color: var(--stroke-strong); }
+.fish-rot-add-item.unbound { border-style: dashed; opacity: 0.95; }
+.fish-rot-add-item .fish-rot-acc { font-size: 13px; flex: 1; }
+
+.fish-rot-addbtn {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  border: none; border-radius: var(--r-xs); cursor: pointer; padding: 7px 13px;
+  font-size: 12px; font-weight: 600; color: #fff;
+  background: var(--accent);
+  transition: filter var(--t-fast) var(--ease);
+}
+.fish-rot-addbtn:hover:not(:disabled) { filter: brightness(1.08); }
+.fish-rot-addbtn:active:not(:disabled) { filter: brightness(0.92); }
+.fish-rot-addbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fish-rot-needbind { display: inline-flex; align-items: center; gap: 9px; }
+.fish-rot-needbind-hint { font-size: 11px; color: var(--warning); }
+.fish-rot-bindbtn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--r-xs); cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(var(--ar), var(--ag), var(--ab), 0.35);
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.12); color: var(--accent);
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              background var(--t-fast) var(--ease);
+}
+.fish-rot-bindbtn.waiting { border-color: rgba(232, 163, 61, 0.50); background: rgba(232, 163, 61, 0.12); color: var(--warning); }
+.fish-rot-bindbtn.on { border-color: rgba(62, 207, 142, 0.45); background: rgba(62, 207, 142, 0.14); color: var(--success); }
+.fish-rot-bindbtn .bind-label { font-weight: 600; }
+
+@media (max-width: 760px) {
+  .fish-rot-row { grid-template-columns: auto 24px 34px 1fr auto; grid-row-gap: 9px; }
+  .fish-rot-bind, .fish-rot-gear, .fish-rot-del { grid-column: span 1; }
+}

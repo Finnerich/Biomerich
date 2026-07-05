@@ -1,0 +1,31 @@
+.sidebar-footer { gap: 4px; padding: 10px 0 4px; }
+.version-badge { padding: 7px 11px; gap: 9px; margin-bottom: 2px; }
+.vb-glyph { width: 24px; height: 24px; font-size: 11px; border-radius: var(--r-xs); }
+.vb-label { font-size: 9px; letter-spacing: 1px; }
+.vb-value { font-size: var(--fs-body); }
+
+.vb-text { align-items: center; text-align: center; }
+.sidebar-footer .support-link,
+.sidebar-footer .nav-item-creator {
+    padding: 8px 12px; gap: 11px; font-size: var(--fs-body);
+}
+.sidebar-footer .support-link i,
+.sidebar-footer .nav-item-creator i { font-size: 14px; }
+.made-by { font-size: 11px; padding: 4px 14px 6px; }
+
+
+.sidebar {
+    transition: width 0.34s var(--ease), padding 0.34s var(--ease);
+    white-space: nowrap;
+    overflow-x: hidden;
+}
+
+
+.brand-text,
+.nav-group-items .nav-item > span,
+.nav-item-creator > span,
+.support-link > span,
+.group-label,
+.vb-text {
+    transition: opacity 0.18s var(--ease);
+}

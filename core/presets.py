@@ -8,21 +8,39 @@ PIXEL_SLOTS = [
 ]
 
 PRESETS = {
-    "1920x1080 WINDOWED (100%)": {
+    "[1080p] WINDOWED 1920x1080 (100%)": {
         "inventory_button": [35, 506],
         "item_tab": [1267, 328],
         "search_bar": [808, 354],
-        "first_item_slot": [850, 471],
+        "first_item_slot": [847, 462],
         "amount_box": [566, 563],
         "use_button": [681, 565],
+        "first_item_region": [800, 418, 94, 89],
+        "autopop_amount_region": [848, 482, 42, 21],
     },
-    "1920x1080 FULLSCREEN (100%)": {
+    "[1080p] FULLSCREEN 1920x1080 (100%)": {
         "inventory_button": [33, 511],
         "item_tab": [1269, 335],
         "search_bar": [810, 367],
-        "first_item_slot": [849, 475],
+        "first_item_slot": [848, 476],
         "amount_box": [580, 577],
         "use_button": [686, 576],
+        "first_item_region": [804, 432, 88, 88],
+        "autopop_amount_region": [855, 495, 35, 24],
+    },
+    "[4K] WINDOWED 3840x2160 (150%)": {
+        "inventory_button": [63, 1007],
+        "item_tab": [2550, 656],
+        "search_bar": [1647, 714],
+        "amount_box": [1134, 1132],
+        "use_button": [1362, 1142],
+    },
+    "[4K] FULLSCREEN 3840x2160 (150%)": {
+        "inventory_button": [60, 1026],
+        "item_tab": [2547, 671],
+        "search_bar": [1626, 737],
+        "amount_box": [1136, 1153],
+        "use_button": [1355, 1161],
     },
 }
 
@@ -47,4 +65,16 @@ def get_preset(name):
         pos = data.get(key)
         if isinstance(pos, (list, tuple)) and len(pos) == 2:
             out[key] = [int(pos[0]), int(pos[1])]
+    return out
+
+def get_preset_regions(name):
+    
+    data = PRESETS.get(name)
+    if not data:
+        return {}
+    out = {}
+    for key in ("first_item_region", "autopop_amount_region"):
+        box = data.get(key)
+        if isinstance(box, (list, tuple)) and len(box) == 4:
+            out[key] = [int(v) for v in box]
     return out

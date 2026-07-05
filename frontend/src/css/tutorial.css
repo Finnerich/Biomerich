@@ -1,0 +1,95 @@
+.tut2-root {
+  position: fixed; inset: 0; z-index: 4000;
+  pointer-events: none;
+}
+
+
+.tut2-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(4, 5, 10, 0.55);
+  animation: tut2Fade 0.25s var(--ease-out);
+}
+
+
+.tut2-spot {
+  position: absolute; top: 0; left: 0; width: 0; height: 0; opacity: 0;
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 9999px rgba(4, 5, 10, 0.55), 0 0 0 2px var(--accent);
+  transition: opacity 0.25s var(--ease);
+}
+.tut2-spot::after {
+  content: ""; position: absolute; inset: -4px; border-radius: inherit;
+  border: 2px solid rgba(var(--ar), var(--ag), var(--ab), 0.45);
+  animation: tut2Ping 2.2s var(--ease) infinite;
+}
+@keyframes tut2Ping { 0% { opacity: 0.5; transform: scale(1); } 100% { opacity: 0; transform: scale(1.04); } }
+
+
+.tut2-card {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  width: min(440px, calc(100vw - 28px));
+  padding: 20px 22px 18px;
+  border-radius: var(--r-md);
+  pointer-events: auto;
+  box-shadow: var(--shadow-lg);
+  animation: tut2CardIn 0.28s var(--ease-out);
+}
+@keyframes tut2CardIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes tut2Fade { from { opacity: 0; } to { opacity: 1; } }
+
+.tut2-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tut2-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.10);
+  border: 1px solid rgba(var(--ar), var(--ag), var(--ab), 0.22);
+  padding: 5px 11px; border-radius: 999px;
+}
+.tut2-count { font-family: var(--mono); font-size: 12px; color: var(--text-faint); letter-spacing: 0.5px; }
+
+
+.tut2-bar { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; margin-bottom: 16px; }
+.tut2-bar-fill {
+  height: 100%; border-radius: 999px;
+  background: var(--accent);
+  transition: width var(--t-slow) var(--ease-out);
+}
+
+
+.tut2-body { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; animation: tut2StepIn 0.25s var(--ease-out); }
+@keyframes tut2StepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.tut2-ico {
+  width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; font-size: 18px;
+  color: var(--accent);
+  border-radius: var(--r-sm);
+  background: rgba(var(--ar), var(--ag), var(--ab), 0.10);
+}
+.tut2-text { min-width: 0; }
+.tut2-title { font-family: var(--font); font-weight: 700; font-size: 18px; margin-bottom: 5px; }
+.tut2-desc { font-size: var(--fs-ui); line-height: 1.55; color: var(--text-dim); }
+
+
+.tut2-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tut2-nav { display: flex; gap: 10px; }
+.tut2-skip { background: transparent; border: none; color: var(--text-faint); font-size: 13px; cursor: pointer; font-family: inherit; }
+.tut2-skip:hover { color: var(--text-dim); }
+.tut2-back {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--stroke); color: var(--text-dim);
+  border-radius: var(--r-sm); padding: 9px 15px; font-size: 13px; cursor: pointer; font-family: inherit;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.tut2-back:hover { color: var(--text); background: rgba(255, 255, 255, 0.1); }
+.tut2-next {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); border: none; color: #fff;
+  border-radius: var(--r-sm); padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: filter var(--t-fast) var(--ease);
+}
+.tut2-next:hover { filter: brightness(1.08); }
+.tut2-next:active { filter: brightness(0.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tut2-spot::after, .tut2-card, .tut2-body { animation: none; }
+}

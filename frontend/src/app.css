@@ -1,0 +1,163 @@
+#root {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+
+#settings .glass.card.setting-row {
+  border-radius: var(--r-md) !important;
+  border-top: 0 !important;
+}
+#settings .glass.card.setting-row .anim-picker {
+  justify-content: flex-end;
+}
+
+
+body.accent-anim,
+body.accent-anim *,
+body.accent-anim *::before,
+body.accent-anim *::after {
+  transition:
+    background-color 0.5s ease,
+    color 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease,
+    fill 0.5s ease,
+    stroke 0.5s ease !important;
+}
+
+
+body.nav-anim-scanlines .topbar,
+body.nav-anim-scanlines .sidebar {
+  position: relative;
+  overflow: hidden;
+}
+body.nav-anim-scanlines .topbar::before,
+body.nav-anim-scanlines .sidebar::before {
+  display: block !important;
+  content: "";
+  position: absolute;
+
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(var(--ar), var(--ag), var(--ab), 0.16) 3px,
+    rgba(var(--ar), var(--ag), var(--ab), 0.16) 4px
+  );
+  animation: navScanMove 0.5s linear infinite;
+}
+@keyframes navScanMove {
+  to { background-position: 0 4px; }
+}
+
+
+body.nav-anim-glitch .topbar {
+  animation: navGlitchBarStrong 2.6s steps(1) infinite;
+}
+body.nav-anim-glitch .sidebar {
+  animation: navGlitchSideStrong 3.1s steps(1) infinite;
+}
+@keyframes navGlitchBarStrong {
+  0%, 68%, 100% { filter: none; transform: none; }
+  70% { filter: brightness(1.5) hue-rotate(170deg) saturate(1.7); transform: translateX(-3px); }
+  72% { filter: brightness(0.8) hue-rotate(-45deg); transform: translateX(2px); }
+  74% { filter: none; transform: translateX(-1px); }
+  86% { filter: brightness(1.35) saturate(1.5); transform: translateX(2px); }
+  88% { filter: none; transform: none; }
+}
+@keyframes navGlitchSideStrong {
+  0%, 62%, 100% { filter: none; transform: none; }
+  64% { filter: brightness(1.5) saturate(1.6); transform: translateX(2px); }
+  66% { filter: brightness(0.85) hue-rotate(60deg); transform: translateX(-2px); }
+  68% { filter: none; transform: none; }
+  90% { filter: brightness(1.35); transform: translateX(-1px); }
+  92% { filter: none; transform: none; }
+}
+
+
+body.nav-anim-illuminate .topbar {
+  animation: navIllumTopbarStrong 3.5s ease-in-out infinite alternate;
+}
+@keyframes navIllumTopbarStrong {
+  0%   { box-shadow: 0 1px 0 rgba(var(--ar),var(--ag),var(--ab),0.12), 0 0 14px rgba(var(--ar),var(--ag),var(--ab),0.05); }
+  100% { box-shadow: 0 1px 0 rgba(var(--ar),var(--ag),var(--ab),0.5), 0 0 40px rgba(var(--ar),var(--ag),var(--ab),0.2); }
+}
+
+
+.version-badge .vb-update {
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: center;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 3px 7px;
+  border-radius: 99px;
+  background: var(--accent);
+  animation: vbUpdatePulse 2s ease-in-out infinite;
+}
+@keyframes vbUpdatePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+
+.am-copy-btn.copied { color: var(--success) !important; border-color: rgba(52,211,153,0.4) !important; }
+
+
+.dialog-overlay { z-index: 9999; }
+.dialog-modal { max-width: 440px; width: min(440px, calc(100vw - 48px)); }
+.dialog-message {
+  margin: 0;
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dialog-modal .modal-body .field { margin-top: 14px; width: 100%; box-sizing: border-box; }
+.btn-save.dialog-danger {
+  background: #d5405a;
+}
+
+
+.nav-item > span:not(.nav-pill) { flex: 1 1 auto; min-width: 0; }
+.nav-item .nav-pill { margin-left: 8px; align-self: center; }
+
+
+#patchlog .patch-banner-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  max-height: none;
+  gap: 0;
+  transition:
+    grid-template-rows 0.38s var(--ease),
+    opacity 0.3s var(--ease),
+    margin-top 0.38s var(--ease),
+    padding-top 0.38s var(--ease);
+}
+#patchlog .patch-banner-body.open {
+  grid-template-rows: 1fr;
+  max-height: none;
+}
+#patchlog .patch-banner-body > .pbb-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}

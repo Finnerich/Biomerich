@@ -1,0 +1,6 @@
+.perf-lite *,
+.perf-lite *::before,
+.perf-lite *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+}

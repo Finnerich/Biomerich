@@ -1,0 +1,25 @@
+# Normalize line endings: store LF in the repo, check out LF on every platform.
+# This silences Git's "LF will be replaced by CRLF" warnings on Windows and keeps
+# diffs clean across machines. Binary files are auto-detected, but a few are pinned
+# explicitly to be safe.
+* text=auto eol=lf
+
+# Windows scripts stay CRLF — some shells/tools are picky about these.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets — never touch their bytes.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.eot  binary
+*.zip  binary
+*.exe  binary
+*.pdf  binary
