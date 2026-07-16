@@ -63,6 +63,27 @@ BIOME_COLORS = {
     "the_citadel_of_orders": 0xFFD700,
 }
 
+
+
+BIOME_DURATIONS = {
+    "windy": 120,
+    "snowy": 120,
+    "rainy": 120,
+    "sandstorm": 650,
+    "hell": 666,
+    "starfall": 600,
+    "heaven": 240,
+    "corruption": 650,
+    "null": 99,
+    "glitched": 164,
+    "dreamspace": 192,
+    "cyberspace": 720,
+    "singularity": 1200,
+}
+
+def duration_of(key):
+    return BIOME_DURATIONS.get((key or "").lower())
+
 RARITY = {
     "windy": 500,
     "snowy": 600,

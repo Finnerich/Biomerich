@@ -9,6 +9,13 @@
     font-display: swap;
 }
 @font-face {
+    font-family: 'Sarpanch';
+    src: url('/assets/fonts/Sarpanch-700.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
     font-family: 'DM Mono';
     src: url('/assets/fonts/DMMono-400.woff2') format('woff2');
     font-weight: 400;

@@ -25,12 +25,12 @@ export function CustomSelect({
   "aria-label": ariaLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
   const listId = `${baseId}-list`;
-  const optId = (i: number) => `${baseId}-opt-${i}`;
+  const optId = (index: number) => `${baseId}-opt-${index}`;
 
   useEffect(() => {
     if (!open) return;
@@ -47,12 +47,12 @@ export function CustomSelect({
 
   useEffect(() => {
     if (!open) return;
-    document.getElementById(optId(active))?.scrollIntoView?.({ block: "nearest" });
-  }, [open, active]); // eslint-disable-line react-hooks/exhaustive-deps
+    document.getElementById(optId(activeIndex))?.scrollIntoView?.({ block: "nearest" });
+  }, [open, activeIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openMenu() {
     if (disabled) return;
-    setActive(selectedIndex >= 0 ? selectedIndex : 0);
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
     setOpen(true);
   }
 
@@ -61,46 +61,46 @@ export function CustomSelect({
     if (refocus) triggerRef.current?.focus();
   }
 
-  function choose(i: number) {
-    const opt = options[i];
-    if (!opt) return;
-    onChange(opt.value);
+  function choose(index: number) {
+    const option = options[index];
+    if (!option) return;
+    onChange(option.value);
     closeMenu();
   }
 
-  function onKeyDown(e: React.KeyboardEvent) {
+  function onKeyDown(event: React.KeyboardEvent) {
     if (disabled) return;
     if (!open) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
         openMenu();
       }
       return;
     }
-    switch (e.key) {
+    switch (event.key) {
       case "ArrowDown":
-        e.preventDefault();
-        setActive((i) => Math.min(options.length - 1, i + 1));
+        event.preventDefault();
+        setActiveIndex((i) => Math.min(options.length - 1, i + 1));
         break;
       case "ArrowUp":
-        e.preventDefault();
-        setActive((i) => Math.max(0, i - 1));
+        event.preventDefault();
+        setActiveIndex((i) => Math.max(0, i - 1));
         break;
       case "Home":
-        e.preventDefault();
-        setActive(0);
+        event.preventDefault();
+        setActiveIndex(0);
         break;
       case "End":
-        e.preventDefault();
-        setActive(options.length - 1);
+        event.preventDefault();
+        setActiveIndex(options.length - 1);
         break;
       case "Enter":
       case " ":
-        e.preventDefault();
-        choose(active);
+        event.preventDefault();
+        choose(activeIndex);
         break;
       case "Escape":
-        e.preventDefault();
+        event.preventDefault();
         closeMenu();
         break;
       case "Tab":
@@ -124,7 +124,7 @@ export function CustomSelect({
         aria-controls={listId}
         aria-disabled={disabled || undefined}
         aria-label={ariaLabel}
-        aria-activedescendant={open ? optId(active) : undefined}
+        aria-activedescendant={open ? optId(activeIndex) : undefined}
         onMouseDown={(e) => { e.preventDefault(); open ? closeMenu(false) : openMenu(); }}
         onKeyDown={onKeyDown}
       >
@@ -132,20 +132,20 @@ export function CustomSelect({
         <i className="fa-solid fa-chevron-down cs-arrow" aria-hidden="true"></i>
       </div>
       <div className="cs-dropdown" role="listbox" id={listId} aria-label={ariaLabel}>
-        {options.map((opt, i) => (
+        {options.map((option, i) => (
           <div
-            key={opt.value}
+            key={option.value}
             id={optId(i)}
             role="option"
-            aria-selected={opt.value === value}
-            className={`cs-option${opt.value === value ? " selected" : ""}${i === active && open ? " highlighted" : ""}`}
-            onMouseEnter={() => setActive(i)}
+            aria-selected={option.value === value}
+            className={`cs-option${option.value === value ? " selected" : ""}${i === activeIndex && open ? " highlighted" : ""}`}
+            onMouseEnter={() => setActiveIndex(i)}
             onMouseDown={(e) => {
               e.preventDefault();
               choose(i);
             }}
           >
-            {opt.label}
+            {option.label}
           </div>
         ))}
       </div>

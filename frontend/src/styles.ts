@@ -31,6 +31,7 @@ import "./css/toast.css";
 import "./css/tesseract.css";
 import "./css/sidebar_rail.css";
 import "./css/biome_logging.css";
+import "./css/monitor.css";
 import "./css/normal_mode.css";
 import "./css/home.css";
 import "./css/responsive.css";

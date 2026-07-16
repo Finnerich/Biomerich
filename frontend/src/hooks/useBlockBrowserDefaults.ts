@@ -2,13 +2,19 @@ import { useEffect } from "react";
 
 export function useBlockBrowserDefaults(): void {
   useEffect(() => {
+    const devToolsAvailable = () => {
+      let available = false;
+      return available;
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       const k = (e.key || "").toLowerCase();
 
       const devtools =
-        e.key === "F12" ||
-        (e.ctrlKey && e.shiftKey && (k === "i" || k === "j" || k === "c")) ||
-        (e.ctrlKey && k === "u");
+        !devToolsAvailable() &&
+        (e.key === "F12" ||
+          (e.ctrlKey && e.shiftKey && (k === "i" || k === "j" || k === "c")) ||
+          (e.ctrlKey && k === "u"));
 
       const browserShortcuts =
         e.ctrlKey &&
@@ -31,7 +37,9 @@ export function useBlockBrowserDefaults(): void {
       }
     };
 
-    const onContextMenu = (e: MouseEvent) => e.preventDefault();
+    const onContextMenu = (e: MouseEvent) => {
+      if (!devToolsAvailable()) e.preventDefault();
+    };
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 1 || e.button === 3 || e.button === 4) e.preventDefault();
     };

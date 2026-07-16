@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from . import biomes, roblox_logs, webhooks, win_windows, status_events
+from . import activity_log, biomes, monitor_dim, roblox_logs, webhooks, win_windows, status_events
 from .anti_afk import AntiAfk
 from .automation import AutomationEngine
 from .time_tracking import TimeTracker
@@ -22,7 +22,7 @@ def _is_roblox_link(link: str) -> bool:
 FAKE_PING_WINDOW = 12.0
 
 class _AccountState:
-    __slots__ = ("acc_id", "username", "reader", "current_biome",
+    __slots__ = ("acc_id", "username", "reader", "current_biome", "biome_since",
                  "online", "last_line_ts", "disconnect_ts", "was_disconnected")
 
     def __init__(self, acc_id, username):
@@ -30,6 +30,7 @@ class _AccountState:
         self.username = username
         self.reader = None
         self.current_biome = None
+        self.biome_since = None
         self.online = False
         self.last_line_ts = 0.0
         self.disconnect_ts = 0.0
@@ -64,7 +65,8 @@ class MacroEngine:
     def account_states(self) -> list:
         with self._lock:
             return [
-                {"id": s.acc_id, "currentBiome": s.current_biome, "online": s.online}
+                {"id": s.acc_id, "currentBiome": s.current_biome,
+                 "biomeSince": s.biome_since, "online": s.online}
                 for s in self._states.values()
             ]
 
@@ -112,6 +114,7 @@ class MacroEngine:
                 "id": aid,
                 "online": online,
                 "currentBiome": st.current_biome if st else None,
+                "biomeSince": st.biome_since if st else None,
                 "window": info.get("label"),
                 "hwndKnown": info.get("hwnd") is not None,
             })
@@ -204,10 +207,27 @@ class MacroEngine:
         if enabled_accounts:
             try:
                 resolved = win_windows.resolve_accounts(enabled_accounts)
-                if not any((info or {}).get("hwnd") is not None for info in resolved.values()):
+                if len(enabled_accounts) > 1:
+                    missing = [
+                        account.get("name") or "?"
+                        for account in enabled_accounts
+                        if (resolved.get(account.get("id")) or {}).get("hwnd") is None
+                    ]
+                    if missing:
+                        names = ", ".join(f"'{name}'" for name in missing)
+                        errors.append(
+                            "Bind a Roblox window to every enabled account before starting "
+                            f"Multi-Macro. Missing: {names}. Open the Macro tab, press Bind "
+                            "Window for each account, then click its matching Roblox window."
+                        )
+                elif not any((info or {}).get("hwnd") is not None for info in resolved.values()):
                     errors.append("No Roblox window found. Launch your account first. The macro detects its window automatically.")
             except Exception:
-                pass
+                if len(enabled_accounts) > 1:
+                    errors.append(
+                        "Could not verify the Roblox window bindings. Open the Macro tab and "
+                        "bind a window to every enabled account before starting Multi-Macro."
+                    )
         auto = self.config.automation
         if auto.get("mode") == "automation":
             if (auto.get("strangeController") or auto.get("biomeRandomizer")
@@ -258,6 +278,12 @@ class MacroEngine:
 
             self._sync_subsystems()
             self.time.start(self.config.automation.get("mode"))
+            activity_log.reset()
+            if self.config.settings.get("monitorDimEnabled"):
+                try:
+                    monitor_dim.start(self.config.settings.get("monitorDimLevel", 40))
+                except Exception as e:
+                    print(f"[MonitorDim] start failed: {e}")
             print("[Engine] SolRich started.")
 
         if self._logging_active:
@@ -270,6 +296,7 @@ class MacroEngine:
         self.automation.stop()
         self.time.stop()
         status_events.reset()
+        monitor_dim.stop()
         with self._lock:
             was_running = self._running
             was_logging = self._logging_active
@@ -431,7 +458,13 @@ class MacroEngine:
 
         old_biome = st.current_biome
         st.current_biome = biome_key
+        st.biome_since = time.time()
         st.online = True
+
+        if biome_key != "normal":
+            acc_name = (acc or {}).get("name") or st.username
+            activity_log.push(f"{acc_name} rolled {biomes.display_name(biome_key)}",
+                              account=acc_name, kind="biome", biome=biome_key)
 
         report = "00:00:00"
         if self._running:

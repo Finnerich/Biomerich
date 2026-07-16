@@ -50,6 +50,8 @@
 .mode-seg-2 .mode-seg-glider { width: calc((100% - 6px) / 2); }
 .mode-seg-2.idle .mode-seg-glider { transform: translateX(0); }
 .mode-seg-2.auto .mode-seg-glider { transform: translateX(100%); }
+.mode-seg-2.normal .mode-seg-glider { transform: translateX(0); }
+.mode-seg-2.multi .mode-seg-glider { transform: translateX(100%); }
 
 .mode-seg-3 .mode-seg-glider { width: calc((100% - 6px) / 3); }
 .mode-seg-3.idle .mode-seg-glider { transform: translateX(0); }
@@ -67,12 +69,23 @@
     font-family: var(--font); font-weight: 600; font-size: 12px;
     color: var(--text-dim);
     border-radius: var(--r-xs);
+    white-space: nowrap;
+    line-height: 1;
     transition: color var(--t-med) var(--ease);
 }
 .mode-seg-opt i { font-size: 11px; }
 .mode-seg-opt:hover { color: var(--text); }
 .mode-seg-opt.active { color: #fff; }
+.mode-seg-opt:disabled { cursor: not-allowed; opacity: 0.55; }
 .mode-seg.idle .mode-seg-opt[data-mode="idle"].active { color: var(--text); }
+
+
+.topbar-macro-mode { width: 260px; }
+.topbar-macro-mode .mode-seg-opt {
+    flex: 1 1 0; min-width: 0;
+    padding-inline: 12px;
+    box-sizing: border-box;
+}
 
 .mode-hotkey-badge {
     font-family: var(--mono); font-size: 10px; font-weight: 500;
@@ -232,6 +245,8 @@
     .tm-sub { display: none; }
     .mode-seg-opt span { display: none; }
     .mode-seg-opt { min-width: 40px; }
+    .topbar-macro-mode { width: 88px; }
+    .topbar-macro-mode .mode-seg-opt { padding-inline: 0; }
 }
 @media (max-width: 860px) {
     .power-btn .pb-key { display: none; }

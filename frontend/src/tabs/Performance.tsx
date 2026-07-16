@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { callPy } from "../bridge";
 import { CountUp } from "../components/CountUp";
@@ -6,6 +13,8 @@ import { useStore } from "../store";
 import { BindButton, useWindowBindPoll } from "../windowBind";
 import { DEFAULT_AVATAR } from "../data/biomes";
 import type { Account } from "../types";
+
+
 
 interface PerfInstance {
   pid: number;
@@ -60,23 +69,26 @@ interface PerfData {
   throttle?: ThrottleState;
 }
 
-const cpu = (n: number | undefined) => (Number(n) || 0).toFixed(1);
+const fmtCpu = (percent: number | undefined) => (Number(percent) || 0).toFixed(1);
 
-function fmtBytes(b: number): string {
-  b = Number(b) || 0;
-  if (b >= 1073741824) return (b / 1073741824).toFixed(2) + " GB";
-  if (b >= 1048576) return (b / 1048576).toFixed(0) + " MB";
-  if (b >= 1024) return (b / 1024).toFixed(0) + " KB";
-  return b + " B";
+function fmtBytes(bytes: number): string {
+  bytes = Number(bytes) || 0;
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + " GB";
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(0) + " MB";
+  if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
+  return bytes + " B";
 }
 
+
 let cachedPerf: PerfData | null = null;
+
+
 
 export function Performance() {
   const [data, setData] = useState<PerfData | null>(cachedPerf);
   const inFlight = useRef(false);
   const [trimming, setTrimming] = useState(false);
-  const [trim, setTrim] = useState<TrimResult | null>(null);
+  const [trimResult, setTrimResult] = useState<TrimResult | null>(null);
   const [particles, setParticles] = useState<TrimParticle[]>([]);
   const particleId = useRef(0);
 
@@ -86,24 +98,24 @@ export function Performance() {
     if (trimming) return;
     setTrimming(true);
     try {
-      const res = await callPy<TrimResult>("trim_system_ram");
-      if (res?.ok) {
-        setTrim(res);
+      const result = await callPy<TrimResult>("trim_system_ram");
+      if (result?.ok) {
+        setTrimResult(result);
         const colors = ["var(--accent)", "var(--accent-2)", "#22d3ee", "#34d399", "#a855f7"];
         const fresh: TrimParticle[] = Array.from({ length: 22 }, (_, i) => {
-          const ang = (Math.PI * 2 * i) / 22 + Math.random() * 0.5;
-          const dist = 40 + Math.random() * 70;
+          const angle = (Math.PI * 2 * i) / 22 + Math.random() * 0.5;
+          const distance = 40 + Math.random() * 70;
           return {
             id: ++particleId.current,
-            dx: Math.cos(ang) * dist,
-            dy: Math.sin(ang) * dist,
+            dx: Math.cos(angle) * distance,
+            dy: Math.sin(angle) * distance,
             c: colors[i % colors.length],
             s: 3 + Math.random() * 4,
           };
         });
-        const ids = new Set(fresh.map((p) => p.id));
-        setParticles((p) => [...p, ...fresh]);
-        window.setTimeout(() => setParticles((p) => p.filter((q) => !ids.has(q.id))), 900);
+        const freshIds = new Set(fresh.map((particle) => particle.id));
+        setParticles((prev) => [...prev, ...fresh]);
+        window.setTimeout(() => setParticles((prev) => prev.filter((particle) => !freshIds.has(particle.id))), 900);
       }
     } finally {
       setTrimming(false);
@@ -117,10 +129,10 @@ export function Performance() {
       if (inFlight.current) return;
       inFlight.current = true;
       try {
-        const d = await callPy<PerfData>("get_performance");
-        if (alive && d) {
-          cachedPerf = d;
-          setData(d);
+        const perf = await callPy<PerfData>("get_performance");
+        if (alive && perf) {
+          cachedPerf = perf;
+          setData(perf);
         }
       } catch {
       } finally {
@@ -129,29 +141,29 @@ export function Performance() {
     }
 
     poll();
-    const id = setInterval(poll, 1000);
+    const intervalId = setInterval(poll, 1000);
     return () => {
       alive = false;
-      clearInterval(id);
+      clearInterval(intervalId);
     };
   }, []);
 
   const totalRam = data?.totalRamBytes || 0;
   const instances = data?.instances || [];
-  const total = data?.robloxTotal || { count: 0, ramBytes: 0, cpuPercent: 0 };
+  const robloxTotal = data?.robloxTotal || { count: 0, ramBytes: 0, cpuPercent: 0 };
   const macro = data?.macro || { ramBytes: 0, cpuPercent: 0 };
   const supported = data?.supported;
   const throttle = data?.throttle;
 
-  const ramShare = totalRam > 0 ? ((total.ramBytes / totalRam) * 100).toFixed(1) : "0";
+  const ramShare = totalRam > 0 ? ((robloxTotal.ramBytes / totalRam) * 100).toFixed(1) : "0";
 
   const heldSet = new Set(throttle?.heldPids || []);
   const throttledSet = new Set(throttle?.throttledPids || []);
   const targetSet = new Set(throttle?.targetPids || []);
 
   function refreshThrottle() {
-    void callPy<ThrottleState>("get_throttle_state").then((t) => {
-      if (t) setData((d) => (d ? { ...d, throttle: t } : d));
+    void callPy<ThrottleState>("get_throttle_state").then((state) => {
+      if (state) setData((prev) => (prev ? { ...prev, throttle: state } : prev));
     });
   }
 
@@ -168,25 +180,25 @@ export function Performance() {
           <div className="perf-stat-top">
             <i className="fa-solid fa-cubes"></i> Roblox instances
           </div>
-          <div className="perf-stat-val">{total.count}</div>
+          <div className="perf-stat-val">{robloxTotal.count}</div>
           <div className="perf-stat-sub">
-            {total.count === 0
+            {robloxTotal.count === 0
               ? "none running"
-              : `${total.count} process${total.count === 1 ? "" : "es"}`}
+              : `${robloxTotal.count} process${robloxTotal.count === 1 ? "" : "es"}`}
           </div>
         </div>
         <div className="glass card perf-stat">
           <div className="perf-stat-top">
             <i className="fa-solid fa-memory"></i> Roblox total RAM
           </div>
-          <div className="perf-stat-val">{fmtBytes(total.ramBytes)}</div>
+          <div className="perf-stat-val">{fmtBytes(robloxTotal.ramBytes)}</div>
           <div className="perf-stat-sub">{`${ramShare}% of ${fmtBytes(totalRam)} system RAM`}</div>
         </div>
         <div className="glass card perf-stat">
           <div className="perf-stat-top">
             <i className="fa-solid fa-microchip"></i> Roblox total CPU
           </div>
-          <div className="perf-stat-val">{cpu(total.cpuPercent)}%</div>
+          <div className="perf-stat-val">{fmtCpu(robloxTotal.cpuPercent)}%</div>
           <div className="perf-stat-sub">{`across ${data?.ncores || "?"} cores`}</div>
         </div>
         <div className="glass card perf-stat macro">
@@ -194,7 +206,7 @@ export function Performance() {
             <i className="fa-solid fa-satellite-dish"></i> SolRich (macro)
           </div>
           <div className="perf-stat-val">{fmtBytes(macro.ramBytes)}</div>
-          <div className="perf-stat-sub">{cpu(macro.cpuPercent)}% CPU</div>
+          <div className="perf-stat-sub">{fmtCpu(macro.cpuPercent)}% CPU</div>
         </div>
       </div>
 
@@ -219,71 +231,71 @@ export function Performance() {
           </div>
         </div>
 
-        {trim && (
+        {trimResult && (
           <div className="perf-trim-result fx-beam" style={{ ["--fx-beam-r" as string]: "14px" }}>
             <div className="perf-trim-ico">
               <i className="fa-solid fa-broom"></i>
-              {particles.map((p) => (
+              {particles.map((particle) => (
                 <span
-                  key={p.id}
+                  key={particle.id}
                   className="perf-trim-p"
                   style={{
                     left: "50%", top: "50%",
-                    width: p.s, height: p.s, background: p.c,
-                    ["--dx" as string]: `${p.dx}px`, ["--dy" as string]: `${p.dy}px`,
+                    width: particle.s, height: particle.s, background: particle.c,
+                    ["--dx" as string]: `${particle.dx}px`, ["--dy" as string]: `${particle.dy}px`,
                   }}
                 ></span>
               ))}
             </div>
             <div className="perf-trim-meta">
               <span className="perf-trim-freed">
-                <CountUp from={0} value={Math.round((trim.freedBytes || 0) / 1048576)} /> MB freed
+                <CountUp from={0} value={Math.round((trimResult.freedBytes || 0) / 1048576)} /> MB freed
               </span>
               <span className="perf-trim-sub">
-                {trim.count} process{trim.count === 1 ? "" : "es"} trimmed system-wide
-                {trim.standbyPurged
+                {trimResult.count} process{trimResult.count === 1 ? "" : "es"} trimmed system-wide
+                {trimResult.standbyPurged
                   ? " · standby cache purged"
                   : " · run as admin to also purge the standby cache"}
-                {" · "}{fmtBytes(trim.availBefore || 0)} → {fmtBytes(trim.availAfter || 0)} free
+                {" · "}{fmtBytes(trimResult.availBefore || 0)} → {fmtBytes(trimResult.availAfter || 0)} free
               </span>
             </div>
-            <button className="perf-trim-close" title="Dismiss" onClick={() => setTrim(null)}>
+            <button className="perf-trim-close" title="Dismiss" onClick={() => setTrimResult(null)}>
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>
         )}
 
         <div className="perf-list">
-          {instances.map((inst) => {
-            const ramPct = totalRam > 0 ? Math.min(100, (inst.ramBytes / totalRam) * 100) : 0;
-            const cpuPct = Math.min(100, Number(inst.cpuPercent) || 0);
-            const tState = heldSet.has(inst.pid)
+          {instances.map((instance) => {
+            const ramPct = totalRam > 0 ? Math.min(100, (instance.ramBytes / totalRam) * 100) : 0;
+            const cpuPct = Math.min(100, Number(instance.cpuPercent) || 0);
+            const throttleTag = heldSet.has(instance.pid)
               ? "held"
-              : throttledSet.has(inst.pid)
+              : throttledSet.has(instance.pid)
                 ? "throttled"
-                : targetSet.has(inst.pid)
+                : targetSet.has(instance.pid)
                   ? "target"
                   : null;
             return (
-              <div className={`perf-row${inst.cpuPercent >= 35 ? " hot" : ""}`} key={inst.pid}>
+              <div className={`perf-row${instance.cpuPercent >= 35 ? " hot" : ""}`} key={instance.pid}>
                 <div className="perf-row-id">
                   <span className="perf-dot"></span>
-                  <span className="perf-name">{inst.name}</span>
-                  <span className="perf-pid">PID {inst.pid}</span>
-                  {tState === "held" && (
+                  <span className="perf-name">{instance.name}</span>
+                  <span className="perf-pid">PID {instance.pid}</span>
+                  {throttleTag === "held" && (
                     <span className="perf-thr-tag held"><i className="fa-solid fa-bolt" /> full speed</span>
                   )}
-                  {tState === "throttled" && (
+                  {throttleTag === "throttled" && (
                     <span className="perf-thr-tag throttled"><i className="fa-solid fa-gauge-low" /> throttled</span>
                   )}
-                  {tState === "target" && (
+                  {throttleTag === "target" && (
                     <span className="perf-thr-tag target"><i className="fa-solid fa-snowflake" /> throttling</span>
                   )}
                 </div>
                 <div className="perf-metric">
                   <div className="perf-metric-head">
                     <span>RAM</span>
-                    <span className="perf-ram-val">{fmtBytes(inst.ramBytes)}</span>
+                    <span className="perf-ram-val">{fmtBytes(instance.ramBytes)}</span>
                   </div>
                   <div className="perf-bar">
                     <i className="perf-ram-bar" style={{ width: `${ramPct}%` }}></i>
@@ -292,7 +304,7 @@ export function Performance() {
                 <div className="perf-metric">
                   <div className="perf-metric-head">
                     <span>CPU</span>
-                    <span className="perf-cpu-val">{cpu(inst.cpuPercent)}%</span>
+                    <span className="perf-cpu-val">{fmtCpu(instance.cpuPercent)}%</span>
                   </div>
                   <div className="perf-bar">
                     <i className="perf-cpu-bar" style={{ width: `${cpuPct}%` }}></i>
@@ -319,6 +331,8 @@ export function Performance() {
     </section>
   );
 }
+
+
 
 type Scope = "all" | "allExcept" | "onlyThese";
 
@@ -391,26 +405,26 @@ function ThrottlePanel(props: {
     ? (settings.throttleAccounts as number[])
     : [];
 
-  function setS(key: string, val: unknown) {
-    patchSettings({ [key]: val });
-    void callPy("set_setting", key, val).then(onChanged);
+  function setSetting(key: string, value: unknown) {
+    patchSettings({ [key]: value });
+    void callPy("set_setting", key, value).then(onChanged);
   }
 
   function toggleAccount(id: number) {
     const next = selected.includes(id)
-      ? selected.filter((x) => x !== id)
+      ? selected.filter((accId) => accId !== id)
       : [...selected, id];
-    setS("throttleAccounts", next);
+    setSetting("throttleAccounts", next);
   }
 
   const running = !!throttle?.running;
-  const enabledAccounts = (accounts || []).filter((a) => a.enabled !== false);
+  const enabledAccounts = (accounts || []).filter((account) => account.enabled !== false);
   const collapsed = settings.throttleCollapsed === true;
 
 
   return (
     <div className={`glass card panel thr-panel calib-panel${enabled ? " on" : ""}${collapsed ? " collapsed" : ""}`} data-reveal>
-      <div className="panel-head calib-toggle" onClick={() => setS("throttleCollapsed", !collapsed)}>
+      <div className="panel-head calib-toggle" onClick={() => setSetting("throttleCollapsed", !collapsed)}>
         <div className="panel-title">
           <i className="fa-solid fa-gauge-high"></i> Process Throttling
         </div>
@@ -418,7 +432,7 @@ function ThrottlePanel(props: {
           <div className="mb-acc-enable" onClick={(e) => e.stopPropagation()}>
             <span className="mb-enable-label">{enabled ? "Enabled" : "Disabled"}</span>
             <label className="switch" title={enabled ? "Disable throttling" : "Enable throttling"}>
-              <input type="checkbox" checked={enabled} onChange={(e) => setS("throttleEnabled", e.target.checked)} />
+              <input type="checkbox" checked={enabled} onChange={(e) => setSetting("throttleEnabled", e.target.checked)} />
               <span className="slider"></span>
             </label>
           </div>
@@ -448,15 +462,15 @@ function ThrottlePanel(props: {
       <div className="thr-section">
         <div className="thr-subhead"><i className="fa-solid fa-window-restore" /> Target windows</div>
         <div className="thr-scope" role="tablist">
-          {SCOPES.map((s) => (
+          {SCOPES.map((scopeOption) => (
             <button
-              key={s.id}
+              key={scopeOption.id}
               role="tab"
-              aria-selected={scope === s.id}
-              className={`thr-scope-opt${scope === s.id ? " on" : ""}`}
-              onClick={() => setS("throttleScope", s.id)}
+              aria-selected={scope === scopeOption.id}
+              className={`thr-scope-opt${scope === scopeOption.id ? " on" : ""}`}
+              onClick={() => setSetting("throttleScope", scopeOption.id)}
             >
-              <i className={`fa-solid ${s.icon}`} /> {s.label}
+              <i className={`fa-solid ${scopeOption.icon}`} /> {scopeOption.label}
             </button>
           ))}
         </div>
@@ -472,9 +486,9 @@ function ThrottlePanel(props: {
           <p className="thr-list-empty">No enabled accounts. Add and enable accounts in the Accounts tab first.</p>
         ) : (
           <div className="thr-acc-list">
-            {enabledAccounts.map((acc) => {
-              const bound = !!acc.window;
-              const inList = selected.includes(acc.id);
+            {enabledAccounts.map((account) => {
+              const bound = !!account.window;
+              const inList = selected.includes(account.id);
               const isThrottled = scope === "allExcept" ? !inList : inList;
               const label = scope === "allExcept"
                 ? (isThrottled ? "Throttled" : "Excepted")
@@ -483,30 +497,30 @@ function ThrottlePanel(props: {
                 ? (isThrottled ? "fa-gauge-low" : "fa-shield-halved")
                 : (isThrottled ? "fa-check" : "fa-plus");
               return (
-                <div className={`thr-acc${isThrottled ? " on" : ""}${bound ? "" : " unbound"}`} key={acc.id}>
+                <div className={`thr-acc${isThrottled ? " on" : ""}${bound ? "" : " unbound"}`} key={account.id}>
                   <img
                     className="thr-acc-avatar"
-                    src={acc.avatar || DEFAULT_AVATAR}
+                    src={account.avatar || DEFAULT_AVATAR}
                     alt=""
                     onError={(ev) => { (ev.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
                   />
                   <div className="thr-acc-meta">
-                    <span className="thr-acc-name">{acc.name}</span>
+                    <span className="thr-acc-name">{account.name}</span>
                     <span className={`thr-acc-state ${bound ? "ok" : "warn"}`}>
                       <i className={`fa-solid ${bound ? "fa-link" : "fa-link-slash"}`} />
-                      {bound ? acc.window : "no window"}
+                      {bound ? account.window : "no window"}
                     </span>
                   </div>
                   {bound ? (
                     <button
                       className={`thr-acc-toggle${isThrottled ? " on" : ""}`}
-                      onClick={() => toggleAccount(acc.id)}
+                      onClick={() => toggleAccount(account.id)}
                     >
                       <i className={`fa-solid ${icon}`} /> {label}
                     </button>
                   ) : (
                     <BindButton
-                      acc={acc}
+                      acc={account}
                       baseClass="thr-acc-bind"
                       activeClass="on"
                       labels={{ bind: "Bind Window", bound: "Bound", waiting: "Cancel" }}
@@ -533,12 +547,12 @@ function ThrottlePanel(props: {
             <button
               role="tab" aria-selected={method === "efficiency"}
               className={`thr-scope-opt${method === "efficiency" ? " on" : ""}`}
-              onClick={() => setS("throttleMethod", "efficiency")}
+              onClick={() => setSetting("throttleMethod", "efficiency")}
             ><i className="fa-solid fa-leaf" /> Efficiency</button>
             <button
               role="tab" aria-selected={method === "suspend"}
               className={`thr-scope-opt${method === "suspend" ? " on" : ""}`}
-              onClick={() => setS("throttleMethod", "suspend")}
+              onClick={() => setSetting("throttleMethod", "suspend")}
             ><i className="fa-solid fa-pause" /> Suspend</button>
           </div>
           <p className="thr-scope-hint">
@@ -558,7 +572,7 @@ function ThrottlePanel(props: {
                 desc="Lower = more aggressive. Throttled windows keep about this much CPU."
                 min={2} max={95} step={1} value={quota}
                 fmt={(x) => `${x}%`}
-                onCommit={(x) => setS("throttleQuota", x)}
+                onCommit={(value) => setSetting("throttleQuota", value)}
                 recommended={12}
               />
               <div className="afk-setting afk-setting-col">
@@ -576,7 +590,7 @@ function ThrottlePanel(props: {
                     <button
                       key={ms}
                       className={`thr-scope-opt${cycleMs === ms ? " on" : ""}${ms === 50 ? " thr-rec-opt" : ""}`}
-                      onClick={() => setS("throttleCycleMs", ms)}
+                      onClick={() => setSetting("throttleCycleMs", ms)}
                     >
                       {ms} ms
                     </button>
@@ -595,27 +609,27 @@ function ThrottlePanel(props: {
                 on={onlyWhenRunning} icon="fa-power-off"
                 title="Only while the macro is running"
                 desc="Throttling only kicks in once you start the macro (idle or auto mode). When the engine is stopped, every window runs full speed."
-                onToggle={() => setS("throttleOnlyWhenRunning", !onlyWhenRunning)}
+                onToggle={() => setSetting("throttleOnlyWhenRunning", !onlyWhenRunning)}
               />
               <ThrToggle
                 on={focusAware} icon="fa-bullseye"
                 title="Unthrottle the focused window"
                 desc="The window you click into runs full speed; the rest stay throttled."
-                onToggle={() => setS("throttleFocusAware", !focusAware)}
+                onToggle={() => setSetting("throttleFocusAware", !focusAware)}
               />
               {method === "suspend" && (
                 <ThrToggle
                   on={breathe} icon="fa-heart-pulse"
                   title="Disconnect protection (breathe)"
                   desc="Lets throttled windows run full speed for a moment every few seconds so Roblox's heartbeat survives. Prevents kicks at aggressive settings."
-                  onToggle={() => setS("throttleBreathe", !breathe)}
+                  onToggle={() => setSetting("throttleBreathe", !breathe)}
                 />
               )}
               <ThrToggle
                 on={ramCap} icon="fa-compress"
                 title="Hard RAM cap"
                 desc="Forces each throttled window under a fixed RAM ceiling instead of growing back. Strongest memory saving, but causes more paging. The focused window is uncapped."
-                onToggle={() => setS("throttleRamCap", !ramCap)}
+                onToggle={() => setSetting("throttleRamCap", !ramCap)}
               >
                 {ramCap && (
                   <div className="thr-cap-sub">
@@ -624,7 +638,7 @@ function ThrottlePanel(props: {
                       desc="Each throttled window is forced to stay under this much RAM."
                       min={150} max={2000} step={50} value={ramCapMb}
                       fmt={(x) => `${x} MB`}
-                      onCommit={(x) => setS("throttleRamCapMb", x)}
+                      onCommit={(value) => setSetting("throttleRamCapMb", value)}
                       recommended={400}
                     />
                   </div>

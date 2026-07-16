@@ -1,3 +1,5 @@
+
+
 import { useStore } from "../store";
 import { toggleMacro } from "../engine";
 import { computeSetupSteps } from "../readiness";
@@ -6,14 +8,17 @@ import { TesseractInstallButton } from "../components/TesseractInstallButton";
 import { useTutorial } from "../tutorial";
 import { TUTORIALS } from "../data/tutorials";
 import { callPy } from "../bridge";
-import { getMacroMode } from "../data/macroMode";
+import { getMacroAccounts, getMacroMode } from "../data/macroMode";
 
-function formatTime(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(h)}:${p(m)}:${p(sec % 60)}`;
+
+function formatTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(totalSeconds % 60)}`;
 }
+
+
 
 export function Home() {
   const running = useStore((s) => s.running);
@@ -29,20 +34,20 @@ export function Home() {
   const updateAvailable = isUpdateAvailable(useStore((s) => s.releases));
 
   const steps = computeSetupSteps({ accounts, webhooks, settings, automation, running, timeTracking });
-  const required = steps.filter((s) => !s.optional);
-  const doneCount = steps.filter((s) => s.done).length;
-  const setupComplete = required.every((s) => s.done);
+  const required = steps.filter((step) => !step.optional);
+  const doneCount = steps.filter((step) => step.done).length;
+  const setupComplete = required.every((step) => step.done);
   const hotkey = (settings.hotkey as string) || "F5";
   const moduleLabel = engineSignal?.module?.label;
 
   const macroMode = getMacroMode(settings);
-  const enabledAccounts = accounts.filter((a) => a.enabled !== false);
-  const apAccounts = (automation.autopop as { accounts?: Record<string, { enabled?: boolean }> } | undefined)?.accounts || {};
+  const enabledAccounts = getMacroAccounts(accounts, settings);
+  const autopopAccounts = (automation.autopop as { accounts?: Record<string, { enabled?: boolean }> } | undefined)?.accounts || {};
   const modCount = (key: string) =>
-    enabledAccounts.filter((a) => (a.modules as Record<string, boolean> | undefined)?.[key]).length;
-  const autopopCount = enabledAccounts.filter((a) => apAccounts[String(a.id)]?.enabled).length;
+    enabledAccounts.filter((account) => (account.modules as Record<string, boolean> | undefined)?.[key]).length;
+  const autopopCount = enabledAccounts.filter((account) => autopopAccounts[String(account.id)]?.enabled).length;
   const runningKey = running ? engineSignal?.module?.key : undefined;
-  const acctDetail = (c: number) => (c ? `${c} account${c === 1 ? "" : "s"}` : "Per account");
+  const acctDetail = (count: number) => (count ? `${count} account${count === 1 ? "" : "s"}` : "Per account");
 
   const moduleStats = [
     { key: "biomeLogging", name: "Biome Logging", icon: "fa-satellite-dish", active: true, scope: "Global", detail: "Always on" },
@@ -53,10 +58,10 @@ export function Home() {
       { key: "biomeRandomizer", name: "Biome Randomizer", icon: "fa-shuffle" },
       { key: "merchantTeleporter", name: "Merchant Detection", icon: "fa-store" },
       { key: "fishing", name: "Fishing", icon: "fa-fish" },
-    ].map((m) => { const c = modCount(m.key); return { ...m, active: c > 0, scope: "Automation", detail: acctDetail(c) }; }),
+    ].map((mod) => { const count = modCount(mod.key); return { ...mod, active: count > 0, scope: "Automation", detail: acctDetail(count) }; }),
     { key: "autopop", name: "Auto Pop", icon: "fa-wand-magic-sparkles", active: autopopCount > 0, scope: "Automation", detail: acctDetail(autopopCount) },
   ];
-  const activeModCount = moduleStats.filter((m) => m.active).length;
+  const activeModCount = moduleStats.filter((mod) => mod.active).length;
 
   return (
     <section className="tab active-tab" id="home">
@@ -159,22 +164,22 @@ export function Home() {
           </div>
         </div>
         <div className="home-mod-grid">
-          {moduleStats.map((m) => {
-            const isRunning = runningKey === m.key;
+          {moduleStats.map((mod) => {
+            const isRunning = runningKey === mod.key;
             return (
               <button
-                key={m.key}
-                className={`home-mod-card${m.active ? " active" : ""}${isRunning ? " running" : ""}`}
+                key={mod.key}
+                className={`home-mod-card${mod.active ? " active" : ""}${isRunning ? " running" : ""}`}
                 onClick={() => setCurrentTab("modules")}
                 title="Open the Macro tab to configure"
               >
-                <span className="hmc-icon"><i className={`fa-solid ${m.icon}`}></i></span>
+                <span className="hmc-icon"><i className={`fa-solid ${mod.icon}`}></i></span>
                 <span className="hmc-body">
-                  <span className="hmc-name">{m.name}</span>
-                  <span className="hmc-detail">{m.scope} · {m.detail}</span>
+                  <span className="hmc-name">{mod.name}</span>
+                  <span className="hmc-detail">{mod.scope} · {mod.detail}</span>
                 </span>
-                <span className={`hmc-status${isRunning ? " running" : m.active ? " on" : ""}`}>
-                  {isRunning ? "Running" : m.active ? "Active" : "Off"}
+                <span className={`hmc-status${isRunning ? " running" : mod.active ? " on" : ""}`}>
+                  {isRunning ? "Running" : mod.active ? "Active" : "Off"}
                 </span>
               </button>
             );

@@ -3,6 +3,8 @@
 import time
 import threading
 
+from . import activity_log
+
 _lock = threading.Lock()
 
 _event = None
@@ -15,6 +17,7 @@ def push_event(text, kind="info", ttl=2.0):
     global _event, _event_seq
     if not text:
         return
+    activity_log.push(text, kind=kind)
     with _lock:
         _event_seq += 1
         _event = {

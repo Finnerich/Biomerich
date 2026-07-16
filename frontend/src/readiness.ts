@@ -68,6 +68,7 @@ export function computeSetupSteps(s: StoreSlice): SetupStep[] {
 export function tabForStartError(error: string): { tab: string; label: string } | null {
   const e = error.toLowerCase();
   if (e.includes("calibration") || e.includes("contract region")) return { tab: "calibration", label: "Open Calibration" };
+  if (e.includes("bind") && e.includes("window")) return { tab: "modules", label: "Bind Windows" };
   if (e.includes("window")) return { tab: "accounts", label: "Open Accounts" };
   if (e.includes("webhook")) return { tab: "webhooks", label: "Open Webhooks" };
   if (e.includes("account") || e.includes("server link")) return { tab: "accounts", label: "Open Accounts" };

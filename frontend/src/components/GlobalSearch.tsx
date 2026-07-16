@@ -10,24 +10,24 @@ export function GlobalSearch() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const s = useSearch.getState();
+      const search = useSearch.getState();
       if (e.ctrlKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        s.open ? s.closeSearch() : s.openSearch();
+        search.open ? search.closeSearch() : search.openSearch();
         return;
       }
-      if (!s.open) return;
+      if (!search.open) return;
       if (e.key === "Escape") {
-        s.closeSearch();
+        search.closeSearch();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        s.move(1);
+        search.move(1);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        s.move(-1);
+        search.move(-1);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        s.pick();
+        search.pick();
       }
     };
     document.addEventListener("keydown", handler);
@@ -60,17 +60,17 @@ export function GlobalSearch() {
         </div>
         {results.length > 0 ? (
           <div className="search-results">
-            {results.map((r, i) => (
+            {results.map((result, i) => (
               <div
                 className={`sr-item ${i === idx ? "focused" : ""}`}
                 key={i}
                 onMouseDown={() => useSearch.getState().pick(i)}
                 onMouseOver={() => useSearch.getState().setIdx(i)}
               >
-                <span className="sr-ico"><i className={`fa-solid ${r.icon}`}></i></span>
+                <span className="sr-ico"><i className={`fa-solid ${result.icon}`}></i></span>
                 <span className="sr-body">
-                  <span className="sr-label">{r.label}</span>
-                  <span className="sr-sub">{r.sub}</span>
+                  <span className="sr-label">{result.label}</span>
+                  <span className="sr-sub">{result.sub}</span>
                 </span>
                 <kbd className="sr-enter" style={{ opacity: i === idx ? 1 : 0 }}>↵</kbd>
               </div>

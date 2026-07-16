@@ -807,6 +807,14 @@ input:checked + .slider::before {
     flex-shrink: 0;
 }
 
+
+body.locked .afk-range.dim-range {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    opacity: 1;
+    filter: none;
+}
+
 body.locked #antiAfkToggle { pointer-events: none; }
 body.locked #antiAfkToggle + .slider { opacity: 0.5; cursor: not-allowed; }
 

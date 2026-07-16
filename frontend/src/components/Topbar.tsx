@@ -1,19 +1,36 @@
 import { useStore } from "../store";
 import { setMode, toggleMacro } from "../engine";
 import { EngineModule } from "./EngineModule";
+import { MacroModeToggle } from "./MacroModeToggle";
 import { StreakPill } from "./StreakPill";
 
 function formatTime(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(h)}:${p(m)}:${p(s)}`;
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+
+
+function SessionClock() {
+  const running = useStore((s) => s.running);
+  const uptime = useStore((s) => s.uptime);
+  return (
+    <div className={`topbar-time${running ? " live" : ""}`} title="Current session uptime">
+      {running ? (
+        <span className="time-live-dot" aria-hidden="true"></span>
+      ) : (
+        <i className="fa-solid fa-stopwatch topbar-time-icon"></i>
+      )}
+      <span className="time-value">{formatTime(uptime)}</span>
+    </div>
+  );
 }
 
 export function Topbar() {
   const running = useStore((s) => s.running);
-  const uptime = useStore((s) => s.uptime);
   const settings = useStore((s) => s.settings);
   const automation = useStore((s) => s.automation);
 
@@ -62,6 +79,7 @@ export function Topbar() {
             <span>Eden</span>
           </button>
         </div>
+        <MacroModeToggle id="macroModeToggle" className="topbar-macro-mode" />
         {modeHotkey !== "none" && <span className="mode-hotkey-badge visible">{modeHotkey}</span>}
       </div>
 
@@ -69,14 +87,7 @@ export function Topbar() {
 
       <div className="topbar-right">
         <StreakPill />
-        <div className={`topbar-time${running ? " live" : ""}`} title="Current session uptime">
-          {running ? (
-            <span className="time-live-dot" aria-hidden="true"></span>
-          ) : (
-            <i className="fa-solid fa-stopwatch topbar-time-icon"></i>
-          )}
-          <span className="time-value">{formatTime(uptime)}</span>
-        </div>
+        <SessionClock />
       </div>
     </div>
   );

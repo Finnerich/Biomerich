@@ -78,7 +78,7 @@ function send(obj: unknown): void {
   else queue.push(msg);
 }
 
-export function callPy<T = unknown>(name: string, ...args: unknown[]): Promise<T> {
+export function callPyWithTimeout<T = unknown>(timeoutMs: number, name: string, ...args: unknown[]): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const id = ++seq;
     pending[id] = { resolve: resolve as (v: unknown) => void, reject };
@@ -88,8 +88,12 @@ export function callPy<T = unknown>(name: string, ...args: unknown[]): Promise<T
         delete pending[id];
         reject(new Error(`RPC timeout: ${name}`));
       }
-    }, 30000);
+    }, Math.max(1000, timeoutMs));
   });
+}
+
+export function callPy<T = unknown>(name: string, ...args: unknown[]): Promise<T> {
+  return callPyWithTimeout<T>(30000, name, ...args);
 }
 
 export function expose(fn: ExposedFn, name?: string): void {

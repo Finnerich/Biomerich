@@ -8,35 +8,35 @@ interface ScaleEntry { scale: string; modes: ModeEntry[] }
 interface ResEntry { value: string; label: string; w: number; h: number; scales: ScaleEntry[]; looseName?: string }
 
 const LOOSE_PREFIX = "loose:";
-const modeLabel = (m: string) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
-const scaleNum = (s: string) => parseInt(s, 10) || 0;
+const modeLabel = (mode: string) => mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+const scaleNum = (scale: string) => parseInt(scale, 10) || 0;
 
 function buildTree(names: string[]): ResEntry[] {
   const byRes = new Map<string, { tag: string; w: number; h: number; scales: Map<string, Map<string, string>> }>();
   const loose: ResEntry[] = [];
 
   for (const name of names) {
-    const m = PRESET_RE.exec(name.trim());
-    if (!m) {
+    const match = PRESET_RE.exec(name.trim());
+    if (!match) {
       loose.push({ value: LOOSE_PREFIX + name, label: name, w: 0, h: 0, scales: [], looseName: name });
       continue;
     }
-    const [, tag, modeRaw, wStr, hStr, scale] = m;
-    const res = `${wStr}x${hStr}`;
-    let r = byRes.get(res);
-    if (!r) { r = { tag, w: +wStr, h: +hStr, scales: new Map() }; byRes.set(res, r); }
-    let s = r.scales.get(scale);
-    if (!s) { s = new Map(); r.scales.set(scale, s); }
-    s.set(modeRaw.toUpperCase(), name);
+    const [, tag, modeRaw, widthStr, heightStr, scale] = match;
+    const resKey = `${widthStr}x${heightStr}`;
+    let resGroup = byRes.get(resKey);
+    if (!resGroup) { resGroup = { tag, w: +widthStr, h: +heightStr, scales: new Map() }; byRes.set(resKey, resGroup); }
+    let modeMap = resGroup.scales.get(scale);
+    if (!modeMap) { modeMap = new Map(); resGroup.scales.set(scale, modeMap); }
+    modeMap.set(modeRaw.toUpperCase(), name);
   }
 
   const modeOrder = (mode: string) => (mode === "WINDOWED" ? 0 : mode === "FULLSCREEN" ? 1 : 2);
-  const resolutions: ResEntry[] = [...byRes.entries()].map(([res, r]) => ({
-    value: res,
-    label: r.tag ? `${r.w} × ${r.h} · ${r.tag}` : `${r.w} × ${r.h}`,
-    w: r.w,
-    h: r.h,
-    scales: [...r.scales.entries()]
+  const resolutions: ResEntry[] = [...byRes.entries()].map(([resKey, group]) => ({
+    value: resKey,
+    label: group.tag ? `${group.w} × ${group.h} · ${group.tag}` : `${group.w} × ${group.h}`,
+    w: group.w,
+    h: group.h,
+    scales: [...group.scales.entries()]
       .sort((a, b) => scaleNum(a[0]) - scaleNum(b[0]))
       .map(([scale, modes]) => ({
         scale,
@@ -82,15 +82,15 @@ export function PresetPicker({
       return;
     }
     const scales = resEntry?.scales ?? [];
-    let s = scale;
-    if (!scales.some((x) => x.scale === s)) {
-      s = scales.length === 1 ? scales[0].scale : "";
-      if (s !== scale) { setScale(s); return; }
+    let nextScale = scale;
+    if (!scales.some((x) => x.scale === nextScale)) {
+      nextScale = scales.length === 1 ? scales[0].scale : "";
+      if (nextScale !== scale) { setScale(nextScale); return; }
     }
-    const modes = scales.find((x) => x.scale === s)?.modes ?? [];
+    const modes = scales.find((x) => x.scale === nextScale)?.modes ?? [];
     if (!modes.some((x) => x.mode === mode)) {
-      const m = modes.length === 1 ? modes[0].mode : "";
-      if (m !== mode) setMode(m);
+      const nextMode = modes.length === 1 ? modes[0].mode : "";
+      if (nextMode !== mode) setMode(nextMode);
     }
   }, [resolutions, res, scale, mode, isLoose, resEntry]);
 

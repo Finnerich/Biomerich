@@ -14,43 +14,43 @@ const TT_MODULES = [
 
 function fmtDuration(sec: number): string {
   sec = Math.max(0, Math.floor(sec || 0));
-  const d = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400) / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }
 function fmtSinceDate(iso?: string): string {
   if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 const TT_COLLAPSE_KEY = "ttPanelCollapsed";
 
 export function TimeTrackingPanel() {
   const running = useStore((s) => s.running);
-  const tt: TimeTracking = useStore((s) => s.timeTracking) || {};
+  const tracking: TimeTracking = useStore((s) => s.timeTracking) || {};
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(TT_COLLAPSE_KEY) !== "0");
 
   function toggleCollapsed() {
-    setCollapsed((c) => {
-      localStorage.setItem(TT_COLLAPSE_KEY, c ? "0" : "1");
-      return !c;
+    setCollapsed((wasCollapsed) => {
+      localStorage.setItem(TT_COLLAPSE_KEY, wasCollapsed ? "0" : "1");
+      return !wasCollapsed;
     });
   }
 
-  const idle = Number(tt.idle) || 0;
-  const auto = Number(tt.automation) || 0;
-  const modeMax = Math.max(idle, auto, 1);
-  const mods = tt.modules || {};
-  const activeMods = tt.activeModules || [];
-  const modMax = Math.max(1, ...TT_MODULES.map((m) => Number(mods[m.key]) || 0));
-  const activeMode = tt.activeMode || "";
+  const idleTime = Number(tracking.idle) || 0;
+  const automationTime = Number(tracking.automation) || 0;
+  const modeMax = Math.max(idleTime, automationTime, 1);
+  const moduleTimes = tracking.modules || {};
+  const activeModules = tracking.activeModules || [];
+  const moduleMax = Math.max(1, ...TT_MODULES.map((m) => Number(moduleTimes[m.key]) || 0));
+  const activeMode = tracking.activeMode || "";
 
   return (
     <div className="glass card panel tt-panel" data-reveal>
@@ -64,12 +64,12 @@ export function TimeTrackingPanel() {
       <div className="tt-hero">
         <div className="tt-hero-main">
           <span className="tt-hero-cap">Lifetime engine time</span>
-          <span className="tt-hero-val">{fmtDuration(Number(tt.totalEngine) || 0)}</span>
+          <span className="tt-hero-val">{fmtDuration(Number(tracking.totalEngine) || 0)}</span>
         </div>
         <div className="tt-hero-meta">
-          <span className="tt-meta-item"><i className="fa-solid fa-play"></i> <b>{(Number(tt.sessions) || 0).toLocaleString("en-US")}</b> sessions</span>
-          <span className="tt-meta-item"><i className="fa-solid fa-trophy"></i> <b>{fmtDuration(Number(tt.longestSession) || 0)}</b> longest</span>
-          <span className="tt-meta-item"><i className="fa-solid fa-calendar-day"></i> since <b>{fmtSinceDate(tt.firstStart)}</b></span>
+          <span className="tt-meta-item"><i className="fa-solid fa-play"></i> <b>{(Number(tracking.sessions) || 0).toLocaleString("en-US")}</b> sessions</span>
+          <span className="tt-meta-item"><i className="fa-solid fa-trophy"></i> <b>{fmtDuration(Number(tracking.longestSession) || 0)}</b> longest</span>
+          <span className="tt-meta-item"><i className="fa-solid fa-calendar-day"></i> since <b>{fmtSinceDate(tracking.firstStart)}</b></span>
         </div>
       </div>
 
@@ -77,27 +77,27 @@ export function TimeTrackingPanel() {
       <div className="tt-split">
         <div className={`tt-mode idle${running && activeMode === "idle" ? " live" : ""}`}>
           <div className="tt-mode-top"><span className="tt-mode-dot"></span><i className="fa-solid fa-moon"></i> Idle mode</div>
-          <span className="tt-mode-val">{fmtDuration(idle)}</span>
-          <div className="tt-mode-bar"><i style={{ width: `${(idle / modeMax) * 100}%` }}></i></div>
+          <span className="tt-mode-val">{fmtDuration(idleTime)}</span>
+          <div className="tt-mode-bar"><i style={{ width: `${(idleTime / modeMax) * 100}%` }}></i></div>
         </div>
         <div className={`tt-mode auto${running && activeMode === "automation" ? " live" : ""}`}>
           <div className="tt-mode-top"><span className="tt-mode-dot"></span><i className="fa-solid fa-robot"></i> Automation mode</div>
-          <span className="tt-mode-val">{fmtDuration(auto)}</span>
-          <div className="tt-mode-bar"><i style={{ width: `${(auto / modeMax) * 100}%` }}></i></div>
+          <span className="tt-mode-val">{fmtDuration(automationTime)}</span>
+          <div className="tt-mode-bar"><i style={{ width: `${(automationTime / modeMax) * 100}%` }}></i></div>
         </div>
       </div>
 
       <div className="tt-mod-head"><i className="fa-solid fa-layer-group"></i> Time per module</div>
       <div className="tt-mods">
-        {TT_MODULES.map((m) => {
-          const val = Number(mods[m.key]) || 0;
-          const pct = Math.max(val > 0 ? 3 : 0, (val / modMax) * 100);
-          const live = running && activeMods.includes(m.key);
+        {TT_MODULES.map((mod) => {
+          const val = Number(moduleTimes[mod.key]) || 0;
+          const pct = Math.max(val > 0 ? 3 : 0, (val / moduleMax) * 100);
+          const live = running && activeModules.includes(mod.key);
           return (
-            <div className={`tt-mod ${live ? "live" : ""} ${val > 0 ? "has" : "empty"}`} key={m.key}>
-              <span className="tt-mod-ico"><i className={`fa-solid ${m.icon}`}></i></span>
+            <div className={`tt-mod ${live ? "live" : ""} ${val > 0 ? "has" : "empty"}`} key={mod.key}>
+              <span className="tt-mod-ico"><i className={`fa-solid ${mod.icon}`}></i></span>
               <span className="tt-mod-name">
-                {m.name}
+                {mod.name}
                 {live && <span className="tt-mod-live"><span className="dot running"></span>live</span>}
               </span>
               <span className="tt-mod-bar"><i style={{ width: `${pct}%` }}></i></span>

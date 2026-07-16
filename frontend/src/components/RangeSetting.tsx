@@ -14,20 +14,20 @@ export function RangeSetting(props: {
 }) {
   const { name, desc, min, max, step, value, onCommit, fmt, disabled, recommended } = props;
   const clamp = (v: number) => Math.max(min, Math.min(max, Math.round((v || min) / step) * step));
-  const [v, setV] = useState(clamp(value));
-  useEffect(() => setV(clamp(value)), [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pct = ((v - min) / (max - min)) * 100;
-  const fmtv = fmt ?? ((n: number) => String(n));
+  const [sliderValue, setSliderValue] = useState(clamp(value));
+  useEffect(() => setSliderValue(clamp(value)), [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pct = ((sliderValue - min) / (max - min)) * 100;
+  const formatValue = fmt ?? ((n: number) => String(n));
   const recPct = recommended != null ? ((clamp(recommended) - min) / (max - min)) * 100 : null;
-  const atRec = recommended != null && v === clamp(recommended);
+  const atRec = recommended != null && sliderValue === clamp(recommended);
   const commit = (raw: string) => onCommit(clamp(parseInt(raw, 10)));
 
   const inputEl = (
     <input
       type="range" className="afk-range" min={min} max={max} step={step} disabled={disabled}
-      value={v}
+      value={sliderValue}
       style={{ backgroundSize: `${pct}% 100%` }}
-      onChange={(e) => setV(clamp(parseInt(e.target.value, 10)))}
+      onChange={(e) => setSliderValue(clamp(parseInt(e.target.value, 10)))}
       onPointerUp={(e) => commit((e.target as HTMLInputElement).value)}
       onKeyUp={(e) => commit((e.target as HTMLInputElement).value)}
     />
@@ -40,7 +40,7 @@ export function RangeSetting(props: {
           {name}
           {recommended != null && (
             <span className={`thr-rec-chip${atRec ? " on" : ""}`}>
-              <i className="fa-solid fa-wand-magic-sparkles" /> Recommended {fmtv(clamp(recommended))}
+              <i className="fa-solid fa-wand-magic-sparkles" /> Recommended {formatValue(clamp(recommended))}
             </span>
           )}
         </span>
@@ -51,11 +51,11 @@ export function RangeSetting(props: {
           <div className="thr-slider-wrap">
             {inputEl}
             {recPct != null && (
-              <span className="thr-rec-tick" style={{ left: `${recPct}%` }} title={`Recommended: ${fmtv(clamp(recommended!))}`} />
+              <span className="thr-rec-tick" style={{ left: `${recPct}%` }} title={`Recommended: ${formatValue(clamp(recommended!))}`} />
             )}
           </div>
         ) : inputEl}
-        <span className="afk-interval-value">{fmtv(v)}</span>
+        <span className="afk-interval-value">{formatValue(sliderValue)}</span>
       </div>
     </div>
   );

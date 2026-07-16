@@ -37,13 +37,13 @@ export function Creator() {
           <span className="badge badge-soft">huge credit</span>
         </div>
         <div className="credits-macros">
-          {MACRO_CREDITS.map((m) => (
-            <div className="credit-macro gold-stroke" key={m.name}>
-              <div className="cm-ico"><i className={`fa-solid ${m.icon}`}></i></div>
+          {MACRO_CREDITS.map((macro) => (
+            <div className="credit-macro gold-stroke" key={macro.name}>
+              <div className="cm-ico"><i className={`fa-solid ${macro.icon}`}></i></div>
               <div className="cm-meta">
-                <span className="cm-name">{m.name}</span>
+                <span className="cm-name">{macro.name}</span>
               </div>
-              <button className="cm-gh" onClick={() => void callPy("open_url", m.repo)}>
+              <button className="cm-gh" onClick={() => void callPy("open_url", macro.repo)}>
                 <i className="fa-brands fa-github"></i> GitHub
               </button>
             </div>
@@ -72,10 +72,10 @@ export function Creator() {
           <span className="badge badge-soft">{TESTERS.length} sigmas</span>
         </div>
         <div className="credits-testers">
-          {TESTERS.map((t) => (
-            <div className="credit-tester" key={t}>
+          {TESTERS.map((tester) => (
+            <div className="credit-tester" key={tester}>
               <i className="fa-brands fa-discord"></i>
-              <span>@{t}</span>
+              <span>@{tester}</span>
             </div>
           ))}
         </div>

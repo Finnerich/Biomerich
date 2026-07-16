@@ -8,33 +8,33 @@ function parseInline(text: string): ReactNode[] {
   let rest = text;
   let key = 0;
   while (rest) {
-    const m = INLINE.exec(rest);
-    if (!m) {
+    const match = INLINE.exec(rest);
+    if (!match) {
       out.push(rest);
       break;
     }
-    if (m.index > 0) out.push(rest.slice(0, m.index));
-    const tok = m[0];
-    if (tok.startsWith("`")) {
-      out.push(<code key={key++}>{tok.slice(1, -1)}</code>);
-    } else if (tok.startsWith("**")) {
-      out.push(<strong key={key++}>{tok.slice(2, -2)}</strong>);
-    } else if (tok.startsWith("*")) {
-      out.push(<em key={key++}>{tok.slice(1, -1)}</em>);
+    if (match.index > 0) out.push(rest.slice(0, match.index));
+    const token = match[0];
+    if (token.startsWith("`")) {
+      out.push(<code key={key++}>{token.slice(1, -1)}</code>);
+    } else if (token.startsWith("**")) {
+      out.push(<strong key={key++}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("*")) {
+      out.push(<em key={key++}>{token.slice(1, -1)}</em>);
     } else {
-      const lm = tok.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
-      if (lm) {
-        const url = lm[2];
+      const linkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+      if (linkMatch) {
+        const url = linkMatch[2];
         out.push(
           <a key={key++} className="patch-link" onClick={() => void callPy("open_url", url)}>
-            {lm[1]}
+            {linkMatch[1]}
           </a>,
         );
       } else {
-        out.push(tok);
+        out.push(token);
       }
     }
-    rest = rest.slice(m.index + tok.length);
+    rest = rest.slice(match.index + token.length);
   }
   return out;
 }
@@ -62,20 +62,20 @@ export function renderMarkdown(md: string | undefined): ReactNode {
       flushList();
       return;
     }
-    let m: RegExpMatchArray | null;
-    if ((m = line.match(/^(#{1,4})\s+(.*)$/))) {
+    let match: RegExpMatchArray | null;
+    if ((match = line.match(/^(#{1,4})\s+(.*)$/))) {
       flushList();
-      const lvl = m[1].length;
+      const level = match[1].length;
       blocks.push(
-        <div className={`patch-h patch-h${lvl}`} key={key++}>
-          {parseInline(m[2])}
+        <div className={`patch-h patch-h${level}`} key={key++}>
+          {parseInline(match[2])}
         </div>,
       );
       return;
     }
-    if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+    if ((match = line.match(/^\s*[-*]\s+(.*)$/))) {
       if (!listItems) listItems = [];
-      listItems.push(<li key={listItems.length}>{parseInline(m[1])}</li>);
+      listItems.push(<li key={listItems.length}>{parseInline(match[1])}</li>);
       return;
     }
     flushList();

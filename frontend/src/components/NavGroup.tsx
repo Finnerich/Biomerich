@@ -10,10 +10,10 @@ interface Props {
 }
 
 export function spotlightMove(e: ReactMouseEvent<HTMLElement>) {
-  const el = e.currentTarget;
-  const r = el.getBoundingClientRect();
-  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-  el.style.setProperty("--my", `${e.clientY - r.top}px`);
+  const element = e.currentTarget;
+  const rect = element.getBoundingClientRect();
+  element.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+  element.style.setProperty("--my", `${e.clientY - rect.top}px`);
 }
 
 export function NavGroup({ group, collapsed, onToggleCollapse }: Props) {
@@ -21,7 +21,7 @@ export function NavGroup({ group, collapsed, onToggleCollapse }: Props) {
   const setCurrentTab = useStore((s) => s.setCurrentTab);
   const updateAvailable = isUpdateAvailable(useStore((s) => s.releases));
 
-  const activeInGroup = group.items.some((i) => i.tab === currentTab);
+  const activeInGroup = group.items.some((item) => item.tab === currentTab);
 
   return (
     <div className={`nav-group${collapsed ? " collapsed" : ""}`} data-group={group.id}>

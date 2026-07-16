@@ -22,16 +22,16 @@ export function TooltipLayer() {
 
     function onOver(e: MouseEvent) {
       const target = e.target as Element | null;
-      const el = target && target.closest ? target.closest("[title]") : null;
-      if (!el) return;
-      if (el.closest(".sidebar.is-rail")) return;
-      const title = el.getAttribute("title");
+      const titledEl = target && target.closest ? target.closest("[title]") : null;
+      if (!titledEl) return;
+      if (titledEl.closest(".sidebar.is-rail")) return;
+      const title = titledEl.getAttribute("title");
       if (!title || !title.trim()) return;
-      if (heldRef.current?.el === el) return;
+      if (heldRef.current?.el === titledEl) return;
       restore();
-      heldRef.current = { el, title };
-      el.setAttribute("title", "");
-      setTip({ text: title, rect: el.getBoundingClientRect() });
+      heldRef.current = { el: titledEl, title };
+      titledEl.setAttribute("title", "");
+      setTip({ text: title, rect: titledEl.getBoundingClientRect() });
     }
     function onOut(e: MouseEvent) {
       const held = heldRef.current;
@@ -57,21 +57,21 @@ export function TooltipLayer() {
   }, []);
 
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!tip || !el) return;
+    const tipEl = ref.current;
+    if (!tip || !tipEl) return;
     const margin = 8, gap = 9;
-    const tw = el.offsetWidth, th = el.offsetHeight;
-    const r = tip.rect;
-    let top = r.top - th - gap;
+    const tipWidth = tipEl.offsetWidth, tipHeight = tipEl.offsetHeight;
+    const anchor = tip.rect;
+    let top = anchor.top - tipHeight - gap;
     let arrow = "bottom";
-    if (top < margin) { top = r.bottom + gap; arrow = "top"; }
-    let left = r.left + r.width / 2 - tw / 2;
-    left = Math.min(Math.max(margin, left), window.innerWidth - tw - margin);
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
-    el.dataset.arrow = arrow;
-    el.style.setProperty("--tip-arrow-x", `${Math.min(Math.max(12, r.left + r.width / 2 - left), tw - 12)}px`);
-    el.style.opacity = "1";
+    if (top < margin) { top = anchor.bottom + gap; arrow = "top"; }
+    let left = anchor.left + anchor.width / 2 - tipWidth / 2;
+    left = Math.min(Math.max(margin, left), window.innerWidth - tipWidth - margin);
+    tipEl.style.left = `${left}px`;
+    tipEl.style.top = `${top}px`;
+    tipEl.dataset.arrow = arrow;
+    tipEl.style.setProperty("--tip-arrow-x", `${Math.min(Math.max(12, anchor.left + anchor.width / 2 - left), tipWidth - 12)}px`);
+    tipEl.style.opacity = "1";
   }, [tip]);
 
   if (!tip) return null;

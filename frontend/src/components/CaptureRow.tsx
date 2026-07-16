@@ -16,13 +16,27 @@ export function CaptureRow({ label, coord, isSet, region, disabled, onCapture }:
   async function run() {
     if (disabled || status === "listening") return;
     setStatus("listening");
-    const res = await onCapture();
-    if (res && res.ok) {
+    let result: { ok?: boolean; error?: string } | null;
+    try {
+      result = await onCapture();
+    } catch {
+      result = { ok: false, error: "connection_failed" };
+    }
+    if (result && result.ok) {
       setStatus("idle");
       return;
     }
-    const timeout = res?.error === "timeout";
-    setFailText(timeout ? (region ? "No clicks detected" : "No click detected") : "Failed");
+    const timedOut = result?.error === "timeout";
+    const robloxMissing = result?.error === "roblox_not_found";
+    setFailText(
+      robloxMissing
+        ? "Roblox not found"
+        : timedOut
+          ? region
+            ? "No clicks detected"
+            : "No click detected"
+          : "Failed",
+    );
     setStatus("failed");
     setTimeout(() => {
       setStatus("idle");

@@ -16,16 +16,16 @@ export function CountUp({ value, from: fromProp, format }: { value: number; from
     }
     const from = shownRef.current;
     if (from === value) return;
-    const t0 = performance.now();
-    const dur = 900;
+    const start = performance.now();
+    const duration = 900;
     let raf = 0;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / dur);
-      const eased = 1 - Math.pow(2, -10 * p);
-      const v = Math.round(from + (value - from) * eased);
-      shownRef.current = v;
-      setShown(v);
-      if (p < 1) raf = requestAnimationFrame(tick);
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(2, -10 * progress);
+      const current = Math.round(from + (value - from) * eased);
+      shownRef.current = current;
+      setShown(current);
+      if (progress < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

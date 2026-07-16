@@ -12,5 +12,7 @@ web-react-dist/
 *.apk
 .vscode/
 build.bat
+version_info.txt
 release_hook.py
-dist/
+gen_version_info.py
+_release_runtime_test/

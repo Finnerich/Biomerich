@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { callPy } from "../bridge";
@@ -6,7 +14,6 @@ import { CustomSelect } from "../components/CustomSelect";
 import { ModuleDrawer } from "../components/ModuleDrawer";
 import { BiomePingSettings } from "../components/BiomePingSettings";
 import { TesseractInstallButton } from "../components/TesseractInstallButton";
-import { MacroModeToggle } from "../components/MacroModeToggle";
 import { Modal } from "../components/Modal";
 import { MerchantItemSelect } from "../components/MerchantItemSelect";
 import { PotionSelect } from "../components/PotionSelect";
@@ -32,6 +39,8 @@ import {
   isRegion,
 } from "./moduleBuilder/parts";
 
+
+
 interface WebhookLite { url?: string; active?: boolean; routedAccounts?: unknown[] }
 
 type ModKey =
@@ -40,7 +49,7 @@ type ModKey =
   | "merchantTeleporter"
   ;
 type DrawerKind = ModKey | "merchant" | "aura" | "antiafk" | "autopop" | "fishing" | "biomelog" | "ramtrim" | "misc" | null;
-type AbModal = { mid: AutobuyMerchant; title: string; items: { name: string; amount?: number; all?: boolean }[] } | null;
+type AutobuyModalState = { mid: AutobuyMerchant; title: string; items: { name: string; amount?: number; all?: boolean }[] } | null;
 
 interface ModuleDef { key: ModKey; name: string; desc: string; icon: string; drawer: DrawerKind; lock: keyof Locks; beta?: boolean }
 interface Locks { item: string | null; merchant: string | null; aura: string | null; autopop: string | null; fishing: string | null }
@@ -50,6 +59,8 @@ const MODULES: ModuleDef[] = [
   { key: "biomeRandomizer", name: "Biome Randomizer", desc: "Use Biome Randomizers automatically to shuffle the biome.", icon: "fa-shuffle", drawer: "biomeRandomizer", lock: "item" },
   { key: "merchantTeleporter", name: "Merchant Detection", desc: "Teleport to merchants, read who arrived, and optionally auto-buy.", icon: "fa-store", drawer: "merchant", lock: "merchant" },
 ];
+
+
 
 export function NormalMode() {
   const running = useStore((s) => s.running);
@@ -64,14 +75,14 @@ export function NormalMode() {
   const patchSettings = useStore((s) => s.patchSettings);
 
   const [drawer, setDrawer] = useState<DrawerKind>(null);
-  const [abModal, setAbModal] = useState<AbModal>(null);
-  const [apModal, setApModal] = useState<ApModal>(null);
-  const [apBiomeKeys, setApBiomeKeys] = useState<string[]>([]);
-  const [apUnknownKeys, setApUnknownKeys] = useState<string[]>([]);
+  const [autobuyModal, setAutobuyModal] = useState<AutobuyModalState>(null);
+  const [autopopModal, setAutopopModal] = useState<ApModal>(null);
+  const [autopopBiomeKeys, setAutopopBiomeKeys] = useState<string[]>([]);
+  const [autopopUnknownKeys, setAutopopUnknownKeys] = useState<string[]>([]);
   const [routeNames, setRouteNames] = useState<string[]>([]);
 
   const selectedId = getNormalAccountId(settings) ?? accounts[0]?.id ?? null;
-  const acc = accounts.find((a) => a.id === selectedId) || null;
+  const account = accounts.find((candidate) => candidate.id === selectedId) || null;
 
   useEffect(() => {
     if (getNormalAccountId(settings) == null && accounts[0]) void setNormalAccount(accounts[0].id);
@@ -80,14 +91,14 @@ export function NormalMode() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [ap, fp] = await Promise.all([
+      const [autopopInfo, fishingPresets] = await Promise.all([
         callPy<{ biomes?: string[]; unknown?: string[] }>("get_autopop_biomes").catch(() => null),
         callPy<{ routes?: string[] }>("get_fishing_presets").catch(() => null),
       ]);
       if (!alive) return;
-      if (ap?.biomes) setApBiomeKeys(ap.biomes);
-      if (ap?.unknown) setApUnknownKeys(ap.unknown);
-      if (fp?.routes) setRouteNames(fp.routes);
+      if (autopopInfo?.biomes) setAutopopBiomeKeys(autopopInfo.biomes);
+      if (autopopInfo?.unknown) setAutopopUnknownKeys(autopopInfo.unknown);
+      if (fishingPresets?.routes) setRouteNames(fishingPresets.routes);
     })();
     return () => { alive = false; };
   }, []);
@@ -95,37 +106,37 @@ export function NormalMode() {
   const fishing = automation.fishing || {};
   const autopop = automation.autopop || {};
   const pixels = automation.pixels || {};
-  const invReady = PIXEL_SLOTS.every(([k]) => isPoint(pixels[k]));
+  const inventoryReady = PIXEL_SLOTS.every(([slotKey]) => isPoint(pixels[slotKey]));
   const merchGeneral = (automation.merchants?.calib || {}).general || {};
-  const merchReady = isPoint(merchGeneral.pixels?.dialogue_skip) && isRegion(merchGeneral.regions?.merchant_name);
-  const chatCalibAll = (automation.calib || {}).chat || {};
-  const auraReady = isPoint(chatCalibAll.pixels?.chat_button) && isPoint(chatCalibAll.pixels?.server_messages_button) && isRegion(chatCalibAll.regions?.chat_region);
-  const apAmountReady = isRegion(autopop.amountRegion);
-  const fishReady = FISHING_REQUIRED_SLOTS.every((k) => isPoint(fishing.pixels?.[k]));
+  const merchantReady = isPoint(merchGeneral.pixels?.dialogue_skip) && isRegion(merchGeneral.regions?.merchant_name);
+  const chatCalib = (automation.calib || {}).chat || {};
+  const auraReady = isPoint(chatCalib.pixels?.chat_button) && isPoint(chatCalib.pixels?.server_messages_button) && isRegion(chatCalib.regions?.chat_region);
+  const autopopAmountReady = isRegion(autopop.amountRegion);
+  const fishingReady = FISHING_REQUIRED_SLOTS.every((slotKey) => isPoint(fishing.pixels?.[slotKey]));
   const locks: Locks = useMemo(() => ({
-    item: invReady ? null : "Set the Inventory calibration first (Calibration tab).",
-    merchant: !ocrAvailable ? "Needs Tesseract (not installed)." : !invReady ? "Set the Inventory calibration first." : !merchReady ? "Set the Merchant calibration first." : null,
+    item: inventoryReady ? null : "Set the Inventory calibration first (Calibration tab).",
+    merchant: !ocrAvailable ? "Needs Tesseract (not installed)." : !inventoryReady ? "Set the Inventory calibration first." : !merchantReady ? "Set the Merchant calibration first." : null,
     aura: !ocrAvailable ? "Needs Tesseract (not installed)." : !auraReady ? "Set the Chat calibration first." : null,
-    autopop: !invReady ? "Set the Inventory calibration first." : !apAmountReady ? "Set the Auto Pop amount region first." : null,
-    fishing: fishReady ? null : "Set the Fishing calibration first (Calibration tab).",
-  }), [invReady, merchReady, auraReady, apAmountReady, fishReady, ocrAvailable]);
+    autopop: !inventoryReady ? "Set the Inventory calibration first." : !autopopAmountReady ? "Set the Auto Pop amount region first." : null,
+    fishing: fishingReady ? null : "Set the Fishing calibration first (Calibration tab).",
+  }), [inventoryReady, merchantReady, auraReady, autopopAmountReady, fishingReady, ocrAvailable]);
 
   const afkOn = !!settings.antiAfkEnabled;
   const intervals = automation.intervals || {};
   const ocrFailsafe = automation.ocrFailsafe || {};
-  const notif = automation.notifications || {};
+  const notifications = automation.notifications || {};
 
-  const apAcc = acc ? autopop.accounts?.[String(acc.id)] : undefined;
-  const apOn = !!apAcc?.enabled;
-  const apBiomeCount = Object.values((apAcc?.biomes || {}) as Record<string, { enabled?: boolean }>).filter((b) => b?.enabled).length;
-  const fishingOn = !!acc?.modules?.fishing;
+  const autopopAccount = account ? autopop.accounts?.[String(account.id)] : undefined;
+  const autopopOn = !!autopopAccount?.enabled;
+  const autopopBiomeCount = Object.values((autopopAccount?.biomes || {}) as Record<string, { enabled?: boolean }>).filter((biome) => biome?.enabled).length;
+  const fishingOn = !!account?.modules?.fishing;
 
   const loggingMet = useMemo(() => {
-    const enabled = accounts.filter((a) => a.enabled !== false);
-    const whs = (webhooks || []) as WebhookLite[];
-    if (!enabled.length || !whs.length) return false;
-    if (!whs.some((w) => (w.url || "").trim())) return false;
-    return whs.some((w) => (w.active ?? true) && (w.routedAccounts || []).length > 0);
+    const enabledAccounts = accounts.filter((candidate) => candidate.enabled !== false);
+    const webhookList = (webhooks || []) as WebhookLite[];
+    if (!enabledAccounts.length || !webhookList.length) return false;
+    if (!webhookList.some((webhook) => (webhook.url || "").trim())) return false;
+    return webhookList.some((webhook) => (webhook.active ?? true) && (webhook.routedAccounts || []).length > 0);
   }, [accounts, webhooks]);
   const loggingOn = !!settings.biomeLogging;
   const ramTrimOn = !!settings.ramTrimEnabled;
@@ -134,23 +145,23 @@ export function NormalMode() {
   const fakePingOn = settings.fakePingGuard !== false;
 
   async function toggleModule(task: ModKey) {
-    if (running || !acc) return;
-    const cur = !!acc.modules?.[task];
-    if (!cur && locks[MODULES.find((m) => m.key === task)!.lock]) return;
-    applyState(await callPy<BackendState>("set_account_module", acc.id, task, !cur));
+    if (running || !account) return;
+    const isOn = !!account.modules?.[task];
+    if (!isOn && locks[MODULES.find((moduleDef) => moduleDef.key === task)!.lock]) return;
+    applyState(await callPy<BackendState>("set_account_module", account.id, task, !isOn));
   }
   async function toggleAutopop() {
-    if (running || !acc) return;
-    if (!apOn && (locks.autopop || apBiomeCount === 0)) return;
-    applyState(await callPy<BackendState>("set_autopop_account", acc.id, !apOn));
+    if (running || !account) return;
+    if (!autopopOn && (locks.autopop || autopopBiomeCount === 0)) return;
+    applyState(await callPy<BackendState>("set_autopop_account", account.id, !autopopOn));
   }
   async function toggleFishing() {
-    if (running || !acc) return;
+    if (running || !account) return;
     if (!fishingOn && locks.fishing) return;
     
     
     
-    applyState(await callPy<BackendState>("set_account_module", acc.id, "fishing", !fishingOn));
+    applyState(await callPy<BackendState>("set_account_module", account.id, "fishing", !fishingOn));
   }
   async function toggleAfk(checked: boolean) {
     if (running) return;
@@ -161,8 +172,8 @@ export function NormalMode() {
     patchSettings({ ramTrimEnabled: checked });
     applyState(await callPy<BackendState>("set_setting", "ramTrimEnabled", checked));
   }
-  const onNotif = async (key: string, c: boolean) => applyState(await callPy<BackendState>("set_notification", key, c));
-  const onFailsafe = async (task: string, c: boolean) => applyState(await callPy<BackendState>("set_ocr_failsafe", task, c));
+  const onNotif = async (key: string, checked: boolean) => applyState(await callPy<BackendState>("set_notification", key, checked));
+  const onFailsafe = async (task: string, checked: boolean) => applyState(await callPy<BackendState>("set_ocr_failsafe", task, checked));
 
   return (
     <section className="tab active-tab" id="normal-mode">
@@ -170,8 +181,6 @@ export function NormalMode() {
         <h1>Macro</h1>
         <p>Pick one account and turn on what you want it to do. That's it.</p>
       </header>
-
-      <MacroModeToggle />
 
       {accounts.length === 0 ? (
         <div className="glass card panel" data-reveal>
@@ -189,16 +198,16 @@ export function NormalMode() {
               <span className="badge badge-soft">runs only this account</span>
             </div>
             <div className="nm-account-row">
-              <img src={acc?.avatar || DEFAULT_AVATAR} className="nm-avatar" alt="" />
+              <img src={account?.avatar || DEFAULT_AVATAR} className="nm-avatar" alt="" />
               <div className="nm-account-pick">
                 <CustomSelect
                   value={String(selectedId ?? "")}
                   disabled={running}
-                  options={accounts.map((a) => ({ value: String(a.id), label: a.name + (a.hasToken ? "" : "  (no token)") }))}
-                  onChange={(v) => void setNormalAccount(Number(v))}
+                  options={accounts.map((option) => ({ value: String(option.id), label: option.name + (option.hasToken ? "" : "  (no token)") }))}
+                  onChange={(value) => void setNormalAccount(Number(value))}
                 />
                 <span className="nm-account-hint">
-                  {acc?.window ? <><i className="fa-solid fa-circle-check" /> Window bound</> : "Launch this account from the Accounts tab, then press Start."}
+                  {account?.window ? <><i className="fa-solid fa-circle-check" /> Window bound</> : "Launch this account from the Accounts tab, then press Start."}
                 </span>
               </div>
             </div>
@@ -224,25 +233,25 @@ export function NormalMode() {
                 desc="Always on. Posts a Discord embed for each biome."
                 onGear={() => setDrawer("biomelog")} />
 
-              {MODULES.map((m) => {
-                const on = !!acc?.modules?.[m.key];
-                const lock = !on ? locks[m.lock] : null;
+              {MODULES.map((moduleDef) => {
+                const on = !!account?.modules?.[moduleDef.key];
+                const lock = !on ? locks[moduleDef.lock] : null;
                 return (
-                  <NmModule key={m.key} icon={m.icon} name={m.name} on={on} lock={lock} desc={m.desc} beta={m.beta}
-                    onGear={() => setDrawer(m.drawer)} onToggle={() => void toggleModule(m.key)}
+                  <NmModule key={moduleDef.key} icon={moduleDef.icon} name={moduleDef.name} on={on} lock={lock} desc={moduleDef.desc} beta={moduleDef.beta}
+                    onGear={() => setDrawer(moduleDef.drawer)} onToggle={() => void toggleModule(moduleDef.key)}
                     disabled={running || (!on && !!lock)} />
                 );
               })}
 
               {}
               {(() => {
-                const lock = !apOn ? locks.autopop : null;
-                const needBiome = !apOn && !lock && apBiomeCount === 0;
+                const lock = !autopopOn ? locks.autopop : null;
+                const needBiome = !autopopOn && !lock && autopopBiomeCount === 0;
                 return (
-                  <NmModule icon="fa-wand-magic-sparkles" name="Auto Pop" on={apOn} lock={lock}
+                  <NmModule icon="fa-wand-magic-sparkles" name="Auto Pop" on={autopopOn} lock={lock}
                     desc={needBiome ? "Open settings and pick at least one biome first." : "Pop your chosen potions automatically when a biome starts."}
                     onGear={() => setDrawer("autopop")} onToggle={() => void toggleAutopop()}
-                    disabled={running || (!apOn && (!!lock || needBiome))} />
+                    disabled={running || (!autopopOn && (!!lock || needBiome))} />
                 );
               })()}
 
@@ -284,10 +293,10 @@ export function NormalMode() {
 
       {}
       <ModuleDrawer open={drawer === "strangeController"} icon="fa-gamepad" title="Strange Controller" sub="Item module: uses the inventory click points" onClose={() => setDrawer(null)}>
-        <ItemModuleSettings task="strangeController" running={running} ocrAvailable={ocrAvailable} ocrFailsafe={ocrFailsafe} notif={notif} onNotif={onNotif} onFailsafe={onFailsafe} />
+        <ItemModuleSettings task="strangeController" running={running} ocrAvailable={ocrAvailable} ocrFailsafe={ocrFailsafe} notif={notifications} onNotif={onNotif} onFailsafe={onFailsafe} />
       </ModuleDrawer>
       <ModuleDrawer open={drawer === "biomeRandomizer"} icon="fa-shuffle" title="Biome Randomizer" sub="Item module: uses the inventory click points" onClose={() => setDrawer(null)}>
-        <ItemModuleSettings task="biomeRandomizer" running={running} ocrAvailable={ocrAvailable} ocrFailsafe={ocrFailsafe} notif={notif} onNotif={onNotif} onFailsafe={onFailsafe} />
+        <ItemModuleSettings task="biomeRandomizer" running={running} ocrAvailable={ocrAvailable} ocrFailsafe={ocrFailsafe} notif={notifications} onNotif={onNotif} onFailsafe={onFailsafe} />
       </ModuleDrawer>
       <ModuleDrawer open={drawer === "antiafk"} icon="fa-person-running" title="Anti-AFK" sub="Keeps the Roblox window awake" onClose={() => setDrawer(null)}>
         <AntiAfkSettings />
@@ -301,42 +310,42 @@ export function NormalMode() {
       <ModuleDrawer open={drawer === "misc"} icon="fa-sliders" title="Misc" sub="Global failsafes" onClose={() => setDrawer(null)}>
         <MiscSettings />
       </ModuleDrawer>
-      {acc && (
+      {account && (
         <>
-          <ModuleDrawer open={drawer === "merchant"} icon="fa-store" title="Merchant Detection" wide sub={`Detection + Auto Buy · ${acc.name}`} onClose={() => setDrawer(null)}>
+          <ModuleDrawer open={drawer === "merchant"} icon="fa-store" title="Merchant Detection" wide sub={`Detection + Auto Buy · ${account.name}`} onClose={() => setDrawer(null)}>
             {drawer === "merchant" && (
               <MerchantSettings
-                acc={acc} running={running} ocrAvailable={ocrAvailable}
+                acc={account} running={running} ocrAvailable={ocrAvailable}
                 interval={Number(intervals.merchantTeleporter) || 1800}
-                screenshotOn={!!notif.merchantScreenshot}
+                screenshotOn={!!notifications.merchantScreenshot}
                 failsafeOn={!!ocrFailsafe.merchantTeleporter}
-                autoBuyWebhookOn={!!notif.merchantAutoBuy}
-                onScreenshot={(c) => void onNotif("merchantScreenshot", c)}
-                onFailsafe={(c) => void onFailsafe("merchantTeleporter", c)}
-                onAutoBuyWebhook={(c) => void onNotif("merchantAutoBuy", c)}
-                onOpenItems={(mid, title, items) => setAbModal({ mid, title, items })}
+                autoBuyWebhookOn={!!notifications.merchantAutoBuy}
+                onScreenshot={(checked) => void onNotif("merchantScreenshot", checked)}
+                onFailsafe={(checked) => void onFailsafe("merchantTeleporter", checked)}
+                onAutoBuyWebhook={(checked) => void onNotif("merchantAutoBuy", checked)}
+                onOpenItems={(mid, title, items) => setAutobuyModal({ mid, title, items })}
               />
             )}
           </ModuleDrawer>
-          <ModuleDrawer open={drawer === "autopop"} icon="fa-wand-magic-sparkles" title="Auto Pop" wide sub={`Per-account config · ${acc.name}`} onClose={() => setDrawer(null)}>
+          <ModuleDrawer open={drawer === "autopop"} icon="fa-wand-magic-sparkles" title="Auto Pop" wide sub={`Per-account config · ${account.name}`} onClose={() => setDrawer(null)}>
             {drawer === "autopop" && (
               <AutopopSettings
-                acc={acc} running={running} ocrAvailable={ocrAvailable} autopop={autopop}
-                biomeKeys={apBiomeKeys} unknownKeys={apUnknownKeys}
-                onOpenItems={(biome, title, items) => setApModal({ kind: "items", accId: acc.id, biome, title, items })}
-                onOpenImport={() => setApModal({ kind: "import", accId: acc.id, name: "", json: "" })}
-                onOpenExport={(json) => setApModal({ kind: "export", json })}
+                acc={account} running={running} ocrAvailable={ocrAvailable} autopop={autopop}
+                biomeKeys={autopopBiomeKeys} unknownKeys={autopopUnknownKeys}
+                onOpenItems={(biome, title, items) => setAutopopModal({ kind: "items", accId: account.id, biome, title, items })}
+                onOpenImport={() => setAutopopModal({ kind: "import", accId: account.id, name: "", json: "" })}
+                onOpenExport={(json) => setAutopopModal({ kind: "export", json })}
               />
             )}
           </ModuleDrawer>
-          <ModuleDrawer open={drawer === "fishing"} icon="fa-fish" title="Fishing" sub={`Per-account settings · ${acc.name}`} onClose={() => setDrawer(null)}>
+          <ModuleDrawer open={drawer === "fishing"} icon="fa-fish" title="Fishing" sub={`Per-account settings · ${account.name}`} onClose={() => setDrawer(null)}>
             {drawer === "fishing" && (
               <FishingSettings
-                acc={acc} running={running} ocrAvailable={ocrAvailable}
-                cfg={fishing.accounts?.[String(acc.id)] || {}}
-                isActive={cycleStatus.type === "fishing" && cycleStatus.accId === acc.id}
+                acc={account} running={running} ocrAvailable={ocrAvailable}
+                cfg={fishing.accounts?.[String(account.id)] || {}}
+                isActive={cycleStatus.type === "fishing" && cycleStatus.accId === account.id}
                 fishingStatus={fishingStatus} routeNames={routeNames} ocrFailsafe={ocrFailsafe}
-                onOcrFailsafe={(task, c) => void onFailsafe(task, c)}
+                onOcrFailsafe={(task, checked) => void onFailsafe(task, checked)}
               />
             )}
           </ModuleDrawer>
@@ -345,44 +354,44 @@ export function NormalMode() {
 
       {}
       <Modal
-        open={!!abModal}
-        title={abModal?.title || ""}
-        onCancel={() => setAbModal(null)}
+        open={!!autobuyModal}
+        title={autobuyModal?.title || ""}
+        onCancel={() => setAutobuyModal(null)}
         onSave={async () => {
-          if (!abModal || !acc) return true;
-          const items = abModal.items.map((i) => ({ name: (i.name || "").trim(), amount: Math.max(0, i.amount ?? 1), all: !!i.all })).filter((i) => i.name);
-          applyState(await callPy<BackendState>("set_merchant_autobuy_items", acc.id, abModal.mid, items));
+          if (!autobuyModal || !account) return true;
+          const items = autobuyModal.items.map((item) => ({ name: (item.name || "").trim(), amount: Math.max(0, item.amount ?? 1), all: !!item.all })).filter((item) => item.name);
+          applyState(await callPy<BackendState>("set_merchant_autobuy_items", account.id, autobuyModal.mid, items));
           return true;
         }}
       >
-        {abModal && (() => {
-          const catalog = MERCHANT_AUTOBUY_ITEMS[abModal.mid] || [];
-          const used = new Set(abModal.items.map((i) => i.name).filter(Boolean));
+        {autobuyModal && (() => {
+          const catalog = MERCHANT_AUTOBUY_ITEMS[autobuyModal.mid] || [];
+          const usedNames = new Set(autobuyModal.items.map((item) => item.name).filter(Boolean));
           return (
             <div className="ap-modal">
               <p className="ap-modal-hint"><i className="fa-solid fa-circle-info"></i> Amount = how many you still want in total. Every purchase counts it down. At 0 it's done. Tick <b>Buy all</b> to always buy the whole stack.</p>
               <div className="ap-item-head"><span>Item</span><span>Amount</span><span></span></div>
               <div>
-                {abModal.items.map((it, i) => (
+                {autobuyModal.items.map((item, i) => (
                   <div className="ap-item-row" key={i}>
-                    <MerchantItemSelect className="ap-item-name" mid={abModal.mid} value={it.name}
-                      exclude={new Set([...used].filter((n) => n !== it.name))}
-                      onChange={(name) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, name } : x)) })} />
-                    {it.all ? <span className="ap-item-amt ap-item-all-tag">All</span> : (
-                      <div className="ap-item-amt"><Stepper value={it.amount ?? 1} min={0} onChange={(v) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(0, v) } : x)) })} /></div>
+                    <MerchantItemSelect className="ap-item-name" mid={autobuyModal.mid} value={item.name}
+                      exclude={new Set([...usedNames].filter((n) => n !== item.name))}
+                      onChange={(name) => setAutobuyModal({ ...autobuyModal, items: autobuyModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, name } : entry)) })} />
+                    {item.all ? <span className="ap-item-amt ap-item-all-tag">All</span> : (
+                      <div className="ap-item-amt"><Stepper value={item.amount ?? 1} min={0} onChange={(value) => setAutobuyModal({ ...autobuyModal, items: autobuyModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, amount: Math.max(0, value) } : entry)) })} /></div>
                     )}
-                    <button className="ap-item-del" title="Remove" onClick={() => { const next = abModal.items.filter((_, j) => j !== i); setAbModal({ ...abModal, items: next.length ? next : [{ name: "", amount: 1 }] }); }}><i className="fa-solid fa-trash"></i></button>
+                    <button className="ap-item-del" title="Remove" onClick={() => { const next = autobuyModal.items.filter((_, entryIndex) => entryIndex !== i); setAutobuyModal({ ...autobuyModal, items: next.length ? next : [{ name: "", amount: 1 }] }); }}><i className="fa-solid fa-trash"></i></button>
                     <div className="ap-item-all">
                       <span>Always buy all</span>
                       <label className="switch" style={{ transform: "scale(0.85)" }}>
-                        <input type="checkbox" checked={!!it.all} onChange={(e) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, all: e.target.checked } : x)) })} />
+                        <input type="checkbox" checked={!!item.all} onChange={(e) => setAutobuyModal({ ...autobuyModal, items: autobuyModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, all: e.target.checked } : entry)) })} />
                         <span className="slider"></span>
                       </label>
                     </div>
                   </div>
                 ))}
               </div>
-              <button className="btn-add ap-add-item" disabled={abModal.items.length >= catalog.length} onClick={() => setAbModal({ ...abModal, items: [...abModal.items, { name: "", amount: 1 }] })}>
+              <button className="btn-add ap-add-item" disabled={autobuyModal.items.length >= catalog.length} onClick={() => setAutobuyModal({ ...autobuyModal, items: [...autobuyModal.items, { name: "", amount: 1 }] })}>
                 <i className="fa-solid fa-plus"></i> Add item
               </button>
             </div>
@@ -392,69 +401,71 @@ export function NormalMode() {
 
       {}
       <Modal
-        open={!!apModal}
-        title={apModal?.kind === "items" ? apModal.title : apModal?.kind === "import" ? "Import Auto Pop Preset" : "Export Auto Pop Preset"}
-        onCancel={() => setApModal(null)}
+        open={!!autopopModal}
+        title={autopopModal?.kind === "items" ? autopopModal.title : autopopModal?.kind === "import" ? "Import Auto Pop Preset" : "Export Auto Pop Preset"}
+        onCancel={() => setAutopopModal(null)}
         onSave={async () => {
-          if (!apModal || !acc) return true;
-          if (apModal.kind === "items") {
-            const items = apModal.items.map((i) => ({ name: (i.name || "").trim(), amount: Math.max(1, i.amount || 1), all: !!i.all })).filter((i) => i.name);
-            applyState(await callPy<BackendState>("set_autopop_account_items", apModal.accId, apModal.biome, items));
+          if (!autopopModal || !account) return true;
+          if (autopopModal.kind === "items") {
+            const items = autopopModal.items.map((item) => ({ name: (item.name || "").trim(), amount: Math.max(1, item.amount || 1), all: !!item.all })).filter((item) => item.name);
+            applyState(await callPy<BackendState>("set_autopop_account_items", autopopModal.accId, autopopModal.biome, items));
             return true;
           }
-          if (apModal.kind === "import") {
-            if (!apModal.json.trim()) return false;
-            const r = await callPy<{ ok?: boolean; state?: BackendState }>("import_autopop_preset", apModal.name.trim(), apModal.json.trim());
-            if (r?.ok) { if (r.state) applyState(r.state); return true; }
+          if (autopopModal.kind === "import") {
+            if (!autopopModal.json.trim()) return false;
+            const response = await callPy<{ ok?: boolean; state?: BackendState }>("import_autopop_preset", autopopModal.name.trim(), autopopModal.json.trim());
+            if (response?.ok) { if (response.state) applyState(response.state); return true; }
             void alertDialog("Import failed. Make sure you pasted a valid exported preset.", { title: "Import failed" });
             return false;
           }
           return true;
         }}
       >
-        {apModal?.kind === "items" && (
+        {autopopModal?.kind === "items" && (
           <div className="ap-modal">
             <p className="ap-modal-hint"><i className="fa-solid fa-circle-info"></i> Items are used top-to-bottom the moment this biome starts. Tick <b>Use all</b> to always pop the whole stack.</p>
             <div className="ap-item-head"><span>Potion</span><span>Amount</span><span></span></div>
             <div>
-              {apModal.items.map((it, i) => (
+              {autopopModal.items.map((item, i) => (
                 <div className="ap-item-row" key={i}>
-                  <PotionSelect className="ap-item-name" value={it.name} onChange={(name) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, name } : x)) })} />
-                  {it.all ? <span className="ap-item-amt ap-item-all-tag">All</span> : (
-                    <div className="ap-item-amt"><Stepper value={it.amount} min={1} onChange={(v) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(1, v) } : x)) })} /></div>
+                  <PotionSelect className="ap-item-name" value={item.name} onChange={(name) => setAutopopModal({ ...autopopModal, items: autopopModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, name } : entry)) })} />
+                  {item.all ? <span className="ap-item-amt ap-item-all-tag">All</span> : (
+                    <div className="ap-item-amt"><Stepper value={item.amount} min={1} onChange={(value) => setAutopopModal({ ...autopopModal, items: autopopModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, amount: Math.max(1, value) } : entry)) })} /></div>
                   )}
-                  <button className="ap-item-del" title="Remove" onClick={() => { const next = apModal.items.filter((_, j) => j !== i); setApModal({ ...apModal, items: next.length ? next : [{ name: "", amount: 1 }] }); }}><i className="fa-solid fa-trash"></i></button>
+                  <button className="ap-item-del" title="Remove" onClick={() => { const next = autopopModal.items.filter((_, entryIndex) => entryIndex !== i); setAutopopModal({ ...autopopModal, items: next.length ? next : [{ name: "", amount: 1 }] }); }}><i className="fa-solid fa-trash"></i></button>
                   <div className="ap-item-all">
                     <span>Always use all</span>
                     <label className="switch" style={{ transform: "scale(0.85)" }}>
-                      <input type="checkbox" checked={!!it.all} onChange={(e) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, all: e.target.checked } : x)) })} />
+                      <input type="checkbox" checked={!!item.all} onChange={(e) => setAutopopModal({ ...autopopModal, items: autopopModal.items.map((entry, entryIndex) => (entryIndex === i ? { ...entry, all: e.target.checked } : entry)) })} />
                       <span className="slider"></span>
                     </label>
                   </div>
                 </div>
               ))}
             </div>
-            <button className="btn-add ap-add-item" onClick={() => setApModal({ ...apModal, items: [...apModal.items, { name: "", amount: 1 }] })}>
+            <button className="btn-add ap-add-item" onClick={() => setAutopopModal({ ...autopopModal, items: [...autopopModal.items, { name: "", amount: 1 }] })}>
               <i className="fa-solid fa-plus"></i> Add item
             </button>
           </div>
         )}
-        {apModal?.kind === "import" && (
+        {autopopModal?.kind === "import" && (
           <>
-            <div><div className="modal-label">Preset name (optional)</div><input className="field" placeholder="My imported preset" value={apModal.name} onChange={(e) => setApModal({ ...apModal, name: e.target.value })} /></div>
-            <div><div className="modal-label">Paste exported preset JSON</div><textarea className="field" rows={8} style={{ fontFamily: "monospace", fontSize: 11 }} value={apModal.json} onChange={(e) => setApModal({ ...apModal, json: e.target.value })} /></div>
+            <div><div className="modal-label">Preset name (optional)</div><input className="field" placeholder="My imported preset" value={autopopModal.name} onChange={(e) => setAutopopModal({ ...autopopModal, name: e.target.value })} /></div>
+            <div><div className="modal-label">Paste exported preset JSON</div><textarea className="field" rows={8} style={{ fontFamily: "monospace", fontSize: 11 }} value={autopopModal.json} onChange={(e) => setAutopopModal({ ...autopopModal, json: e.target.value })} /></div>
           </>
         )}
-        {apModal?.kind === "export" && (
+        {autopopModal?.kind === "export" && (
           <>
             <p className="modal-label">Copy this and share it:</p>
-            <textarea className="field" rows={8} style={{ fontFamily: "monospace", fontSize: 11 }} readOnly value={apModal.json} />
+            <textarea className="field" rows={8} style={{ fontFamily: "monospace", fontSize: 11 }} readOnly value={autopopModal.json} />
           </>
         )}
       </Modal>
     </section>
   );
 }
+
+
 
 function NmModule(props: {
   icon: string; name: string; desc: string; lock?: string | null; on?: boolean;
@@ -485,14 +496,16 @@ function NmModule(props: {
   );
 }
 
+
+
 function ItemModuleSettings(props: {
   task: "strangeController" | "biomeRandomizer";
   running: boolean;
   ocrAvailable: boolean | null;
   ocrFailsafe: Record<string, unknown>;
   notif: Record<string, unknown>;
-  onNotif: (key: string, c: boolean) => void;
-  onFailsafe: (task: string, c: boolean) => void;
+  onNotif: (key: string, checked: boolean) => void;
+  onFailsafe: (task: string, checked: boolean) => void;
 }) {
   const { task, running, ocrAvailable, ocrFailsafe, notif, onNotif, onFailsafe } = props;
   return (
@@ -503,10 +516,10 @@ function ItemModuleSettings(props: {
       </div>
       <ToggleRow name="OCR Item Failsafe" desc={OCR_FAILSAFE_DESC[task]}
         checked={!!ocrFailsafe[task]} disabled={running || (!ocrAvailable && !ocrFailsafe[task])} locked={!ocrAvailable}
-        onChange={(c) => onFailsafe(task, c)} />
+        onChange={(checked) => onFailsafe(task, checked)} />
       <div className="afk-divider"></div>
       <ToggleRow name="Run notifications" desc="Sends a Discord embed each run: green when used, red when skipped."
-        checked={!!notif[task]} onChange={(c) => onNotif(task, c)} />
+        checked={!!notif[task]} onChange={(checked) => onNotif(task, checked)} />
     </>
   );
 }

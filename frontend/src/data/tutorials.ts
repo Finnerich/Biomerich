@@ -49,7 +49,7 @@ const setupGuide: TutDef = {
     { tab: "accounts", target: null, icon: "fa-rocket", title: "Launch and bind the window",
       body: "With a token, press Launch to open Roblox and join the private server, and the window binds itself, so the macro knows exactly which window is which account, even with several open at once. No token? Open Roblox yourself, then bind the window by hand from the account." },
     { tab: "modules", target: "#macroModeToggle", icon: "fa-layer-group", title: "Normal vs Multi-Macro",
-      body: "At the top of the Module Builder you choose the mode. Normal runs a single account and keeps everything simple, which is what most people want. Multi-Macro runs several accounts side by side. You can switch any time." },
+      body: "Use the switch in the top control bar to choose the layout. Normal runs a single account and keeps everything simple, while Multi-Macro runs several accounts side by side. The same switch is also available in the Monitor tab." },
     { tab: "modules", target: null, icon: "fa-toggle-on", title: "Turn on your modules",
       body: "Flip on what each account should do. Strange Controller and Biome Randomizer use inventory items on a timer. Merchant Detection watches for merchants and can auto-buy. Aura Detection reads the auras you roll. Auto Pop fires items the instant a chosen biome starts." },
     { tab: "modules", target: ".mb-drawer.open", icon: "fa-fish", title: "Fishing", openDrawer: { kind: "fishing", account: true },
@@ -69,9 +69,23 @@ const setupGuide: TutDef = {
   ],
 };
 
-export const TUTORIALS: { firstStart: TutDef; setupGuide: TutDef; updates: Record<string, TutDef> } = {
+const bindWindows: TutDef = {
+  id: "bindWindows",
+  title: "Window Binding",
+  steps: [
+    { tab: "modules", target: ".mb-bind-tutorial-btn", icon: "fa-link", title: "What does Bind Window do?",
+      body: "Multi-Macro controls several Roblox windows independently. Binding tells SolRich exactly which open Roblox window belongs to each enabled account, so clicks and modules never go to the wrong account." },
+    { tab: "modules", target: ".mb-list .prio-chip-bind", icon: "fa-computer-mouse", title: "Bind the matching window",
+      body: "Open the account's Roblox window first. Press Bind Window, then click anywhere inside that account's Roblox window. The button waits for that one click and saves the match." },
+    { tab: "modules", target: ".mb-list .prio-chip-bind", icon: "fa-circle-check", title: "Repeat until every account is bound",
+      body: "A green Bound button means that account is ready. Repeat this for every enabled account before starting the engine. Clicking Bound again clears the match so you can bind a different window." },
+  ],
+};
+
+export const TUTORIALS: { firstStart: TutDef; setupGuide: TutDef; bindWindows: TutDef; updates: Record<string, TutDef> } = {
   firstStart,
   setupGuide,
+  bindWindows,
   updates: {
     "1.0.0": {
       id: "update-1.0.0",

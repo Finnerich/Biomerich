@@ -1,7 +1,7 @@
 import { lazy, type ComponentType, type ReactElement } from "react";
 import { Placeholder } from "./Placeholder";
 
-const L = <T extends Record<string, ComponentType>>(load: () => Promise<T>, key: keyof T) =>
+const lazyTab = <T extends Record<string, ComponentType>>(load: () => Promise<T>, key: keyof T) =>
   lazy(() =>
     load().then((m) => ({ default: m[key] })).catch((err) => {
 
@@ -17,17 +17,18 @@ const L = <T extends Record<string, ComponentType>>(load: () => Promise<T>, key:
   );
 
 const TABS: Record<string, ComponentType> = {
-  home: L(() => import("./Home"), "Home"),
-  stats: L(() => import("./Stats"), "Stats"),
-  modules: L(() => import("./ModuleBuilder"), "ModuleBuilder"),
-  safety: L(() => import("./Safety"), "Safety"),
-  accounts: L(() => import("./Accounts"), "Accounts"),
-  webhooks: L(() => import("./Webhooks"), "Webhooks"),
-  calibration: L(() => import("./Calibration"), "Calibration"),
-  performance: L(() => import("./Performance"), "Performance"),
-  creator: L(() => import("./Creator"), "Creator"),
-  patchlog: L(() => import("./Patchlog"), "Patchlog"),
-  settings: L(() => import("./Settings"), "Settings"),
+  home: lazyTab(() => import("./Home"), "Home"),
+  stats: lazyTab(() => import("./Stats"), "Stats"),
+  monitor: lazyTab(() => import("./Monitor"), "Monitor"),
+  modules: lazyTab(() => import("./ModuleBuilder"), "ModuleBuilder"),
+  safety: lazyTab(() => import("./Safety"), "Safety"),
+  accounts: lazyTab(() => import("./Accounts"), "Accounts"),
+  webhooks: lazyTab(() => import("./Webhooks"), "Webhooks"),
+  calibration: lazyTab(() => import("./Calibration"), "Calibration"),
+  performance: lazyTab(() => import("./Performance"), "Performance"),
+  creator: lazyTab(() => import("./Creator"), "Creator"),
+  patchlog: lazyTab(() => import("./Patchlog"), "Patchlog"),
+  settings: lazyTab(() => import("./Settings"), "Settings"),
 };
 
 export function renderTab(tab: string): ReactElement {

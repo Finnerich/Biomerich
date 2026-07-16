@@ -8,18 +8,18 @@ export function ThemePicker() {
 
   return (
     <div className="theme-picker">
-      {THEMES.map((t) => {
-        const sel = t.id === themeId ? " sel" : "";
+      {THEMES.map((theme) => {
+        const sel = theme.id === themeId ? " sel" : "";
         let thumb;
-        if (t.image) {
-          thumb = <div className="theme-thumb" style={{ backgroundImage: `url("${t.image}")` }}></div>;
+        if (theme.image) {
+          thumb = <div className="theme-thumb" style={{ backgroundImage: `url("${theme.image}")` }}></div>;
         } else {
           thumb = <div className="theme-thumb none"><i className="fa-solid fa-ban"></i></div>;
         }
         return (
-          <button key={t.id} className={`theme-card${sel}`} data-theme={t.id} onClick={() => withColorTransition(() => applyTheme(t.id, true))}>
+          <button key={theme.id} className={`theme-card${sel}`} data-theme={theme.id} onClick={() => withColorTransition(() => applyTheme(theme.id, true))}>
             {thumb}
-            <span className="theme-name">{t.name}</span>
+            <span className="theme-name">{theme.name}</span>
           </button>
         );
       })}

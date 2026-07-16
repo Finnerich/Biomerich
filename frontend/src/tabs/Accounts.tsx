@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 import { memo, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useStore } from "../store";
 import { callPy } from "../bridge";
@@ -7,39 +15,53 @@ import { DEFAULT_AVATAR } from "../data/biomes";
 import { Modal } from "../components/Modal";
 import type { Account, BackendState } from "../types";
 
+
+
 function showErrors(errors: string[]) {
   void alertDialog("• " + errors.join("\n• "), { title: "Could not complete" });
 }
 
 function tokenErrorText(err: unknown): string {
   if (!err) return "unknown error";
-  const e = String(err);
-  if (e === "invalid" || e === "token_invalid") return "token is invalid or expired";
-  if (e === "no_token") return "no token linked";
-  if (e.startsWith("wrong_account:")) return `logged in as "${e.split(":").slice(1).join(":")}" (that's a different account)`;
-  if (e === "closed") return "browser closed before login finished";
-  if (e === "timeout") return "timed out: login wasn't completed";
-  if (e === "cancelled") return "cancelled";
-  if (e === "no_browser") return "no Chrome or Edge found";
-  if (e === "not_windows") return "launching only works on Windows";
-  if (e === "bad_link") return "couldn't read the private server link";
-  if (e.startsWith("no_ticket")) {
-    const reason = e.split(":").slice(1).join(":");
+  const code = String(err);
+  if (code === "invalid" || code === "token_invalid") return "token is invalid or expired";
+  if (code === "no_token") return "no token linked";
+  if (code.startsWith("duplicate_account")) {
+    const name = code.split(":").slice(1).join(":");
+    return name ? `account "${name}" has already been added` : "this account has already been added";
+  }
+  if (code.startsWith("already_linked")) {
+    const name = code.split(":").slice(1).join(":");
+    return name
+      ? `this Roblox account is already linked to "${name}"`
+      : "this Roblox account is already linked to another entry";
+  }
+  if (code.startsWith("wrong_account:")) return `logged in as "${code.split(":").slice(1).join(":")}" (that's a different account)`;
+  if (code === "closed") return "browser closed before login finished";
+  if (code === "timeout") return "timed out: login wasn't completed";
+  if (code === "cancelled") return "cancelled";
+  if (code === "no_browser") return "no Chrome or Edge found";
+  if (code === "not_windows") return "launching only works on Windows";
+  if (code === "bad_link") return "couldn't read the private server link";
+  if (code.startsWith("no_ticket")) {
+    const reason = code.split(":").slice(1).join(":");
     if (reason.startsWith("http_401")) return "auth ticket rejected: token may be expired";
     if (reason.startsWith("http_429")) return "Roblox is rate-limiting you. Wait about 30 seconds, then launch again";
     if (reason.startsWith("http_403")) return "Roblox blocked the request (Cloudflare). Wait a moment, then try again";
     if (reason.startsWith("network")) return "network error getting auth ticket";
     return "could not get an auth ticket from Roblox";
   }
-  if (e.startsWith("http_429") || e.startsWith("token_http_429")) return "Roblox is rate-limiting you. Wait about 30 seconds and try again (your token is fine)";
-  if (e.startsWith("http_403") || e.startsWith("token_http_403")) return "Roblox blocked the request for now. Try again shortly (your token is fine)";
-  if (e.startsWith("token_network") || e === "network") return "couldn't reach Roblox. Check your connection, then try again";
-  if (e.startsWith("token_")) return "token check failed (" + e.slice(6) + ")";
-  if (e.startsWith("launch_failed")) return "Roblox failed to launch. Is it installed?";
-  if (e.startsWith("network")) return "network error";
-  if (e.startsWith("http_")) return "Roblox returned " + e;
-  return e;
+  if (code.startsWith("http_429") || code.startsWith("token_http_429")) return "Roblox is rate-limiting you. Wait about 30 seconds and try again (your token is fine)";
+  if (code.startsWith("http_403") || code.startsWith("token_http_403")) return "Roblox blocked the request for now. Try again shortly (your token is fine)";
+  if (code.startsWith("token_network") || code === "network") return "couldn't reach Roblox. Check your connection, then try again";
+  if (code.startsWith("token_")) return "token check failed (" + code.slice(6) + ")";
+  if (code.startsWith("launch_failed")) return "Roblox failed to launch. Is it installed?";
+  if (code.startsWith("network")) return "network error";
+  if (code.startsWith("http_")) return "Roblox returned " + code;
+  return code;
 }
+
+
 
 const CONSENT_STAGES = [
   {
@@ -67,6 +89,8 @@ const CONSENT_STAGES = [
   },
 ];
 
+
+
 type EditState = { id: number; name: string; link: string } | null;
 
 export function Accounts() {
@@ -88,10 +112,10 @@ export function Accounts() {
   const [recheckCD, setRecheckCD] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    function onResult(e: Event) {
-      const { accId, success, info } = (e as CustomEvent).detail as { accId: number; success: boolean; info: string };
-      setBrowserBusy((p) => { const n = new Set(p); n.delete(accId); return n; });
-      setTokenStatus((p) => ({ ...p, [accId]: success ? "" : `Login failed: ${tokenErrorText(info)}` }));
+    function onResult(event: Event) {
+      const { accId, success, info } = (event as CustomEvent).detail as { accId: number; success: boolean; info: string };
+      setBrowserBusy((prev) => { const next = new Set(prev); next.delete(accId); return next; });
+      setTokenStatus((prev) => ({ ...prev, [accId]: success ? "" : `Login failed: ${tokenErrorText(info)}` }));
     }
     window.addEventListener("solrich:browser-login", onResult);
     return () => window.removeEventListener("solrich:browser-login", onResult);
@@ -100,13 +124,13 @@ export function Accounts() {
   async function browserLogin(id: number) {
     if (running || browserBusy.has(id)) return;
     requireConsent(async () => {
-      setBrowserBusy((p) => new Set(p).add(id));
-      setTokenStatus((p) => ({ ...p, [id]: "Opening browser. Log in there…" }));
-      const res = await callPy<{ ok?: boolean; error?: string; browser?: string }>("start_browser_login", id).catch(() => null);
-      if (!res?.ok) {
-        setBrowserBusy((p) => { const n = new Set(p); n.delete(id); return n; });
-        const err = res?.error === "no_browser" ? "no Chrome/Edge found" : tokenErrorText(res?.error);
-        setTokenStatus((p) => ({ ...p, [id]: `Couldn't start: ${err}` }));
+      setBrowserBusy((prev) => new Set(prev).add(id));
+      setTokenStatus((prev) => ({ ...prev, [id]: "Opening browser. Log in there…" }));
+      const response = await callPy<{ ok?: boolean; error?: string; browser?: string }>("start_browser_login", id).catch(() => null);
+      if (!response?.ok) {
+        setBrowserBusy((prev) => { const next = new Set(prev); next.delete(id); return next; });
+        const reason = response?.error === "no_browser" ? "no Chrome/Edge found" : tokenErrorText(response?.error);
+        setTokenStatus((prev) => ({ ...prev, [id]: `Couldn't start: ${reason}` }));
       }
     });
   }
@@ -133,9 +157,10 @@ export function Accounts() {
     action();
   }
 
-  const loadKey = (k: string, ms = 1500) => {
-    setLoading((p) => new Set(p).add(k));
-    setTimeout(() => setLoading((p) => { const n = new Set(p); n.delete(k); return n; }), ms);
+  
+  const markLoading = (key: string, ms = 1500) => {
+    setLoading((prev) => new Set(prev).add(key));
+    setTimeout(() => setLoading((prev) => { const next = new Set(prev); next.delete(key); return next; }), ms);
   };
 
   async function addAccount() {
@@ -143,18 +168,22 @@ export function Accounts() {
     const username = accName.trim();
     const link = accLink.trim();
     if (!username) return;
+    const duplicate = accounts.find((account) => account.name.trim().toLocaleLowerCase() === username.toLocaleLowerCase());
+    if (duplicate) return showErrors([`Account "${duplicate.name}" has already been added.`]);
     if (!link) return showErrors(["Please provide a private server link (required)."]);
     if (!isRobloxLink(link)) return showErrors(["The private server link must be a valid roblox.com URL."]);
-    applyState(await callPy<BackendState>("add_account", username, link));
+    const response = await callPy<{ ok?: boolean; error?: unknown; state?: BackendState }>("add_account", username, link);
+    if (!response?.ok) return showErrors([tokenErrorText(response?.error)]);
+    if (response.state) applyState(response.state);
     setAccName("");
     setAccLink("");
   }
   async function deleteAccount(id: number) {
     if (running) return;
-    const acc = accounts.find((a) => a.id === id);
-    const name = acc?.name ? ` "${acc.name}"` : "";
+    const account = accounts.find((a) => a.id === id);
+    const nameLabel = account?.name ? ` "${account.name}"` : "";
     if (!(await confirmDialog(
-      `Delete this account${name} and all of its settings? ` +
+      `Delete this account${nameLabel} and all of its settings? ` +
       `Its modules, biome layout, fishing setup, window and stored token are all removed. This can't be undone.`,
       { title: "Delete account", confirmLabel: "Delete account", danger: true },
     ))) return;
@@ -169,68 +198,81 @@ export function Accounts() {
     applyState(await callPy<BackendState>("move_account", id, direction));
   }
   function toggleCollapse(id: number) {
-    setCollapsed((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    setCollapsed((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
 
   async function submitToken(id: number) {
     if (running) return;
     const token = (tokenInputs[id] || "").trim();
     if (!token) return;
-    setTokenStatus((p) => ({ ...p, [id]: "Checking token…" }));
-    const res = await callPy<{ ok?: boolean; error?: unknown; state?: BackendState }>("set_account_token", id, token);
-    if (res?.state) applyState(res.state);
-    setTokenStatus((p) => ({ ...p, [id]: "" }));
-    if (res && !res.ok) showErrors([`Token check failed: ${tokenErrorText(res.error)}`]);
-    setTokenInputs((p) => ({ ...p, [id]: "" }));
+    setTokenStatus((prev) => ({ ...prev, [id]: "Checking token…" }));
+    const response = await callPy<{ ok?: boolean; error?: unknown; state?: BackendState }>("set_account_token", id, token);
+    if (response?.state) applyState(response.state);
+    setTokenStatus((prev) => ({ ...prev, [id]: "" }));
+    if (response && !response.ok) showErrors([`Token check failed: ${tokenErrorText(response.error)}`]);
+    setTokenInputs((prev) => ({ ...prev, [id]: "" }));
   }
   async function clearToken(id: number) {
     if (running) return;
     if (!(await confirmDialog("Remove the stored token for this account?", { title: "Remove token", confirmLabel: "Remove", danger: true }))) return;
-    const res = await callPy<{ state?: BackendState }>("clear_account_token", id);
-    if (res?.state) applyState(res.state);
+    const response = await callPy<{ state?: BackendState }>("clear_account_token", id);
+    if (response?.state) applyState(response.state);
   }
   async function recheckToken(id: number) {
     if (recheckCD.has(id)) return;
-    setRecheckCD((p) => new Set(p).add(id));
-    setTokenStatus((p) => ({ ...p, [id]: "Re-checking…" }));
-    const res = await callPy<{ ok?: boolean; transient?: boolean; error?: unknown; state?: BackendState }>("revalidate_account_token", id);
-    if (res?.state) applyState(res.state);
-    if (res?.transient) {
-      setTokenStatus((p) => ({ ...p, [id]: "Couldn't verify right now: Roblox is rate-limiting you. Token kept; try again in a moment." }));
-      setTimeout(() => setTokenStatus((p) => ({ ...p, [id]: "" })), 6000);
+    setRecheckCD((prev) => new Set(prev).add(id));
+    setTokenStatus((prev) => ({ ...prev, [id]: "Re-checking…" }));
+    const response = await callPy<{ ok?: boolean; transient?: boolean; error?: unknown; state?: BackendState }>("revalidate_account_token", id);
+    if (response?.state) applyState(response.state);
+    if (response?.transient) {
+      setTokenStatus((prev) => ({ ...prev, [id]: "Couldn't verify right now: Roblox is rate-limiting you. Token kept; try again in a moment." }));
+      setTimeout(() => setTokenStatus((prev) => ({ ...prev, [id]: "" })), 6000);
     } else {
-      setTokenStatus((p) => ({ ...p, [id]: "" }));
+      setTokenStatus((prev) => ({ ...prev, [id]: "" }));
     }
-    setTimeout(() => setRecheckCD((p) => { const n = new Set(p); n.delete(id); return n; }), 6000);
+    setTimeout(() => setRecheckCD((prev) => { const next = new Set(prev); next.delete(id); return next; }), 6000);
   }
   function launchOne(id: number, mode: string) {
     requireConsent(async () => {
-      const acc = accounts.find((a) => a.id === id);
-      if (!acc || !acc.hasToken) return showErrors(["This account has no linked token yet."]);
-      loadKey(`one-${id}-${mode}`);
-      const res = await callPy<{ ok?: boolean; error?: unknown }>("launch_account", id, mode);
-      if (res && !res.ok) showErrors([`Could not launch ${acc.name}: ${tokenErrorText(res.error)}`]);
+      const account = accounts.find((a) => a.id === id);
+      if (!account || !account.hasToken) return showErrors(["This account has no linked token yet."]);
+      markLoading(`one-${id}-${mode}`);
+      const response = await callPy<{ ok?: boolean; error?: unknown }>("launch_account", id, mode);
+      if (response && !response.ok) showErrors([`Could not launch ${account.name}: ${tokenErrorText(response.error)}`]);
     });
   }
   function launchAll(mode: string) {
     requireConsent(async () => {
-      const withToken = accounts.filter((a) => a.hasToken && a.enabled !== false);
-      if (!withToken.length) return showErrors(["No enabled accounts have a linked token yet."]);
-      loadKey(`all-${mode}`);
-      const res = await callPy<{ results?: Array<{ ok?: boolean; name: string; error?: unknown }> }>("launch_all_accounts", mode);
-      const failed = (res?.results || []).filter((r) => !r.ok);
-      if (failed.length) showErrors(failed.map((r) => `${r.name}: ${tokenErrorText(r.error)}`));
+      const tokenAccounts = accounts.filter((a) => a.hasToken && a.enabled !== false);
+      if (!tokenAccounts.length) return showErrors(["No enabled accounts have a linked token yet."]);
+      markLoading(`all-${mode}`);
+      const response = await callPy<{ results?: Array<{ ok?: boolean; name: string; error?: unknown }> }>("launch_all_accounts", mode);
+      const failed = (response?.results || []).filter((result) => !result.ok);
+      if (failed.length) showErrors(failed.map((result) => `${result.name}: ${tokenErrorText(result.error)}`));
     });
   }
 
   async function saveEdit(): Promise<boolean> {
     if (!edit) return true;
     if (!edit.name.trim()) return false;
-    applyState(await callPy<BackendState>("update_account", edit.id, edit.name.trim(), edit.link.trim()));
+    const duplicate = accounts.find((account) =>
+      account.id !== edit.id && account.name.trim().toLocaleLowerCase() === edit.name.trim().toLocaleLowerCase());
+    if (duplicate) {
+      showErrors([`Account "${duplicate.name}" has already been added.`]);
+      return false;
+    }
+    const response = await callPy<{ ok?: boolean; error?: unknown; state?: BackendState }>(
+      "update_account", edit.id, edit.name.trim(), edit.link.trim(),
+    );
+    if (!response?.ok) {
+      showErrors([tokenErrorText(response?.error)]);
+      return false;
+    }
+    if (response.state) applyState(response.state);
     return true;
   }
 
-  const withToken = accounts.filter((a) => a.hasToken).length;
+  const withTokenCount = accounts.filter((a) => a.hasToken).length;
   const enabledCount = accounts.filter((a) => a.enabled !== false).length;
 
   return (
@@ -250,17 +292,17 @@ export function Accounts() {
           <div className="am-launch-info">
             <span className="am-launch-title"><i className="fa-solid fa-rocket"></i> Multi-Roblox</span>
             <span className="am-launch-sub">
-              {withToken} of {accounts.length} account{accounts.length === 1 ? "" : "s"} have a linked token · {enabledCount} enabled
+              {withTokenCount} of {accounts.length} account{accounts.length === 1 ? "" : "s"} have a linked token · {enabledCount} enabled
             </span>
           </div>
           <div className="am-launch-actions">
-            <button className={`am-btn${loading.has("all-home") ? " am-loading" : ""}`} disabled={withToken === 0} onClick={() => launchAll("home")}>
+            <button className={`am-btn${loading.has("all-home") ? " am-loading" : ""}`} disabled={withTokenCount === 0} onClick={() => launchAll("home")}>
               <i className="fa-solid fa-house"></i> Launch all
             </button>
-            <button className={`am-btn am-btn-primary${loading.has("all-private") ? " am-loading" : ""}`} disabled={withToken === 0} onClick={() => launchAll("private")}>
+            <button className={`am-btn am-btn-primary${loading.has("all-private") ? " am-loading" : ""}`} disabled={withTokenCount === 0} onClick={() => launchAll("private")}>
               <i className="fa-solid fa-right-to-bracket"></i> Launch + teleport
             </button>
-            <button className={`am-btn am-btn-sols${loading.has("all-public") ? " am-loading" : ""}`} disabled={withToken === 0} onClick={() => launchAll("public")}>
+            <button className={`am-btn am-btn-sols${loading.has("all-public") ? " am-loading" : ""}`} disabled={withTokenCount === 0} onClick={() => launchAll("public")}>
               <i className="fa-solid fa-dice"></i> Teleport to Sols
             </button>
           </div>
@@ -275,31 +317,31 @@ export function Accounts() {
         </div>
 
         <div className="am-list" style={{ marginTop: 12 }}>
-          {accounts.map((acc, i) => (
+          {accounts.map((account, i) => (
             <AccountCard
-              key={acc.id}
-              acc={acc}
+              key={account.id}
+              acc={account}
               running={running}
               canUp={i > 0}
               canDown={i < accounts.length - 1}
-              onMove={(dir) => void moveAccount(acc.id, dir)}
-              collapsed={collapsed.has(acc.id)}
-              tokenInput={tokenInputs[acc.id] || ""}
-              tokenStatus={tokenStatus[acc.id] || ""}
+              onMove={(dir) => void moveAccount(account.id, dir)}
+              collapsed={collapsed.has(account.id)}
+              tokenInput={tokenInputs[account.id] || ""}
+              tokenStatus={tokenStatus[account.id] || ""}
               loading={loading}
-              onToggleCollapse={() => toggleCollapse(acc.id)}
-              onToggleEnabled={(v) => void toggleEnabled(acc.id, v)}
-              onEdit={() => setEdit({ id: acc.id, name: acc.name, link: acc.link || "" })}
-              onDelete={() => void deleteAccount(acc.id)}
-              onTokenInput={(v) => setTokenInputs((p) => ({ ...p, [acc.id]: v }))}
+              onToggleCollapse={() => toggleCollapse(account.id)}
+              onToggleEnabled={(v) => void toggleEnabled(account.id, v)}
+              onEdit={() => setEdit({ id: account.id, name: account.name, link: account.link || "" })}
+              onDelete={() => void deleteAccount(account.id)}
+              onTokenInput={(v) => setTokenInputs((prev) => ({ ...prev, [account.id]: v }))}
               onTokenFocus={() => requireConsent(() => {})}
-              onSubmitToken={() => void submitToken(acc.id)}
-              onClearToken={() => void clearToken(acc.id)}
-              onRecheckToken={() => void recheckToken(acc.id)}
-              recheckBusy={recheckCD.has(acc.id)}
-              onBrowserLogin={() => void browserLogin(acc.id)}
-              browserBusy={browserBusy.has(acc.id)}
-              onLaunch={(mode) => launchOne(acc.id, mode)}
+              onSubmitToken={() => void submitToken(account.id)}
+              onClearToken={() => void clearToken(account.id)}
+              onRecheckToken={() => void recheckToken(account.id)}
+              recheckBusy={recheckCD.has(account.id)}
+              onBrowserLogin={() => void browserLogin(account.id)}
+              browserBusy={browserBusy.has(account.id)}
+              onLaunch={(mode) => launchOne(account.id, mode)}
             />
           ))}
         </div>
@@ -337,6 +379,8 @@ export function Accounts() {
   );
 }
 
+
+
 type AccountCardProps = {
   acc: Account;
   running: boolean;
@@ -362,22 +406,22 @@ type AccountCardProps = {
   onLaunch: (mode: string) => void;
 };
 
-function accountCardEqual(a: AccountCardProps, b: AccountCardProps): boolean {
+function accountCardEqual(prev: AccountCardProps, next: AccountCardProps): boolean {
   if (
-    a.running !== b.running || a.canUp !== b.canUp || a.canDown !== b.canDown ||
-    a.collapsed !== b.collapsed || a.tokenInput !== b.tokenInput ||
-    a.tokenStatus !== b.tokenStatus || a.browserBusy !== b.browserBusy ||
-    a.recheckBusy !== b.recheckBusy
+    prev.running !== next.running || prev.canUp !== next.canUp || prev.canDown !== next.canDown ||
+    prev.collapsed !== next.collapsed || prev.tokenInput !== next.tokenInput ||
+    prev.tokenStatus !== next.tokenStatus || prev.browserBusy !== next.browserBusy ||
+    prev.recheckBusy !== next.recheckBusy
   ) return false;
-  const pa = a.acc, pb = b.acc;
+  const prevAcc = prev.acc, nextAcc = next.acc;
   if (
-    pa.id !== pb.id || pa.name !== pb.name || pa.link !== pb.link ||
-    pa.avatar !== pb.avatar || pa.hasToken !== pb.hasToken ||
-    pa.tokenValid !== pb.tokenValid || pa.enabled !== pb.enabled
+    prevAcc.id !== nextAcc.id || prevAcc.name !== nextAcc.name || prevAcc.link !== nextAcc.link ||
+    prevAcc.avatar !== nextAcc.avatar || prevAcc.hasToken !== nextAcc.hasToken ||
+    prevAcc.tokenValid !== nextAcc.tokenValid || prevAcc.enabled !== nextAcc.enabled
   ) return false;
-  for (const m of ["home", "private", "public"]) {
-    const k = `one-${pa.id}-${m}`;
-    if (a.loading.has(k) !== b.loading.has(k)) return false;
+  for (const mode of ["home", "private", "public"]) {
+    const key = `one-${prevAcc.id}-${mode}`;
+    if (prev.loading.has(key) !== next.loading.has(key)) return false;
   }
   return true;
 }
@@ -387,8 +431,8 @@ const AccountCard = memo(function AccountCard(props: AccountCardProps) {
   const [copied, setCopied] = useState(false);
   const disabled = acc.enabled === false;
 
-  function copyLink(e: ReactMouseEvent) {
-    e.stopPropagation();
+  function copyLink(event: ReactMouseEvent) {
+    event.stopPropagation();
     if (!acc.link) return;
     void navigator.clipboard.writeText(acc.link).then(
       () => { setCopied(true); window.setTimeout(() => setCopied(false), 1400); },
@@ -404,8 +448,8 @@ const AccountCard = memo(function AccountCard(props: AccountCardProps) {
     <span className="am-pill bad"><i className="fa-solid fa-circle-exclamation"></i> Token invalid</span>
   );
 
-  const launchBtn = (mode: string, cls: string, icon: string, label: string) => (
-    <button className={`am-btn ${cls}${props.loading.has(`one-${acc.id}-${mode}`) ? " am-loading" : ""}`} disabled={!acc.hasToken} onClick={() => props.onLaunch(mode)}>
+  const launchBtn = (mode: string, extraClass: string, icon: string, label: string) => (
+    <button className={`am-btn ${extraClass}${props.loading.has(`one-${acc.id}-${mode}`) ? " am-loading" : ""}`} disabled={!acc.hasToken} onClick={() => props.onLaunch(mode)}>
       <i className={`fa-solid ${icon}`}></i> {label}
     </button>
   );
@@ -502,6 +546,8 @@ const AccountCard = memo(function AccountCard(props: AccountCardProps) {
     </div>
   );
 }, accountCardEqual);
+
+
 
 function ConsentModal(props: {
   consent: { stage: number; action: () => void } | null;

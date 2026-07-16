@@ -1,8 +1,11 @@
 import time
 from datetime import datetime
 
-TIME_MODULES = ("biomeLogging", "antiAfk", "strangeController", "biomeRandomizer", "merchantTeleporter", "fishing")
-AUTOMATION_ONLY = ("strangeController", "biomeRandomizer", "merchantTeleporter", "fishing")
+TIME_MODULES = ("biomeLogging", "antiAfk", "ramTrim", "strangeController",
+                "biomeRandomizer", "merchantTeleporter", "auraDetection",
+                "autopop", "fishing")
+AUTOMATION_ONLY = ("strangeController", "biomeRandomizer", "merchantTeleporter",
+                   "auraDetection", "autopop", "fishing")
 FLUSH_THROTTLE = 15.0
 
 def default_tracking() -> dict:
@@ -38,6 +41,8 @@ class TimeTracker:
             mods.append("biomeLogging")
         if s.get("antiAfkEnabled"):
             mods.append("antiAfk")
+        if s.get("ramTrimEnabled"):
+            mods.append("ramTrim")
         if a.get("strangeController"):
             mods.append("strangeController")
         if a.get("biomeRandomizer"):
@@ -47,7 +52,21 @@ class TimeTracker:
             for acc in (self.config.enabled_accounts() if hasattr(self.config, "enabled_accounts") else [])
         ):
             mods.append("merchantTeleporter")
-        if (a.get("fishing") or {}).get("enabled"):
+        enabled_accounts = (self.config.enabled_accounts()
+                            if hasattr(self.config, "enabled_accounts") else [])
+        if any((acc.get("modules") or {}).get("auraDetection")
+               for acc in enabled_accounts):
+            mods.append("auraDetection")
+        enabled_ids = {str(acc.get("id")) for acc in enabled_accounts}
+        autopop_accounts = ((a.get("autopop") or {}).get("accounts") or {})
+        if any(str(acc_id) in enabled_ids and entry.get("enabled")
+               for acc_id, entry in autopop_accounts.items()
+               if isinstance(entry, dict)):
+            mods.append("autopop")
+        fishing = a.get("fishing") or {}
+        if fishing.get("enabled") or fishing.get("moduleEnabled") or any(
+            (acc.get("modules") or {}).get("fishing") for acc in enabled_accounts
+        ):
             mods.append("fishing")
         return tuple(mods)
 
@@ -145,7 +164,10 @@ class TimeTracker:
         if self._seg_start is not None:
             now = time.time()
             d = max(0.0, now - self._seg_start)
-            active = self._active_in(self._seg_mode, self._seg_modules)
+
+
+
+            active = self._active_in(self._seg_mode, self._enabled_modules())
             out["activeModules"] = active
             out["totalEngine"] += d
             out[self._seg_mode] += d

@@ -262,7 +262,7 @@ def close_app():
     except Exception:
         return False
 
-def _launch_browser(url: str, mode: str, profile_dir: str):
+def _launch_browser(url: str, mode: str, profile_dir: str, debug: bool = False):
 
     global _browser_proc
     chrome_paths = [
@@ -293,6 +293,9 @@ def _launch_browser(url: str, mode: str, profile_dir: str):
             ]
             if icon_path:
                 args.append(f"--app-icon={icon_path}")
+            if debug:
+
+                args.append("--auto-open-devtools-for-tabs")
             try:
                 _browser_proc = subprocess.Popen(args)
                 if icon_path:
@@ -330,7 +333,12 @@ def _clear_ui_fallback_log():
         pass
 
 
-def _open_native_window(url: str, size) -> bool:
+def _open_native_window(
+    url: str,
+    size,
+    debug: bool = False,
+    on_closed=None,
+) -> bool:
     
     _clear_ui_fallback_log()
     try:
@@ -340,7 +348,21 @@ def _open_native_window(url: str, size) -> bool:
         return False
     try:
         w, h = size or (1080, 720)
-        webview.create_window("SolRich", url, width=int(w), height=int(h), min_size=(940, 640))
+        main_window = webview.create_window(
+            "SolRich",
+            url,
+            width=int(w),
+            height=int(h),
+            min_size=(940, 640),
+        )
+        if callable(on_closed):
+            def _handle_closed(*_args):
+                try:
+                    on_closed()
+                except Exception as error:
+                    print(f"[Bridge] UI close cleanup failed: {error}")
+
+            main_window.events.closed += _handle_closed
     except Exception as e:
         print(f"[Bridge] Native window unavailable ({e}); falling back to browser.")
         _log_ui_fallback(f"create_window failed: {e}")
@@ -350,7 +372,7 @@ def _open_native_window(url: str, size) -> bool:
 
         threading.Thread(target=_apply_native_window_icon, args=(os.getpid(), ico), daemon=True).start()
     try:
-        webview.start()
+        webview.start(debug=debug)
         return True
     except Exception as e:
         print(f"[Bridge] Native window failed to start ({e}); falling back to browser.")
@@ -360,6 +382,8 @@ def _open_native_window(url: str, size) -> bool:
 
 def start(page: str, size=None, mode: str = "chrome",
           cmdline_args=None, port: int = 0,
+          open_url: Optional[str] = None, debug: bool = False,
+          on_close=None,
           **kwargs):
 
     global _loop
@@ -367,7 +391,9 @@ def start(page: str, size=None, mode: str = "chrome",
     if port == 0:
         port = _find_free_port()
 
-    url = f"http://127.0.0.1:{port}/"
+
+
+    url = open_url or f"http://127.0.0.1:{port}/"
 
     profile_dir = os.path.join(
         os.getenv("LOCALAPPDATA") or os.path.expanduser("~"),
@@ -406,14 +432,27 @@ def start(page: str, size=None, mode: str = "chrome",
 
 
 
-    ui_ok = _open_native_window(url, size)
+    ui_ok = _open_native_window(
+        url,
+        size,
+        debug=debug,
+        on_closed=on_close,
+    )
     if not ui_ok:
-        if _launch_browser(url, mode, profile_dir):
+        if _launch_browser(url, mode, profile_dir, debug=debug):
             _watch_browser(server)
             ui_ok = True
         else:
             print(f"[Bridge] Could not launch the UI in '{mode}' mode")
 
+
+
+
+    if callable(on_close):
+        try:
+            on_close()
+        except Exception as error:
+            print(f"[Bridge] UI close cleanup failed: {error}")
 
     if _loop is not None:
         _loop.call_soon_threadsafe(lambda: setattr(server, "should_exit", True))

@@ -131,6 +131,36 @@ if IS_WINDOWS:
                     & int.from_bytes(b_mask, "big"))
         return combined != 0
 
+    def color_block_in_region_pc(x, y, w, h, target_rgb, tol_rgb,
+                                 min_columns=2, min_rows=3):
+        
+        gw, gh, data = grab_region(x, y, w, h)
+        if not data:
+            return False
+        tr, tg, tb = target_rgb
+        ttr, ttg, ttb = (int(v) for v in tol_rgb)
+        r_mask = data[2::4].translate(_tol_table(tr, ttr))
+        g_mask = data[1::4].translate(_tol_table(tg, ttg))
+        b_mask = data[0::4].translate(_tol_table(tb, ttb))
+        combined_int = (int.from_bytes(r_mask, "big")
+                        & int.from_bytes(g_mask, "big")
+                        & int.from_bytes(b_mask, "big"))
+        if not combined_int:
+            return False
+        combined = combined_int.to_bytes(len(r_mask), "big")
+
+        needed_columns = max(1, int(min_columns))
+        needed_rows = max(1, int(min_rows))
+        run = 0
+        for column in range(gw):
+            if sum(combined[column::gw]) >= needed_rows:
+                run += 1
+                if run >= needed_columns:
+                    return True
+            else:
+                run = 0
+        return False
+
     def color_match(rgb, target_rgb, tol):
         if rgb is None:
             return False
@@ -276,6 +306,10 @@ else:
         return False
 
     def color_in_region_pc(x, y, w, h, target_rgb, tol_rgb):
+        return False
+
+    def color_block_in_region_pc(x, y, w, h, target_rgb, tol_rgb,
+                                 min_columns=2, min_rows=3):
         return False
 
     def color_match(rgb, target_rgb, tol):

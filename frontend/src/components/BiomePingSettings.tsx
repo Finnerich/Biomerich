@@ -10,14 +10,14 @@ interface PingCfg {
 }
 type PingMap = Record<string, PingCfg>;
 
-function isForcedEveryone(b: Biome): boolean {
-  return b.tier === "rare";
+function isForcedEveryone(biome: Biome): boolean {
+  return biome.tier === "rare";
 }
 function defaultFor(): PingCfg {
   return { type: "user", id: "" };
 }
-function isOn(cfg: PingCfg): boolean {
-  return cfg.type === "everyone" || /\d/.test(cfg.id);
+function isOn(config: PingCfg): boolean {
+  return config.type === "everyone" || /\d/.test(config.id);
 }
 
 export function BiomePingSettings() {
@@ -26,18 +26,18 @@ export function BiomePingSettings() {
   const applyState = useStore((s) => s.applyState);
   const pings = (automation.biomePings as PingMap) || {};
 
-  function cfgFor(b: Biome): PingCfg {
-    return pings[b.key] || defaultFor();
+  function cfgFor(biome: Biome): PingCfg {
+    return pings[biome.key] || defaultFor();
   }
   function save(key: string, next: PingCfg) {
     patchAutomation({ biomePings: { ...pings, [key]: next } });
-    void callPy<BackendState>("set_biome_ping", key, next.type, next.id).then((st) => applyState(st));
+    void callPy<BackendState>("set_biome_ping", key, next.type, next.id).then((state) => applyState(state));
   }
-  function onType(b: Biome, type: string) {
-    save(b.key, { type: type as PingCfg["type"], id: cfgFor(b).id });
+  function onType(biome: Biome, type: string) {
+    save(biome.key, { type: type as PingCfg["type"], id: cfgFor(biome).id });
   }
-  function onId(b: Biome, raw: string) {
-    save(b.key, { type: cfgFor(b).type, id: raw.replace(/\D+/g, "") });
+  function onId(biome: Biome, raw: string) {
+    save(biome.key, { type: cfgFor(biome).type, id: raw.replace(/\D+/g, "") });
   }
 
   const groups = TIERS.map((tier) => {
@@ -56,48 +56,48 @@ export function BiomePingSettings() {
         Pick who gets pinged per biome. Enter a numeric Discord ID to turn one on. Rare biomes always
         ping <b>@everyone</b>.
       </p>
-      {groups.map((g) => (
-        <div className="bl-group" key={g.tier.key}>
+      {groups.map((group) => (
+        <div className="bl-group" key={group.tier.key}>
           <div className="bl-sep">
-            <span className="bl-sep-dot" style={{ background: g.tier.grad || g.tier.color }}></span>
+            <span className="bl-sep-dot" style={{ background: group.tier.grad || group.tier.color }}></span>
             <span
               className="bl-sep-label"
-              style={g.tier.grad
-                ? { background: g.tier.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }
-                : { color: g.tier.color }}
+              style={group.tier.grad
+                ? { background: group.tier.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }
+                : { color: group.tier.color }}
             >
-              {g.tier.label}
+              {group.tier.label}
             </span>
             <span className="bl-sep-line"></span>
           </div>
 
-          {g.rows.map((b) => {
-            if (isForcedEveryone(b)) {
+          {group.rows.map((biome) => {
+            if (isForcedEveryone(biome)) {
               return (
-                <div className="bl-row on" key={b.key}>
-                  <span className="bl-dot" style={{ background: b.grad, boxShadow: "none" }}></span>
-                  <span className="bl-name">{b.name}</span>
+                <div className="bl-row on" key={biome.key}>
+                  <span className="bl-dot" style={{ background: biome.grad, boxShadow: "none" }}></span>
+                  <span className="bl-name">{biome.name}</span>
                   <span className="bl-everyone"><i className="fa-solid fa-bullhorn"></i> @everyone</span>
                 </div>
               );
             }
-            const cfg = cfgFor(b);
+            const cfg = cfgFor(biome);
             return (
-              <div className={`bl-row${isOn(cfg) ? " on" : ""}`} key={b.key}>
-                <span className="bl-dot" style={{ background: b.grad, boxShadow: "none" }}></span>
-                <span className="bl-name">{b.name}</span>
+              <div className={`bl-row${isOn(cfg) ? " on" : ""}`} key={biome.key}>
+                <span className="bl-dot" style={{ background: biome.grad, boxShadow: "none" }}></span>
+                <span className="bl-name">{biome.name}</span>
                 <CustomSelect
                   className="bl-select"
                   options={[{ value: "user", label: "User ID" }, { value: "role", label: "Role ID" }]}
                   value={cfg.type === "everyone" ? "user" : cfg.type}
-                  onChange={(v) => onType(b, v)}
+                  onChange={(v) => onType(biome, v)}
                 />
                 <input
                   className="bl-input"
                   inputMode="numeric"
                   placeholder="ID (numbers only)"
                   value={cfg.id}
-                  onChange={(e) => onId(b, e.target.value)}
+                  onChange={(e) => onId(biome, e.target.value)}
                 />
               </div>
             );

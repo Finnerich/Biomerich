@@ -1,24 +1,24 @@
 PIXEL_SLOTS = [
-    ("cast_point",      "Start Fishing Button"),
-    ("bite_indicator",  "Fish Indicator Pixel"),
-    ("bar_sample",      "Mid Bar Color Sample"),
-    ("zone_left",       "Bar Region Left"),
-    ("zone_right",      "Bar Region Right"),
-    ("reel_click",      "Reel Click Spot"),
-    ("claim_button",    "Close / Claim Button"),
+    ("cast_point", "Start Fishing Button"),
+    ("bite_indicator", "Fish Indicator Pixel"),
+    ("bar_sample", "Mid Bar Color Sample"),
+    ("zone_left", "Bar Region Left"),
+    ("zone_right", "Bar Region Right"),
+    ("reel_click", "Reel Click Spot"),
+    ("claim_button", "Close / Claim Button"),
     ("collection_button", "Collection Button"),
     ("collection_close_button", "Collection Close Button"),
-    ("fish_dialogue",  "Shop Dialogue"),
-    ("sell_fish_button",  "Sell Fish Button"),
-    ("first_fish_slot",  "First Fish Slot"),
-    ("sell_all_button",  "Sell All Button"),
-    ("sell_confirm_button",  "Sell Confirm Button"),
-    ("fish_shop_close_button",  "Shop Close Button"),
+    ("fish_dialogue", "Shop Dialogue"),
+    ("sell_fish_button", "Sell Fish Button"),
+    ("first_fish_slot", "First Fish Slot"),
+    ("sell_all_button", "Sell All Button"),
+    ("sell_confirm_button", "Sell Confirm Button"),
+    ("fish_shop_close_button", "Shop Close Button"),
 ]
 
 REGION_SLOTS = [
     ("fishing_failed", "Fishing Failed / Caught Text"),
-    ("shop_name",      "Shop Name (Captain Flarg)"),
+    ("shop_name", "Shop Name (Captain Flarg)"),
 ]
 
 PRESETS = {
@@ -60,7 +60,7 @@ PRESETS = {
         "fishing_failed": [783, 318, 354, 61],
         "shop_name": [726, 684, 245, 54],
     },
-     "[WUXGA] FULLSCREEN 1920x1200 (100%)": {
+    "[WUXGA] FULLSCREEN 1920x1200 (100%)": {
         "cast_point": [848, 927],
         "bite_indicator": [1176, 929],
         "bar_sample": [936, 859],
@@ -114,54 +114,151 @@ PRESETS = {
 }
 
 RESET_AND_COLLECTION = [
-    {"tap": "esc"}, {"wait": 0.5, "slow_extra": 1.5},
-    {"tap": "r"}, {"wait": 0.5, "slow_extra": 1.5},
-    {"tap": "enter"}, {"wait": 2.75, "slow_extra": 2.0},
-    {"click_slot": "collection_button"}, {"wait": 0.25},
-    {"click_slot": "collection_close_button"}, {"wait": 0.25},
+    {"tap": "esc"},
+    {"wait": 0.5, "slow_extra": 1.5},
+    {"tap": "r"},
+    {"wait": 0.5, "slow_extra": 1.5},
+    {"tap": "enter"},
+    {"wait": 2.75, "slow_extra": 2.0},
+    {"click_slot": "collection_button"},
+    {"wait": 0.25},
+    {"click_slot": "collection_close_button"},
+    {"wait": 0.25},
 ]
 
 _RESET_AND_ZOOM = RESET_AND_COLLECTION + [
-    {"scroll": 80}, {"wait": 0.25},
-    {"scroll": -15}, {"wait": 0.25},
+    {"scroll": 80},
+    {"wait": 0.25},
+    {"scroll": -15},
+    {"wait": 0.25},
 ]
 
 _SELL_SHOP_OPEN = [
-    {"click_slot": "fish_dialogue", "shop_step": True}, {"wait": 0.075, "shop_step": True},
+    {"click_slot": "fish_dialogue", "shop_step": True},
+    {"wait": 0.075, "shop_step": True},
     {"shop_name_check": True},
-    {"click_slot": "sell_fish_button", "shop_step": True}, {"wait": 0.15, "shop_step": True},
+    {"click_slot": "sell_fish_button", "shop_step": True},
+    {"wait": 0.15, "shop_step": True},
 ]
 
 SELL_CYCLE_UNIT = [
-    {"click_slot": "first_fish_slot"}, {"wait": 0.2},
-    {"click_slot": "sell_all_button"}, {"wait": 0.8},
-    {"click_slot": "sell_confirm_button"}, {"wait": 0.2},
+    {"click_slot": "first_fish_slot"},
+    {"wait": 0.2},
+    {"click_slot": "sell_all_button"},
+    {"wait": 0.8},
+    {"click_slot": "sell_confirm_button"},
+    {"wait": 0.2},
 ]
 
 _SELL_SHOP_CLOSE = [
-    {"click_slot": "fish_shop_close_button", "shop_step": True}, {"wait": 0.3, "shop_step": True},
+    {"click_slot": "fish_shop_close_button", "shop_step": True},
+    {"wait": 0.3, "shop_step": True},
 ]
 
-_SELL_AT_SHOP = _SELL_SHOP_OPEN + [{"sell_cycle": True, "shop_step": True}] + _SELL_SHOP_CLOSE
+_SELL_AT_SHOP = (
+    _SELL_SHOP_OPEN + [{"sell_cycle": True, "shop_step": True}] + _SELL_SHOP_CLOSE
+)
 
 SELL_ROUTES = {
-    "VIP/VIP+": _RESET_AND_ZOOM + [
-        {"down": "w"}, {"wait": 3}, {"up": "w"}, {"wait": 0.5},
-        {"down": "a"}, {"wait": 2.5}, {"down": "w"}, {"wait": 4}, {"up": "w"}, {"up": "a"}, {"wait": 2},
-        {"down": "s"}, {"wait": 0.3}, {"up": "s"}, {"wait": 0.3},
-        {"down": "space"}, {"wait": 0.025}, {"down": "w"}, {"wait": 0.96}, {"up": "space"}, {"wait": 0.5}, {"up": "w"}, {"wait": 0.3},
-        {"tap": "e", "shop_step": True}, {"wait": 0.3, "shop_step": True},
-    ] + _SELL_AT_SHOP + [
-        {"down": "a"}, {"wait": 1.12}, {"up": "a"}, {"wait": 0.075},
-        {"down": "w"}, {"wait": 2.35}, {"up": "w"},
+    "VIP/VIP+": _RESET_AND_ZOOM
+    + [
+        {"down": "w"},
+        {"wait": 3},
+        {"up": "w"},
+        {"wait": 0.5},
+        {"down": "a"},
+        {"wait": 2.5},
+        {"down": "w"},
+        {"wait": 4},
+        {"up": "w"},
+        {"up": "a"},
+        {"wait": 2},
+        {"down": "s"},
+        {"wait": 0.3},
+        {"up": "s"},
+        {"wait": 0.3},
+        {"down": "space"},
+        {"wait": 0.025},
+        {"down": "w"},
+        {"wait": 0.96},
+        {"up": "space"},
+        {"wait": 0.5},
+        {"up": "w"},
+        {"wait": 0.3},
+        {"tap": "e", "shop_step": True},
+        {"wait": 0.3, "shop_step": True},
+    ]
+    + _SELL_AT_SHOP
+    + [
+        {"down": "a"},
+        {"wait": 1.12},
+        {"up": "a"},
+        {"wait": 0.075},
+        {"down": "w"},
+        {"wait": 2.35},
+        {"up": "w"},
+    ],
+    "No VIP": _RESET_AND_ZOOM
+    + [
+        {"down": "w"},
+        {"wait": 3.628},
+        {"up": "w"},
+        {"wait": 0.815},
+        {"down": "a"},
+        {"wait": 2.035},
+        {"down": "w"},
+        {"wait": 4.431},
+        {"up": "a"},
+        {"wait": 0.256},
+        {"down": "a"},
+        {"wait": 0.176},
+        {"up": "a"},
+        {"wait": 0.1},
+        {"down": "a"},
+        {"wait": 0.153},
+        {"up": "a"},
+        {"wait": 0.064},
+        {"down": "a"},
+        {"wait": 0.122},
+        {"up": "a"},
+        {"wait": 0.063},
+        {"down": "a"},
+        {"wait": 0.245},
+        {"up": "a"},
+        {"wait": 0.058},
+        {"up": "w"},
+        {"wait": 0.882},
+        {"down": "s"},
+        {"wait": 0.18},
+        {"up": "s"},
+        {"wait": 0.969},
+        {"down": "w"},
+        {"down": "space"},
+        {"wait": 1.236},
+        {"up": "space"},
+        {"wait": 0.472},
+        {"up": "w"},
+    ]
+    + _SELL_AT_SHOP
+    + [
+        {"down": "a"},
+        {"wait": 1.372},
+        {"up": "a"},
+        {"wait": 0.839},
+        {"down": "w"},
+        {"wait": 3.137},
+        {"up": "w"},
     ],
 }
+
 
 def slot_keys():
     return [key for key, _label in PIXEL_SLOTS]
 
+
 def region_keys():
     return [key for key, _label in REGION_SLOTS]
+
 
 def region_label(key):
     for k, label in REGION_SLOTS:
@@ -169,14 +266,17 @@ def region_label(key):
             return label
     return key
 
+
 def slot_label(key):
     for k, label in PIXEL_SLOTS:
         if k == key:
             return label
     return key
 
+
 def preset_names():
     return list(PRESETS.keys())
+
 
 def get_preset(name):
     data = PRESETS.get(name)
@@ -188,6 +288,7 @@ def get_preset(name):
         if isinstance(pos, (list, tuple)) and len(pos) == 2:
             out[key] = [int(pos[0]), int(pos[1])]
     return out
+
 
 def get_preset_regions(name):
     
@@ -201,8 +302,10 @@ def get_preset_regions(name):
             out[key] = [int(v) for v in box]
     return out
 
+
 def route_names():
     return list(SELL_ROUTES.keys())
+
 
 def get_route(name):
     steps = SELL_ROUTES.get(name)

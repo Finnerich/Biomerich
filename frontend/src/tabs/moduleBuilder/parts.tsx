@@ -1,3 +1,6 @@
+
+
+
 import {
   Fragment,
   memo,
@@ -24,6 +27,7 @@ import type {
   BackendState,
   FishingAccCfg,
 } from "../../types";
+
 
 
 export const ITEM_TASKS = [
@@ -71,17 +75,19 @@ export interface MerchantsCfg {
   buyLog?: MerchantBuyLogEntry[];
 }
 
-export const isUnknown = (k: string) => k.startsWith("unknown:");
-export const unknownName = (k: string) => (isUnknown(k) ? k.slice("unknown:".length) : k);
+
+
+export const isUnknown = (key: string) => key.startsWith("unknown:");
+export const unknownName = (key: string) => (isUnknown(key) ? key.slice("unknown:".length) : key);
 
 export const POPULAR_KEYS = ["corruption", "rainy"];
-export const isRareBiome = (k: string) => {
-  const t = BIOMES.find((x) => x.key === k)?.tier;
-  return t === "rare" || t === "semi-rare";
+export const isRareBiome = (key: string) => {
+  const tier = BIOMES.find((biome) => biome.key === key)?.tier;
+  return tier === "rare" || tier === "semi-rare";
 };
 
-export const isPoint = (v: unknown) => Array.isArray(v) && v.length === 2;
-export const isRegion = (v: unknown) => Array.isArray(v) && v.length === 4;
+export const isPoint = (value: unknown) => Array.isArray(value) && value.length === 2;
+export const isRegion = (value: unknown) => Array.isArray(value) && value.length === 4;
 export const FISHING_REQUIRED_SLOTS = ["cast_point", "bite_indicator", "bar_sample", "zone_left",
   "zone_right", "reel_click", "claim_button"] as const;
 
@@ -97,9 +103,10 @@ export function biomeMeta(key: string) {
   if (isUnknown(key)) {
     return { key, name: unknownName(key), grad: "linear-gradient(135deg,#5b5f6e,#2a2d36)", shadow: "#7e8499", unknown: true };
   }
-  const b = BIOMES.find((x) => x.key === key);
-  return b ? { ...b, unknown: false } : { key, name: key, grad: "linear-gradient(135deg,#3a3f4b,#23262e)", shadow: "#3a3f4b", unknown: false };
+  const biome = BIOMES.find((entry) => entry.key === key);
+  return biome ? { ...biome, unknown: false } : { key, name: key, grad: "linear-gradient(135deg,#3a3f4b,#23262e)", shadow: "#3a3f4b", unknown: false };
 }
+
 
 
 export const AccountRow = memo(function AccountRow(props: {
@@ -115,23 +122,23 @@ export const AccountRow = memo(function AccountRow(props: {
   onOpenDrawer: (accId: number, kind: "strangeController" | "biomeRandomizer" | "merchant" | "autopop" | "aura" | "fishing") => void;
 }) {
   const { acc, running, locks, bindState, autopopOn, autopopHasBiome } = props;
-  const mods = acc.modules || {};
+  const modules = acc.modules || {};
   const disabled = acc.enabled === false;
 
   const waiting = bindState === "waiting";
-  let label: string;
-  let cls: string;
-  if (disabled) { label = "Disabled (excluded from the macro)"; cls = "off"; }
-  else if (waiting) { label = "Click a Roblox window…"; cls = "warn"; }
-  else if (acc.window) { label = "Bound to " + acc.window; cls = "live"; }
-  else if (bindState === "bound") { label = "Bound ✓"; cls = "live"; }
-  else if (acc.online) { label = "Online: locating window…"; cls = "warn"; }
-  else if (!running) { label = "Idle: launch the account or bind a window"; cls = ""; }
-  else { label = "Offline: no Roblox window found"; cls = "off"; }
+  let statusLabel: string;
+  let statusClass: string;
+  if (disabled) { statusLabel = "Disabled (excluded from the macro)"; statusClass = "off"; }
+  else if (waiting) { statusLabel = "Click a Roblox window…"; statusClass = "warn"; }
+  else if (acc.window) { statusLabel = "Bound to " + acc.window; statusClass = "live"; }
+  else if (bindState === "bound") { statusLabel = "Bound ✓"; statusClass = "live"; }
+  else if (acc.online) { statusLabel = "Online: locating window…"; statusClass = "warn"; }
+  else if (!running) { statusLabel = "Idle: launch the account or bind a window"; statusClass = ""; }
+  else { statusLabel = "Offline: no Roblox window found"; statusClass = "off"; }
 
-  const merchOn = !!mods.merchantTeleporter;
-  const fishingOn = !!mods.fishing;
-  const itemLocked = (key: "strangeController" | "biomeRandomizer") => !!locks.item && !mods[key];
+  const merchOn = !!modules.merchantTeleporter;
+  const fishingOn = !!modules.fishing;
+  const itemLocked = (key: "strangeController" | "biomeRandomizer") => !!locks.item && !modules[key];
   const merchLocked = !!locks.merchant && !merchOn;
   const fishingLocked = !!locks.fishing && !fishingOn;
   const popLocked = (!!locks.autopop || !autopopHasBiome) && !autopopOn;
@@ -143,9 +150,9 @@ export const AccountRow = memo(function AccountRow(props: {
         <img className="prio-avatar" alt="" src={acc.avatar || DEFAULT_AVATAR} />
         <div className="prio-id">
           <span className="prio-name">{acc.name}</span>
-          <span className={`prio-window ${cls}`}>
+          <span className={`prio-window ${statusClass}`}>
             <span className="sd"></span>
-            <span className="prio-window-text">{label}</span>
+            <span className="prio-window-text">{statusLabel}</span>
           </span>
         </div>
         <div className="mb-acc-enable">
@@ -161,18 +168,18 @@ export const AccountRow = memo(function AccountRow(props: {
         <BindButton acc={acc} baseClass="prio-chip prio-chip-bind mb-chip-single" />
 
 
-        {ITEM_TASKS.map((t) => {
-          const locked = itemLocked(t.key);
+        {ITEM_TASKS.map((task) => {
+          const locked = itemLocked(task.key);
           return (
-            <span className="mb-chip-wrap" key={t.key}>
+            <span className="mb-chip-wrap" key={task.key}>
               <button
-                className={`prio-chip${mods[t.key] ? " on" : ""}${locked ? " mb-locked" : ""}`}
+                className={`prio-chip${modules[task.key] ? " on" : ""}${locked ? " mb-locked" : ""}`}
                 title={locked ? locks.item! : undefined}
-                onClick={() => { if (!locked) props.onToggleModule(acc.id, t.key); }}
+                onClick={() => { if (!locked) props.onToggleModule(acc.id, task.key); }}
               >
-                <i className={`fa-solid ${locked ? "fa-lock" : t.icon}`}></i><span>{t.name}</span>
+                <i className={`fa-solid ${locked ? "fa-lock" : task.icon}`}></i><span>{task.name}</span>
               </button>
-              <button className="mb-chip-gear" title={`${t.full} settings`} onClick={() => props.onOpenDrawer(acc.id, t.key)}>
+              <button className="mb-chip-gear" title={`${task.full} settings`} onClick={() => props.onOpenDrawer(acc.id, task.key)}>
                 <i className="fa-solid fa-gear"></i>
               </button>
             </span>
@@ -225,6 +232,7 @@ export const AccountRow = memo(function AccountRow(props: {
 });
 
 
+
 export function ToggleRow({ name, desc, checked, disabled, locked, needsTesseract, lockReason, onChange }: {
   name: ReactNode; desc: ReactNode; checked: boolean; disabled?: boolean; locked?: boolean;
   needsTesseract?: boolean; lockReason?: string; onChange: (c: boolean) => void;
@@ -255,23 +263,28 @@ export function ToggleRow({ name, desc, checked, disabled, locked, needsTesserac
   );
 }
 
+
 export function fmtAfkInterval(sec: number): string {
   if (sec >= 60) return `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
   return `${sec}s`;
 }
+
 export function fmtRamInterval(min: number): string {
   if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  const rm = min % 60;
-  return rm ? `${h}h ${rm}m` : `${h}h`;
+  const hours = Math.floor(min / 60);
+  const restMinutes = min % 60;
+  return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
 }
+
 export function fmtMerchInterval(secs: number): string {
-  const m = Math.round((secs || 0) / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return rm ? `${h}h ${rm}m` : `${h}h`;
+  const minutes = Math.round((secs || 0) / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
 }
+
+
 
 export function MiscSettings() {
   const settings = useStore((s) => s.settings);
@@ -306,6 +319,10 @@ export function MiscSettings() {
 }
 
 
+
+
+
+
 export function AntiAfkSettings() {
   const running = useStore((s) => s.running);
   const settings = useStore((s) => s.settings);
@@ -315,9 +332,9 @@ export function AntiAfkSettings() {
 
   const standalone = !!settings.antiAfkStandalone;
 
-  function setAction(a: "space" | "zoom") {
-    patchSettings({ antiAfkAction: a });
-    void callPy("set_setting", "antiAfkAction", a);
+  function setAction(newAction: "space" | "zoom") {
+    patchSettings({ antiAfkAction: newAction });
+    void callPy("set_setting", "antiAfkAction", newAction);
   }
 
   function setStandalone(on: boolean) {
@@ -366,6 +383,8 @@ export function AntiAfkSettings() {
   );
 }
 
+
+
 export function RamTrimSettings() {
   const settings = useStore((s) => s.settings);
   const patchSettings = useStore((s) => s.patchSettings);
@@ -398,6 +417,8 @@ export function RamTrimSettings() {
   );
 }
 
+
+
 export function MerchantSettings(props: {
   acc: Account;
   running: boolean;
@@ -418,18 +439,18 @@ export function MerchantSettings(props: {
 
 
   const merchants = (automation.merchants as MerchantsCfg) || {};
-  const abAccounts = merchants.autobuy?.accounts || {};
+  const autobuyAccounts = merchants.autobuy?.accounts || {};
   const buyLog = Array.isArray(merchants.buyLog) ? merchants.buyLog : [];
   const buyLogReversed = useMemo(() => buyLog.slice().reverse(), [buyLog]);
 
   const calib = merchants.calib || {};
   const groupReady = (key: string, withRegions: boolean) => {
-    const def = MERCHANT_CALIB_GROUPS.find((g) => g.key === key);
-    if (!def) return false;
-    const g = calib[key] || {};
-    const pts = def.points.every(([k]) => isPoint(g.pixels?.[k]));
-    const regs = !withRegions || def.regions.every(([k]) => k === "item_name" || isRegion(g.regions?.[k]));
-    return pts && regs;
+    const groupDef = MERCHANT_CALIB_GROUPS.find((group) => group.key === key);
+    if (!groupDef) return false;
+    const group = calib[key] || {};
+    const pointsSet = groupDef.points.every(([pointKey]) => isPoint(group.pixels?.[pointKey]));
+    const regionsSet = !withRegions || groupDef.regions.every(([regionKey]) => regionKey === "item_name" || isRegion(group.regions?.[regionKey]));
+    return pointsSet && regionsSet;
   };
   const autobuyCalibReady = groupReady("shop", true) && groupReady("mari", false) && groupReady("jester", false);
   const autobuyLock = !props.ocrAvailable
@@ -438,31 +459,32 @@ export function MerchantSettings(props: {
       ? "Needs the full Merchant Shop calibration plus the Mari Dialogue and Jester Dialogue calibrations"
       : null;
 
-  const abEntry = (mid: AutobuyMerchant): MerchantAutobuyEntry => abAccounts[String(acc.id)]?.[mid] || {};
-  const abItems = (mid: AutobuyMerchant) => (abEntry(mid).items || []).filter((i) => (i.name || "").trim());
-  const abOpenCount = (mid: AutobuyMerchant) => abItems(mid).filter((i) => i.all || (i.amount || 0) > 0).length;
+  const autobuyEntry = (merchantId: AutobuyMerchant): MerchantAutobuyEntry => autobuyAccounts[String(acc.id)]?.[merchantId] || {};
+  const autobuyItems = (merchantId: AutobuyMerchant) => (autobuyEntry(merchantId).items || []).filter((item) => (item.name || "").trim());
+  const autobuyOpenCount = (merchantId: AutobuyMerchant) => autobuyItems(merchantId).filter((item) => item.all || (item.amount || 0) > 0).length;
 
-  async function toggleAutobuy(mid: AutobuyMerchant, checked: boolean) {
+  async function toggleAutobuy(merchantId: AutobuyMerchant, checked: boolean) {
     if (running) return;
-    if (checked && (autobuyLock || abOpenCount(mid) === 0)) return;
-    applyState(await callPy<BackendState>("set_merchant_autobuy", acc.id, mid, checked));
+    if (checked && (autobuyLock || autobuyOpenCount(merchantId) === 0)) return;
+    applyState(await callPy<BackendState>("set_merchant_autobuy", acc.id, merchantId, checked));
   }
-  function openItems(mid: AutobuyMerchant) {
+  function openItems(merchantId: AutobuyMerchant) {
     if (running) return;
-    const draft = (abEntry(mid).items || []).map((i) => ({ name: i.name || "", amount: i.amount ?? 1, all: !!i.all }));
+    const draft = (autobuyEntry(merchantId).items || []).map((item) => ({ name: item.name || "", amount: item.amount ?? 1, all: !!item.all }));
     if (!draft.length) draft.push({ name: "", amount: 1, all: false });
-    props.onOpenItems(mid, `Auto Buy: ${MERCHANT_META[mid].name} · ${acc.name}`, draft);
+    props.onOpenItems(merchantId, `Auto Buy: ${MERCHANT_META[merchantId].name} · ${acc.name}`, draft);
   }
   async function resetBuyLog() {
     if (!(await confirmDialog("Reset the Merchant Auto Buy log? This clears every recorded purchase.", { title: "Reset Auto Buy log", confirmLabel: "Reset", danger: true }))) return;
     applyState(await callPy<BackendState>("reset_merchant_buy_log"));
   }
+  
   const fmtLogTime = (ts?: string) => {
     if (!ts) return "?";
-    const d = new Date(ts);
-    return isNaN(d.getTime())
+    const date = new Date(ts);
+    return isNaN(date.getTime())
       ? ts
-      : d.toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      : date.toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   };
 
   let intervalRow = (
@@ -515,32 +537,32 @@ export function MerchantSettings(props: {
         </span>
       </div>
       <div className="mb-ap-list">
-        {(["mari", "jester"] as AutobuyMerchant[]).map((mid) => {
-          const meta = MERCHANT_META[mid];
-          const on = !!abEntry(mid).enabled;
-          const count = abOpenCount(mid);
-          const total = abItems(mid).length;
+        {(["mari", "jester"] as AutobuyMerchant[]).map((merchantId) => {
+          const meta = MERCHANT_META[merchantId];
+          const on = !!autobuyEntry(merchantId).enabled;
+          const count = autobuyOpenCount(merchantId);
+          const total = autobuyItems(merchantId).length;
           const needsItem = !on && count === 0;
           const locked = !!autobuyLock && !on;
           return (
-            <div key={mid} className={`mb-ap-row rare${on ? " on" : ""}`} style={{ ["--rg" as string]: meta.shadow }}>
+            <div key={merchantId} className={`mb-ap-row rare${on ? " on" : ""}`} style={{ ["--rg" as string]: meta.shadow }}>
               <span className="mb-ap-dot" style={{ ["--bg" as string]: meta.shadow, ["--gl" as string]: on ? meta.shadow : "transparent" }}></span>
               <span className="mb-ap-name">{meta.name}</span>
               <span className="mb-ap-tag rare" style={{ ["--biome-grad" as string]: meta.grad, ["--biome-shadow" as string]: meta.shadow }}>
                 <i className="fa-solid fa-cart-shopping"></i> AUTO BUY
               </span>
-              {mid === "jester" && <span className="mb-ap-tag popular"><i className="fa-solid fa-fire"></i> Popular</span>}
+              {merchantId === "jester" && <span className="mb-ap-tag popular"><i className="fa-solid fa-fire"></i> Popular</span>}
               <span className={`mb-ap-count${count ? " has" : ""}${needsItem ? " need" : ""}`}>
                 {count ? `${count} item${count === 1 ? "" : "s"}` : total ? "all bought" : "add an item"}
               </span>
-              <button className="mb-ap-edit" title="Edit items" disabled={running} onClick={() => openItems(mid)}>
+              <button className="mb-ap-edit" title="Edit items" disabled={running} onClick={() => openItems(merchantId)}>
                 <i className="fa-solid fa-pen"></i>
               </button>
               <label
                 className="switch" style={{ transform: "scale(0.85)" }}
                 title={locked ? autobuyLock! : needsItem ? "Add at least one wanted item before enabling Auto Buy" : undefined}
               >
-                <input type="checkbox" checked={on} disabled={running || locked || needsItem} onChange={(e) => void toggleAutobuy(mid, e.target.checked)} />
+                <input type="checkbox" checked={on} disabled={running || locked || needsItem} onChange={(e) => void toggleAutobuy(merchantId, e.target.checked)} />
                 <span className="slider"></span>
               </label>
             </div>
@@ -566,20 +588,22 @@ export function MerchantSettings(props: {
       </div>
       <div className="mb-buylog">
         {buyLog.length === 0 && <div className="mb-buylog-empty">No purchases yet.</div>}
-        {buyLogReversed.map((e, i) => (
-          <div className="mb-buylog-row" key={`${e.ts}-${i}`}>
-            <span className="mb-buylog-time">{fmtLogTime(e.ts)}</span>
-            <span className="mb-buylog-merch" style={{ color: MERCHANT_META[(e.merchant || "") as AutobuyMerchant]?.shadow }}>
-              {MERCHANT_DISPLAY_NAMES[e.merchant || ""] || e.merchant || "?"}
+        {buyLogReversed.map((entry, i) => (
+          <div className="mb-buylog-row" key={`${entry.ts}-${i}`}>
+            <span className="mb-buylog-time">{fmtLogTime(entry.ts)}</span>
+            <span className="mb-buylog-merch" style={{ color: MERCHANT_META[(entry.merchant || "") as AutobuyMerchant]?.shadow }}>
+              {MERCHANT_DISPLAY_NAMES[entry.merchant || ""] || entry.merchant || "?"}
             </span>
-            <span className="mb-buylog-item">{e.amount ?? "?"}× {e.item || "?"}</span>
-            <span className="mb-buylog-acc">{e.account || ""}</span>
+            <span className="mb-buylog-item">{entry.amount ?? "?"}× {entry.item || "?"}</span>
+            <span className="mb-buylog-acc">{entry.account || ""}</span>
           </div>
         ))}
       </div>
     </>
   );
 }
+
+
 
 export function FishingSettings(props: {
   acc: Account;
@@ -595,7 +619,7 @@ export function FishingSettings(props: {
   const applyState = useStore((s) => s.applyState);
   const automation = useStore((s) => s.automation);
   const { acc, running, cfg, routeNames, isActive, fishingStatus } = props;
-  const routeOptions: SelectOption[] = routeNames.map((n) => ({ value: n, label: n }));
+  const routeOptions: SelectOption[] = routeNames.map((name) => ({ value: name, label: name }));
   const sellAfter = cfg.sellAfter ?? 20;
 
   const fishRegions = ((automation.fishing as { regions?: Record<string, unknown> })?.regions) || {};
@@ -685,8 +709,8 @@ export function FishingSettings(props: {
       {(["fishingFailed", "sellFishShop", "noBite"] as const).map((task, i) => {
         const on = !!props.ocrFailsafe[task];
         const noOcr = task !== "noBite" && !props.ocrAvailable;
-        const reg = FAILSAFE_REGION[task];
-        const regionMissing = !!reg && !isRegion(fishRegions[reg.key]);
+        const regionDef = FAILSAFE_REGION[task];
+        const regionMissing = !!regionDef && !isRegion(fishRegions[regionDef.key]);
         const lockedByRegion = regionMissing && !noOcr;
         const locked = noOcr || lockedByRegion;
         return (
@@ -699,7 +723,7 @@ export function FishingSettings(props: {
               disabled={props.running || locked}
               locked={locked}
               needsTesseract={noOcr}
-              lockReason={lockedByRegion ? `Needs the ${reg!.label} region, set it in the Calibration tab.` : undefined}
+              lockReason={lockedByRegion ? `Needs the ${regionDef!.label} region, set it in the Calibration tab.` : undefined}
               onChange={(c) => props.onOcrFailsafe(task, c)}
             />
           </span>
@@ -709,6 +733,8 @@ export function FishingSettings(props: {
   );
 }
 
+
+
 export function EdenModePanel(props: { accounts: Account[]; running: boolean }) {
   const automation = useStore((s) => s.automation);
   const applyState = useStore((s) => s.applyState);
@@ -717,18 +743,18 @@ export function EdenModePanel(props: { accounts: Account[]; running: boolean }) 
   const runMode = (automation.mode as string) || "idle";
   const edenOnly = runMode !== "eden";
   const eden = (automation.eden as { account?: number | null }) || {};
-  const enabledAccs = accounts.filter((a) => a.enabled !== false);
+  const enabledAccs = accounts.filter((account) => account.enabled !== false);
   const edenCalib = ((automation.calib as Record<string, { pixels?: Record<string, unknown> }>) || {}).eden || {};
   const clickSet = isPoint(edenCalib.pixels?.eden_click);
 
   const accOptions: SelectOption[] = [
     { value: "", label: "- none -" },
-    ...enabledAccs.map((a) => ({ value: String(a.id), label: a.name })),
+    ...enabledAccs.map((account) => ({ value: String(account.id), label: account.name })),
   ];
 
-  async function setAccount(v: string) {
+  async function setAccount(value: string) {
     if (running) return;
-    applyState(await callPy<BackendState>("set_eden_account", v ? Number(v) : null));
+    applyState(await callPy<BackendState>("set_eden_account", value ? Number(value) : null));
   }
 
   return (
@@ -774,6 +800,10 @@ export function EdenModePanel(props: { accounts: Account[]; running: boolean }) 
 }
 
 
+
+
+
+
 export function AutopopSettings(props: {
   acc: Account;
   running: boolean;
@@ -796,36 +826,36 @@ export function AutopopSettings(props: {
   const presetNames = Object.keys(presets);
   const amountRegion = autopop.amountRegion;
 
-  const biomeEntry = (k: string) => biomes[k] || { enabled: false, items: [] };
-  const itemCount = (k: string) => (biomeEntry(k).items || []).filter((i) => (i.name || "").trim()).length;
+  const biomeEntry = (biomeKey: string) => biomes[biomeKey] || { enabled: false, items: [] };
+  const itemCount = (biomeKey: string) => (biomeEntry(biomeKey).items || []).filter((item) => (item.name || "").trim()).length;
 
   const allUnknown = (() => {
-    const set = new Set(props.unknownKeys);
-    Object.keys(biomes).forEach((k) => { if (isUnknown(k)) set.add(k); });
-    return [...set].sort();
+    const unknownSet = new Set(props.unknownKeys);
+    Object.keys(biomes).forEach((key) => { if (isUnknown(key)) unknownSet.add(key); });
+    return [...unknownSet].sort();
   })();
   const sections = (() => {
-    const known = (props.biomeKeys.length ? props.biomeKeys : BIOMES.map((b) => b.key)).filter((k) => !isUnknown(k));
-    const has = new Set(known);
-    const tierOf = (k: string) => BIOMES.find((x) => x.key === k)?.tier;
-    const rarityOf = (k: string) => BIOMES.find((x) => x.key === k)?.rarity || 0;
-    const byRarity = (a: string, b: string) => rarityOf(b) - rarityOf(a);
+    const known = (props.biomeKeys.length ? props.biomeKeys : BIOMES.map((biome) => biome.key)).filter((key) => !isUnknown(key));
+    const knownSet = new Set(known);
+    const tierOf = (key: string) => BIOMES.find((biome) => biome.key === key)?.tier;
+    const rarityOf = (key: string) => BIOMES.find((biome) => biome.key === key)?.rarity || 0;
+    const byRarity = (keyA: string, keyB: string) => rarityOf(keyB) - rarityOf(keyA);
 
-    const rare = [...RARE_KEYS, ...SEMI_RARE_KEYS].filter((k) => has.has(k));
-    const popular = POPULAR_KEYS.filter((k) => has.has(k) && tierOf(k) === "normal");
+    const rare = [...RARE_KEYS, ...SEMI_RARE_KEYS].filter((key) => knownSet.has(key));
+    const popular = POPULAR_KEYS.filter((key) => knownSet.has(key) && tierOf(key) === "normal");
     const usedPop = new Set(popular);
-    const normal = [...popular, ...known.filter((k) => tierOf(k) === "normal" && !usedPop.has(k)).sort(byRarity)];
-    const event = known.filter((k) => tierOf(k) === "event").sort(byRarity);
+    const normal = [...popular, ...known.filter((key) => tierOf(key) === "normal" && !usedPop.has(key)).sort(byRarity)];
+    const event = known.filter((key) => tierOf(key) === "event").sort(byRarity);
 
     return [
       { key: "rare", label: null as string | null, keys: rare },
       { key: "normal", label: "Normal Biomes", keys: normal },
       { key: "event", label: "Event Biomes", keys: event },
       { key: "unknown", label: "Unknown Biomes (new biomes)", keys: allUnknown },
-    ].filter((s) => s.keys.length);
+    ].filter((section) => section.keys.length);
   })();
-  const list = sections.flatMap((s) => s.keys);
-  const activeCount = list.filter((k) => biomeEntry(k).enabled).length;
+  const list = sections.flatMap((section) => section.keys);
+  const activeCount = list.filter((key) => biomeEntry(key).enabled).length;
 
   async function toggleBiome(key: string, checked: boolean) {
     if (running) return;
@@ -834,7 +864,7 @@ export function AutopopSettings(props: {
   }
   function openItems(key: string) {
     if (running) return;
-    const draft = (biomeEntry(key).items || []).map((i) => ({ name: i.name || "", amount: i.amount || 1, all: !!i.all }));
+    const draft = (biomeEntry(key).items || []).map((item) => ({ name: item.name || "", amount: item.amount || 1, all: !!item.all }));
     if (!draft.length) draft.push({ name: "", amount: 1, all: false });
     props.onOpenItems(key, `Auto Pop: ${biomeMeta(key).name} · ${acc.name}`, draft);
   }
@@ -842,39 +872,39 @@ export function AutopopSettings(props: {
     if (running) return;
     const name = ((await promptDialog(`Save ${acc.name}'s Auto Pop layout as preset:`, { title: "Save preset", confirmLabel: "Save", placeholder: "Preset name" })) || "").trim();
     if (!name) return;
-    const r = await callPy<{ state?: BackendState }>("save_autopop_preset", acc.id, name);
-    if (r?.state) applyState(r.state);
+    const response = await callPy<{ state?: BackendState }>("save_autopop_preset", acc.id, name);
+    if (response?.state) applyState(response.state);
     setPresetSel(name);
   }
   async function loadPreset() {
     if (running || !presetSel) return;
     if (!(await confirmDialog(`Load preset "${presetSel}" into ${acc.name}? This replaces the account's current biome layout.`, { title: "Load preset", confirmLabel: "Load" }))) return;
-    const r = await callPy<{ state?: BackendState }>("load_autopop_preset", acc.id, presetSel);
-    if (r?.state) applyState(r.state);
+    const response = await callPy<{ state?: BackendState }>("load_autopop_preset", acc.id, presetSel);
+    if (response?.state) applyState(response.state);
   }
   async function deletePreset() {
     if (running || !presetSel) return;
     if (!(await confirmDialog(`Delete Auto Pop preset "${presetSel}"?`, { title: "Delete preset", confirmLabel: "Delete", danger: true }))) return;
-    const r = await callPy<{ state?: BackendState }>("delete_autopop_preset", presetSel);
-    if (r?.state) applyState(r.state);
+    const response = await callPy<{ state?: BackendState }>("delete_autopop_preset", presetSel);
+    if (response?.state) applyState(response.state);
     setPresetSel("");
   }
   async function exportPreset() {
     const name = presetSel || `${acc.name} current`;
-    const r = await callPy<{ json?: string; name?: string }>("export_autopop_preset", name, acc.id);
-    if (!r?.json) return;
+    const response = await callPy<{ json?: string; name?: string }>("export_autopop_preset", name, acc.id);
+    if (!response?.json) return;
     try {
-      await navigator.clipboard.writeText(r.json);
-      setPresetMsg(`"${r.name}" copied to clipboard. Share it!`);
+      await navigator.clipboard.writeText(response.json);
+      setPresetMsg(`"${response.name}" copied to clipboard. Share it!`);
       setTimeout(() => setPresetMsg(""), 2600);
     } catch {
-      props.onOpenExport(r.json);
+      props.onOpenExport(response.json);
     }
   }
   async function captureRegion() {
     if (running) return;
-    const res = await callPy<{ ok?: boolean }>("capture_autopop_amount_region");
-    if (res?.ok) applyState(await callPy<BackendState>("get_state"));
+    const response = await callPy<{ ok?: boolean }>("capture_autopop_amount_region");
+    if (response?.ok) applyState(await callPy<BackendState>("get_state"));
   }
   async function clearRegion() {
     if (running) return;

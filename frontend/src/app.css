@@ -14,6 +14,55 @@
   justify-content: flex-end;
 }
 
+#settings .glass.card.setting-row.monitor-dim-row {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+#settings .monitor-dim-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 46px 40px;
+  align-items: center;
+  column-gap: 16px;
+  width: min(360px, 42%);
+  min-width: 300px;
+  margin-left: auto;
+  padding-right: 2px;
+  flex: 0 0 auto;
+}
+
+#settings .monitor-dim-controls .dim-range {
+  width: 100%;
+  min-width: 0;
+}
+
+#settings .monitor-dim-value {
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#settings .monitor-dim-controls .switch {
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  #settings .glass.card.setting-row.monitor-dim-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #settings .monitor-dim-controls {
+    grid-template-columns: minmax(0, 1fr) 46px 40px;
+    width: 100%;
+    min-width: 0;
+    padding-top: 6px;
+  }
+}
+
 
 body.accent-anim,
 body.accent-anim *,

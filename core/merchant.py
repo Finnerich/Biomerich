@@ -45,11 +45,32 @@ class MerchantController:
         if not ocr.available():
             print("[Merchant] Detect: OCR not available — cannot read merchant name.")
             status_events.push_event("Merchant: OCR not installed", kind="warn", ttl=2.5)
+            self._close_unknown_dialogue(ev)
             return None
         x, y, w, h = (int(v) for v in name_region)
-        reads = ocr.read_region_variants(x, y, w, h)
-        text = " ".join(reads)
-        mid, score = merchants_data.detect_merchant_id(text)
+
+
+
+
+
+        try:
+            win_input.move_to(max(5, x - 240), max(5, y - 140), duration=0.08)
+        except Exception:
+            pass
+        time.sleep(0.3)
+
+        mid, score, reads = None, 0.0, []
+        for attempt in range(3):
+            if ev.is_set():
+                return None
+            reads = ocr.read_region_variants(x, y, w, h)
+            text = " ".join(reads)
+            mid, score = merchants_data.detect_merchant_id(text)
+            if mid:
+                break
+            if attempt < 2:
+                print(f"[Merchant] Name unreadable (reads={reads!r}) — retrying…")
+                time.sleep(0.6)
         if mid:
             name = merchants_data.detect_merchant_name(mid)
             print(f"[Merchant] Detected '{name}' (score {score:.2f}, reads={reads!r}).")
@@ -62,8 +83,24 @@ class MerchantController:
             return mid
         print(f"[Merchant] No merchant matched (best score {score:.2f}, reads={reads!r}).")
         status_events.push_event("Merchant: no match", kind="bad", ttl=2.5)
-
+        self._close_unknown_dialogue(ev)
         return None
+
+    def _close_unknown_dialogue(self, ev):
+        
+        seen = set()
+        for mid in ("mari", "jester", "rin"):
+            pos = self._merchant_point(mid, "leave_button")
+            if not pos or pos in seen:
+                continue
+            seen.add(pos)
+            print(f"[Merchant] Closing unidentified dialogue via '{mid}' Leave button.")
+            try:
+                self._click_xy(pos[0], pos[1], 0.6, ev)
+            except RuntimeError:
+                return
+            except Exception:
+                pass
 
     def _merchant_point(self, group, slot):
         g = self._merchant_calib().get(group, {}) or {}

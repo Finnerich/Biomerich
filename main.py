@@ -31,7 +31,11 @@ except ImportError:
 from core import ConfigManager, MacroEngine, updater, presets
 from core import fishing_presets
 from core import overlay
+from core import calibration_guides
+from core import win_windows
 from core import status_events
+from core import activity_log
+from core import monitor_dim
 from core import creator
 from core import roblox_auth
 from core import perf as perfmon
@@ -41,6 +45,7 @@ from core import browser_login as browser_login_mod
 from core import presets as _auto_presets
 from core import fishing_presets as _fish_presets
 from core import ocr
+from core.anti_afk import focus_roblox
 
 def _maybe_relaunch_deelevated():
     
@@ -77,6 +82,9 @@ try:
 except Exception:
     pass
 engine = MacroEngine(config)
+
+
+activity_log.account_provider = lambda: engine.automation.current_account
 ram_trimmer = ram_trim.RamTrimmer(config, is_engine_running=lambda: engine.running)
 throttler = throttle_mod.ThrottleEngine(config, is_engine_running=lambda: engine.running)
 
@@ -193,18 +201,36 @@ def get_status():
         "moduleCounts": dict(config.module_counts),
         "edenStats": dict(config.eden_stats),
         "accountStates": engine.account_runtime(),
-        "fishing": engine.automation.fishing.status(),
+        "fishing": {**engine.automation.fishing.status(),
+                    "rotation": engine.automation.fishing.rotation_status()},
         "timeTracking": engine.time.live(),
     }
 
 @eel.expose
 def get_engine_signal():
+    module = engine.current_module()
+    status = status_events.snapshot()
+
+
+
+
+    if module.get("key") != "fishing":
+        status.pop("detail", None)
     return {
         "running": engine.running,
         "uptime": engine.uptime,
-        "module": engine.current_module(),
-        "status": status_events.snapshot(),
+        "module": module,
+        "status": status,
     }
+
+@eel.expose
+def get_activity_log(since_id=0):
+    return activity_log.since(since_id)
+
+@eel.expose
+def get_biome_durations():
+    from core import biomes as _biomes
+    return dict(_biomes.BIOME_DURATIONS)
 
 @eel.expose
 def get_time_tracking():
@@ -220,21 +246,38 @@ def reset_time_tracking():
 @eel.expose
 def add_account(name, link=""):
     if _guard():
-        return _state_with_status()
+        return {"ok": False, "error": "running", "state": _state_with_status()}
+    owner = config.account_name_owner(name)
+    if owner:
+        return {"ok": False, "error": f"duplicate_account:{owner.get('name', '')}",
+                "state": _state_with_status()}
     avatar = MacroEngine.get_roblox_avatar(name)
-    config.add_account(name, link, avatar)
-    return _state_with_status()
+    try:
+        config.add_account(name, link, avatar)
+    except ValueError:
+        return {"ok": False, "error": "duplicate_account",
+                "state": _state_with_status()}
+    return {"ok": True, "state": _state_with_status()}
 
 @eel.expose
 def update_account(acc_id, name=None, link=None):
     if _guard():
-        return _state_with_status()
+        return {"ok": False, "error": "running", "state": _state_with_status()}
+    owner = config.account_name_owner(name, exclude_id=acc_id) if name is not None else None
+    if owner:
+        return {"ok": False, "error": f"duplicate_account:{owner.get('name', '')}",
+                "state": _state_with_status()}
     avatar = None
     existing = next((a for a in config.accounts if a.get("id") == acc_id), None)
     if existing and name and name.strip() != existing.get("name"):
         avatar = MacroEngine.get_roblox_avatar(name)
-    config.update_account(acc_id, name=name, link=link, avatar=avatar)
-    return _state_with_status()
+    try:
+        updated = config.update_account(acc_id, name=name, link=link, avatar=avatar)
+    except ValueError:
+        return {"ok": False, "error": "duplicate_account",
+                "state": _state_with_status()}
+    return {"ok": bool(updated), "error": None if updated else "no_account",
+            "state": _state_with_status()}
 
 @eel.expose
 def delete_account(acc_id):
@@ -334,17 +377,27 @@ def _apply_token_refresh(acc_id, refreshed):
 def set_account_token(acc_id, token):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
-    config.set_account_token(acc_id, token)
-    info = roblox_auth.validate_token(config.account_token(acc_id))
-    _apply_token_refresh(acc_id, info.get("refreshed"))
+    owner = config.token_owner(token, exclude_id=acc_id)
+    if owner:
+        return {"ok": False, "error": f"already_linked:{owner.get('name', '')}",
+                "state": _state_with_status()}
+    info = roblox_auth.validate_token(token)
     if info.get("ok") or info.get("refreshed"):
+        linked_owner = config.linked_user_owner(info.get("name", ""), exclude_id=acc_id)
+        if linked_owner:
+            return {"ok": False,
+                    "error": f"already_linked:{linked_owner.get('name', '')}",
+                    "state": _state_with_status()}
+        config.set_account_token(acc_id, info.get("refreshed") or token)
         config.set_account_token_status(acc_id, info.get("name", ""), True)
         result = {"ok": True, "user": info.get("name", ""),
                   "displayName": info.get("displayName", "")}
     elif info.get("definitive"):
+        config.set_account_token(acc_id, token)
         config.set_account_token_status(acc_id, "", False)
         result = {"ok": False, "error": info.get("error", "invalid")}
     else:
+        config.set_account_token(acc_id, token)
         config.set_account_token_status(acc_id, "", True)
         result = {"ok": True, "user": "", "displayName": "", "unverified": True,
                   "error": info.get("error")}
@@ -364,13 +417,24 @@ def start_browser_login(acc_id):
         ok = False
         payload = error or "failed"
         if token:
+            owner = config.token_owner(token, exclude_id=acc_id)
+            if owner:
+                payload = f"already_linked:{owner.get('name', '')}"
+                try:
+                    eel.onBrowserLoginResult(acc_id, False, payload)()
+                except Exception:
+                    pass
+                return
             info = roblox_auth.validate_token(token)
             store_token = (info.get("refreshed") or token)
             if info.get("ok") or info.get("refreshed"):
                 tname = (info.get("name") or "").strip()
                 dname = (info.get("displayName") or "").strip()
                 want = (acc.get("name") or "").strip()
-                if want and tname and want.lower() not in (tname.lower(), dname.lower()):
+                linked_owner = config.linked_user_owner(tname, exclude_id=acc_id)
+                if linked_owner:
+                    payload = f"already_linked:{linked_owner.get('name', '')}"
+                elif want and tname and want.lower() not in (tname.lower(), dname.lower()):
                     payload = f"wrong_account:{tname}"
                 else:
                     config.set_account_token(acc_id, store_token)
@@ -768,6 +832,11 @@ def set_setting(key, value):
         throttler.sync()
     if key in ("antiAfkStandalone", "antiAfkEnabled", "antiAfkInterval", "antiAfkAction"):
         engine.refresh_anti_afk()
+    if key in ("monitorDimEnabled", "monitorDimLevel") and engine.running:
+        if config.settings.get("monitorDimEnabled"):
+            monitor_dim.start(config.settings.get("monitorDimLevel", 40))
+        else:
+            monitor_dim.stop()
     _broadcast_settings_sync()
     return _state_with_status()
 
@@ -809,17 +878,118 @@ def load_automation_preset(name):
     config.load_preset_pixels(name)
     return _state_with_status()
 
+
+_CALIBRATION_GUIDE_ACCENTS = (
+    "#6d84eb",
+    "#38c5dd",
+    "#3ecf8e",
+    "#ee6a7c",
+    "#e8a33d",
+    "#e072b4",
+    "#a184ef",
+    "#d3d7e0",
+    "#4e63ec",
+)
+
+
+def _show_calibration_guide(
+    scope,
+    slot,
+    *,
+    group=None,
+    is_region=False,
+    step=1,
+    focus_window=False,
+):
+    
+    if focus_window and not focus_roblox():
+        return {"ok": False, "error": "roblox_not_found"}
+
+    guide = calibration_guides.build_guide(
+        scope,
+        slot,
+        group=group,
+        is_region=is_region,
+        step=step,
+    )
+    try:
+        accent_index = int(config.settings.get("accentIndex", 0))
+    except (TypeError, ValueError):
+        accent_index = 0
+    if not 0 <= accent_index < len(_CALIBRATION_GUIDE_ACCENTS):
+        accent_index = 0
+    guide["accent"] = _CALIBRATION_GUIDE_ACCENTS[accent_index]
+
+    roblox_window = win_windows.foreground_hwnd()
+    window_rect = win_windows.window_rect(roblox_window)
+    if window_rect:
+        guide["anchorRect"] = list(window_rect)
+    shown = overlay.show_calibration_guide(guide, duration=None)
+    if shown.get("ok") and roblox_window:
+
+
+        win_windows.focus_hwnd(roblox_window)
+    return shown
+
+
+def _capture_guided_point(scope, slot, *, group=None, timeout=30.0):
+    shown = _show_calibration_guide(
+        scope,
+        slot,
+        group=group,
+        focus_window=True,
+    )
+    if not shown.get("ok"):
+        return None, shown.get("error", "guide_failed")
+
+    try:
+        position = engine.automation._capture_click(timeout=timeout)
+        return position, None if position else "timeout"
+    finally:
+        overlay.hide_calibration_guide()
+
+
+def _capture_guided_region(scope, slot, *, group=None, timeout=30.0):
+    shown = _show_calibration_guide(
+        scope,
+        slot,
+        group=group,
+        is_region=True,
+        step=1,
+        focus_window=True,
+    )
+    if not shown.get("ok"):
+        return None, None, shown.get("error", "guide_failed")
+
+    try:
+        top_left = engine.automation._capture_click(timeout=timeout)
+        if not top_left:
+            return None, None, "timeout"
+
+        _show_calibration_guide(
+            scope,
+            slot,
+            group=group,
+            is_region=True,
+            step=2,
+        )
+        bottom_right = engine.automation._capture_click(timeout=timeout)
+        if not bottom_right:
+            return top_left, None, "timeout"
+        return top_left, bottom_right, None
+    finally:
+        overlay.hide_calibration_guide()
+
 @eel.expose
 def capture_item_region():
 
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    p1 = engine.automation._capture_click(timeout=30.0)
-    if not p1:
-        return {"ok": False, "error": "timeout"}
-    p2 = engine.automation._capture_click(timeout=30.0)
-    if not p2:
-        return {"ok": False, "error": "timeout"}
+    p1, p2, error = _capture_guided_region(
+        "automation", "first_item_region"
+    )
+    if error:
+        return {"ok": False, "error": error}
     config.set_first_item_region(p1, p2)
     x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
     w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
@@ -837,7 +1007,19 @@ def clear_item_region():
 def capture_pixel(slot):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    return engine.automation.capture(slot)
+    if slot not in presets.slot_keys():
+        return {"ok": False, "error": "bad_slot"}
+    position, error = _capture_guided_point("automation", slot)
+    if error:
+        return {"ok": False, "error": error}
+    config.set_pixel(slot, [position[0], position[1]])
+    print(f"[Automation] Captured '{slot}' → {position[0]}, {position[1]}")
+    return {
+        "ok": True,
+        "slot": slot,
+        "x": position[0],
+        "y": position[1],
+    }
 
 @eel.expose
 def clear_pixel(slot):
@@ -886,7 +1068,19 @@ def load_fishing_preset(name):
 def capture_fishing_pixel(slot):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    return engine.automation.fishing.capture(slot)
+    if slot not in fishing_presets.slot_keys():
+        return {"ok": False, "error": "bad_slot"}
+    position, error = _capture_guided_point("fishing", slot)
+    if error:
+        return {"ok": False, "error": error}
+    config.set_fishing_pixel(slot, [position[0], position[1]])
+    print(f"[Fishing] Captured '{slot}' → {position[0]}, {position[1]}")
+    return {
+        "ok": True,
+        "slot": slot,
+        "x": position[0],
+        "y": position[1],
+    }
 
 @eel.expose
 def clear_fishing_pixel(slot):
@@ -901,12 +1095,9 @@ def capture_fishing_region(name):
         return {"ok": False, "error": "tracking_active"}
     if name not in fishing_presets.region_keys():
         return {"ok": False, "error": "bad_region"}
-    p1 = engine.automation._capture_click(timeout=30.0)
-    if not p1:
-        return {"ok": False, "error": "timeout"}
-    p2 = engine.automation._capture_click(timeout=30.0)
-    if not p2:
-        return {"ok": False, "error": "timeout"}
+    p1, p2, error = _capture_guided_region("fishing", name)
+    if error:
+        return {"ok": False, "error": error}
     config.set_fishing_region(name, p1, p2)
     x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
     w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
@@ -987,12 +1178,21 @@ def capture_merchant_pixel(group, slot):
     import core.merchants_data as _md
     if slot not in _md.calib_point_keys(group):
         return {"ok": False, "error": "bad_slot"}
-    pos = engine.automation._capture_click(timeout=30.0)
-    if not pos:
-        return {"ok": False, "error": "timeout"}
-    config.set_merchant_pixel(group, slot, [pos[0], pos[1]])
-    print(f"[Calibration] Merchant '{group}/{slot}' → {pos[0]}, {pos[1]}")
-    return {"ok": True, "group": group, "slot": slot, "x": pos[0], "y": pos[1]}
+    position, error = _capture_guided_point("merchant", slot, group=group)
+    if error:
+        return {"ok": False, "error": error}
+    config.set_merchant_pixel(group, slot, [position[0], position[1]])
+    print(
+        f"[Calibration] Merchant '{group}/{slot}' → "
+        f"{position[0]}, {position[1]}"
+    )
+    return {
+        "ok": True,
+        "group": group,
+        "slot": slot,
+        "x": position[0],
+        "y": position[1],
+    }
 
 @eel.expose
 def clear_merchant_pixel(group, slot):
@@ -1008,12 +1208,11 @@ def capture_merchant_region(group, name):
     import core.merchants_data as _md
     if name not in _md.calib_region_keys(group):
         return {"ok": False, "error": "bad_region"}
-    p1 = engine.automation._capture_click(timeout=30.0)
-    if not p1:
-        return {"ok": False, "error": "timeout"}
-    p2 = engine.automation._capture_click(timeout=30.0)
-    if not p2:
-        return {"ok": False, "error": "timeout"}
+    p1, p2, error = _capture_guided_region(
+        "merchant", name, group=group
+    )
+    if error:
+        return {"ok": False, "error": error}
     config.set_merchant_region(group, name, p1, p2)
     x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
     w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
@@ -1034,12 +1233,21 @@ def capture_extra_pixel(group, slot):
     import core.extra_calibrations as _ec
     if slot not in _ec.point_keys(group):
         return {"ok": False, "error": "bad_slot"}
-    pos = engine.automation._capture_click(timeout=30.0)
-    if not pos:
-        return {"ok": False, "error": "timeout"}
-    config.set_extra_pixel(group, slot, [pos[0], pos[1]])
-    print(f"[Calibration] Extra '{group}/{slot}' → {pos[0]}, {pos[1]}")
-    return {"ok": True, "group": group, "slot": slot, "x": pos[0], "y": pos[1]}
+    position, error = _capture_guided_point("extra", slot, group=group)
+    if error:
+        return {"ok": False, "error": error}
+    config.set_extra_pixel(group, slot, [position[0], position[1]])
+    print(
+        f"[Calibration] Extra '{group}/{slot}' → "
+        f"{position[0]}, {position[1]}"
+    )
+    return {
+        "ok": True,
+        "group": group,
+        "slot": slot,
+        "x": position[0],
+        "y": position[1],
+    }
 
 @eel.expose
 def clear_extra_pixel(group, slot):
@@ -1055,12 +1263,9 @@ def capture_extra_region(group, name):
     import core.extra_calibrations as _ec
     if name not in _ec.region_keys(group):
         return {"ok": False, "error": "bad_region"}
-    p1 = engine.automation._capture_click(timeout=30.0)
-    if not p1:
-        return {"ok": False, "error": "timeout"}
-    p2 = engine.automation._capture_click(timeout=30.0)
-    if not p2:
-        return {"ok": False, "error": "timeout"}
+    p1, p2, error = _capture_guided_region("extra", name, group=group)
+    if error:
+        return {"ok": False, "error": error}
     config.set_extra_region(group, name, p1, p2)
     x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
     w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
@@ -1164,12 +1369,9 @@ def set_autopop_account_items(acc_id, biome_key, items):
 def capture_autopop_amount_region():
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    p1 = engine.automation._capture_click(timeout=30.0)
-    if not p1:
-        return {"ok": False, "error": "timeout"}
-    p2 = engine.automation._capture_click(timeout=30.0)
-    if not p2:
-        return {"ok": False, "error": "timeout"}
+    p1, p2, error = _capture_guided_region("autopop", "amount_label")
+    if error:
+        return {"ok": False, "error": error}
     config.set_autopop_amount_region(p1, p2)
     x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
     w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
@@ -1680,6 +1882,13 @@ def run():
 
     browser_modes = ["chrome", "edge", "default"]
 
+
+
+    dev_ui_url = None
+    ui_port = 0
+    ui_debug = False
+
+
     for mode in browser_modes:
         try:
             print(f"[SolRich] Trying to run app in '{mode}' mode...")
@@ -1697,7 +1906,10 @@ def run():
                 size=(1080, 720),
                 mode=mode,
                 cmdline_args=cmd_args,
-                port=0,
+                port=ui_port,
+                open_url=dev_ui_url,
+                debug=ui_debug,
+                on_close=overlay.hide_calibration_guide,
             )
 
             break

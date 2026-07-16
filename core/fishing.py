@@ -1,6 +1,6 @@
-import time
-import threading
 import os
+import threading
+import time
 
 from . import win_input, win_pixel, fishing_presets, ocr, status_events, webhooks
 from .anti_afk import focus_roblox
@@ -25,7 +25,22 @@ SHOP_WAIT = 0.6
 SHOP_MAX_ATTEMPTS = 3
 OCR_TEXT_THRESHOLD = 0.6
 
+
+def _median_color(pixel_samples, fallback=WHITE):
+    
+    if not pixel_samples:
+        return fallback
+
+    middle_index = len(pixel_samples) // 2
+    return tuple(
+        sorted(pixel[channel] for pixel in pixel_samples)[middle_index]
+        for channel in range(3)
+    )
+
+
 class FishingEngine:
+    
+
     def __init__(self, config):
         self.config = config
         self._lock = threading.Lock()
@@ -37,127 +52,178 @@ class FishingEngine:
         self._active_account = None
         self._active_account_id = None
         self._module_active = False
-        self._primed_acc = None
-        self._rot_idx = 0
-        self._rot_started = None
+        self._primed_account_id = None
+        self._rotation_index = 0
+        self._rotation_started_at = None
 
-    def _fish(self):
-        auto = self.config.data.setdefault("automation", {})
-        return auto.setdefault("fishing", {})
+
+
+
+
+    def _fishing_config(self):
+        automation_config = self.config.data.setdefault("automation", {})
+        return automation_config.setdefault("fishing", {})
 
     def enabled(self):
-        return (self._module_active
-                or bool(self._fish().get("enabled", False))
-                or self.cycle_enabled())
+        return (
+            self._module_active
+            or bool(self._fishing_config().get("enabled", False))
+            or self.cycle_enabled()
+        )
 
-    def _pixels(self):
-        return self._fish().get("pixels", {}) or {}
+    def _configured_pixels(self):
+        return self._fishing_config().get("pixels", {}) or {}
 
     def _point(self, slot):
-        pos = self._pixels().get(slot)
-        if isinstance(pos, (list, tuple)) and len(pos) == 2:
-            return (int(pos[0]), int(pos[1]))
+        position = self._configured_pixels().get(slot)
+        if isinstance(position, (list, tuple)) and len(position) == 2:
+            return int(position[0]), int(position[1])
         return None
 
-    def _regions(self):
-        return self._fish().get("regions", {}) or {}
+    def _configured_regions(self):
+        return self._fishing_config().get("regions", {}) or {}
 
     def _region(self, name):
-        r = self._regions().get(name)
-        if isinstance(r, (list, tuple)) and len(r) == 4:
-            return tuple(int(v) for v in r)
+        region = self._configured_regions().get(name)
+        if isinstance(region, (list, tuple)) and len(region) == 4:
+            return tuple(int(value) for value in region)
         return None
 
-    def _ocr_failsafe(self, name):
-        v = self.config.automation.get("ocrFailsafe", {})
-        if isinstance(v, dict):
-            return bool(v.get(name, False))
+    def _ocr_failsafe_enabled(self, name):
+        failsafe_config = self.config.automation.get("ocrFailsafe", {})
+        if isinstance(failsafe_config, dict):
+            return bool(failsafe_config.get(name, False))
         return False
 
-    def _current_acc_id(self):
+    def _current_account_id(self):
         
         if self._active_account_id is not None:
             return self._active_account_id
-        return self._fish().get("account")
+        return self._fishing_config().get("account")
 
-    def _acc_cfg(self):
+    def _active_account_config(self):
         
-        acc_id = self._current_acc_id()
-        if acc_id is None:
+        account_id = self._current_account_id()
+        if account_id is None:
             return {}
-        entry = (self._fish().get("accounts") or {}).get(str(acc_id))
-        return entry if isinstance(entry, dict) else {}
 
-    def schedule(self):
-        
-        raw = self._fish().get("schedule")
-        if not isinstance(raw, list):
-            return []
-        enabled_ids = {a.get("id") for a in self.config.accounts
-                       if a.get("enabled", True)}
-        out = []
-        for e in raw:
-            if not isinstance(e, dict):
-                continue
-            aid = e.get("accId")
-            if aid is None or aid not in enabled_ids:
-                continue
-            try:
-                mins = max(1, int(e.get("minutes", 30)))
-            except (TypeError, ValueError):
-                mins = 30
-            out.append({"accId": aid, "minutes": mins})
-        return out
+        account_config = (self._fishing_config().get("accounts") or {}).get(
+            str(account_id)
+        )
+        return account_config if isinstance(account_config, dict) else {}
 
-    def rotation_account(self):
-        
-        sched = self.schedule()
-        if not sched:
-            self._rot_started = None
-            self._active_account_id = None
-            return None
-        now = time.monotonic()
-        if self._rot_started is None or self._rot_idx >= len(sched):
-            self._rot_idx = 0
-            self._rot_started = now
-        entry = sched[self._rot_idx]
-        if now - self._rot_started >= entry["minutes"] * 60:
-            self._rot_idx = (self._rot_idx + 1) % len(sched)
-            self._rot_started = now
-            entry = sched[self._rot_idx]
-        return entry["accId"]
-
-    def rotation_status(self):
-        
-        sched = self.schedule()
-        if not sched or self._rot_started is None or self._rot_idx >= len(sched):
-            return {"accId": None, "remaining": 0, "index": -1, "total": len(sched)}
-        entry = sched[self._rot_idx]
-        remaining = int(entry["minutes"] * 60 - (time.monotonic() - self._rot_started))
-        return {"accId": entry["accId"], "remaining": max(0, remaining),
-                "index": self._rot_idx, "total": len(sched)}
+    def _account_int(self, key, default):
+        try:
+            return int(self._active_account_config().get(key, default))
+        except (TypeError, ValueError):
+            return int(default)
 
     def _acc_int(self, key, default):
-        try:
-            return int(self._acc_cfg().get(key, default))
-        except (TypeError, ValueError):
-            return int(default)
-
-    def _int(self, key, default):
         
+        return self._account_int(key, default)
+
+    def _fishing_int(self, key, default):
         try:
-            return int(self._fish().get(key, default))
+            return int(self._fishing_config().get(key, default))
         except (TypeError, ValueError):
             return int(default)
 
-    def _slow_reset(self):
+    def _slow_reset_enabled(self):
         
         return bool(self.config.settings.get("slowReset", False))
 
+
+
+
+
+    def schedule(self):
+        
+        raw_schedule = self._fishing_config().get("schedule")
+        if not isinstance(raw_schedule, list):
+            return []
+
+        enabled_account_ids = {
+            account.get("id")
+            for account in self.config.accounts
+            if account.get("enabled", True)
+        }
+        schedule_entries = []
+
+        for raw_entry in raw_schedule:
+            if not isinstance(raw_entry, dict):
+                continue
+
+            account_id = raw_entry.get("accId")
+            if account_id is None or account_id not in enabled_account_ids:
+                continue
+
+            try:
+                duration_minutes = max(1, int(raw_entry.get("minutes", 30)))
+            except (TypeError, ValueError):
+                duration_minutes = 30
+
+            schedule_entries.append({"accId": account_id, "minutes": duration_minutes})
+
+        return schedule_entries
+
+    def rotation_account(self):
+        
+        schedule = self.schedule()
+        if not schedule:
+            self._rotation_started_at = None
+            self._active_account_id = None
+            return None
+
+        now = time.monotonic()
+        if self._rotation_started_at is None or self._rotation_index >= len(schedule):
+            self._rotation_index = 0
+            self._rotation_started_at = now
+
+        active_entry = schedule[self._rotation_index]
+        if now - self._rotation_started_at >= active_entry["minutes"] * 60:
+            self._rotation_index = (self._rotation_index + 1) % len(schedule)
+            self._rotation_started_at = now
+            active_entry = schedule[self._rotation_index]
+
+        return active_entry["accId"]
+
+    def rotation_status(self):
+        
+        schedule = self.schedule()
+        if (
+            not schedule
+            or self._rotation_started_at is None
+            or self._rotation_index >= len(schedule)
+        ):
+            return {
+                "accId": None,
+                "remaining": 0,
+                "index": -1,
+                "total": len(schedule),
+            }
+
+        active_entry = schedule[self._rotation_index]
+        elapsed_seconds = time.monotonic() - self._rotation_started_at
+        remaining_seconds = int(active_entry["minutes"] * 60 - elapsed_seconds)
+
+        return {
+            "accId": active_entry["accId"],
+            "remaining": max(0, remaining_seconds),
+            "index": self._rotation_index,
+            "total": len(schedule),
+        }
+
     def ready(self):
-        required = ("cast_point", "bite_indicator", "bar_sample", "zone_left",
-                    "zone_right", "reel_click", "claim_button")
-        return all(self._point(s) is not None for s in required)
+        required_slots = (
+            "cast_point",
+            "bite_indicator",
+            "bar_sample",
+            "zone_left",
+            "zone_right",
+            "reel_click",
+            "claim_button",
+        )
+        return all(self._point(slot) is not None for slot in required_slots)
 
     def reset(self):
         with self._lock:
@@ -166,10 +232,10 @@ class FishingEngine:
             self.total_caught = 0
             self.phase = "idle"
             self._session_start = time.time()
-            self._primed_acc = None
+            self._primed_account_id = None
             self._active_account_id = None
-            self._rot_idx = 0
-            self._rot_started = None
+            self._rotation_index = 0
+            self._rotation_started_at = None
 
     def status(self):
         return {
@@ -178,270 +244,411 @@ class FishingEngine:
             "sells": self.sell_count,
         }
 
-    def _cycle(self):
-        auto = self.config.data.setdefault("automation", {})
-        cyc = auto.setdefault("cycle", {})
-        cyc.setdefault("steps", [])
-        cyc.setdefault("enabled", False)
-        lim = cyc.setdefault("limbo", {})
-        if not isinstance(lim.get("accounts"), dict):
-            lim["accounts"] = {}
-        return cyc
+    def _cycle_config(self):
+        automation_config = self.config.data.setdefault("automation", {})
+        cycle_config = automation_config.setdefault("cycle", {})
+        cycle_config.setdefault("steps", [])
+        cycle_config.setdefault("enabled", False)
+
+        limbo_config = cycle_config.setdefault("limbo", {})
+        if not isinstance(limbo_config.get("accounts"), dict):
+            limbo_config["accounts"] = {}
+
+        return cycle_config
 
     def cycle_enabled(self):
         return False
 
     def cycle_steps(self):
         
-        raw = self._cycle().get("steps")
-        if not isinstance(raw, list):
+        raw_steps = self._cycle_config().get("steps")
+        if not isinstance(raw_steps, list):
             return []
-        enabled_ids = {a.get("id") for a in self.config.accounts if a.get("enabled", True)}
-        out = []
-        for s in raw:
-            if not isinstance(s, dict):
+
+        enabled_account_ids = {
+            account.get("id")
+            for account in self.config.accounts
+            if account.get("enabled", True)
+        }
+        cycle_steps = []
+
+        for raw_step in raw_steps:
+            if not isinstance(raw_step, dict):
                 continue
-            aid = s.get("accId")
-            if aid is None or aid not in enabled_ids:
+
+            account_id = raw_step.get("accId")
+            if account_id is None or account_id not in enabled_account_ids:
                 continue
-            t = s.get("type") or "fishing"
-            entry = {"type": t, "accId": aid}
-            if t == "fishing":
+
+            step_type = raw_step.get("type") or "fishing"
+            sanitized_step = {"type": step_type, "accId": account_id}
+
+            if step_type == "fishing":
                 try:
-                    entry["minutes"] = max(1, int(s.get("minutes", 30)))
+                    sanitized_step["minutes"] = max(1, int(raw_step.get("minutes", 30)))
                 except (TypeError, ValueError):
-                    entry["minutes"] = 30
-            elif t == "limboEden":
-                entry["afk"] = bool(s.get("afk", False))
+                    sanitized_step["minutes"] = 30
+            elif step_type == "limboEden":
+                sanitized_step["afk"] = bool(raw_step.get("afk", False))
                 try:
-                    entry["minutes"] = max(1, int(s.get("minutes", 30)))
+                    sanitized_step["minutes"] = max(1, int(raw_step.get("minutes", 30)))
                 except (TypeError, ValueError):
-                    entry["minutes"] = 30
-            out.append(entry)
-        return out
+                    sanitized_step["minutes"] = 30
+
+            cycle_steps.append(sanitized_step)
+
+        return cycle_steps
 
     @staticmethod
     def _step_minutes(step):
         
-        t = step.get("type")
-        if t == "fishing":
+        step_type = step.get("type")
+        if step_type == "fishing":
             return step.get("minutes", 30)
-        if t == "limboEden" and not step.get("afk"):
+        if step_type == "limboEden" and not step.get("afk"):
             return step.get("minutes", 30)
         return None
 
-    def limbo_settings(self, acc_id):
+    def limbo_settings(self, account_id):
         
-        accs = (self._cycle().get("limbo") or {}).get("accounts") or {}
-        entry = accs.get(str(acc_id))
-        out = {"path": "vip", "edenWatch": False, "edenInterval": 120}
-        if isinstance(entry, dict):
-            if entry.get("path"):
-                out["path"] = str(entry["path"])
-            out["edenWatch"] = bool(entry.get("edenWatch", False))
+        account_configs = (self._cycle_config().get("limbo") or {}).get(
+            "accounts"
+        ) or {}
+        account_config = account_configs.get(str(account_id))
+        settings = {"path": "vip", "edenWatch": False, "edenInterval": 120}
+
+        if isinstance(account_config, dict):
+            if account_config.get("path"):
+                settings["path"] = str(account_config["path"])
+            settings["edenWatch"] = bool(account_config.get("edenWatch", False))
             try:
-                out["edenInterval"] = max(30, min(3600, int(entry.get("edenInterval", 120))))
+                settings["edenInterval"] = max(
+                    30,
+                    min(3600, int(account_config.get("edenInterval", 120))),
+                )
             except (TypeError, ValueError):
                 pass
-        return out
+
+        return settings
 
     def current_step(self):
         
         steps = self.cycle_steps()
         if not steps:
-            self._rot_started = None
+            self._rotation_started_at = None
             self._active_account_id = None
             return None
         now = time.monotonic()
-        if self._rot_started is None or self._rot_idx >= len(steps):
-            self._rot_idx = 0
-            self._rot_started = now
-        step = steps[self._rot_idx]
-        mins = self._step_minutes(step)
-        if mins is not None and now - self._rot_started >= mins * 60:
-            self._rot_idx = (self._rot_idx + 1) % len(steps)
-            self._rot_started = now
-            step = steps[self._rot_idx]
-            mins = self._step_minutes(step)
-        remaining = int(mins * 60 - (now - self._rot_started)) if mins is not None else 0
-        return {**step, "remaining": max(0, remaining),
-                "index": self._rot_idx, "total": len(steps)}
+        if self._rotation_started_at is None or self._rotation_index >= len(steps):
+            self._rotation_index = 0
+            self._rotation_started_at = now
+
+        current_step = steps[self._rotation_index]
+        duration_minutes = self._step_minutes(current_step)
+
+        if (
+            duration_minutes is not None
+            and now - self._rotation_started_at >= duration_minutes * 60
+        ):
+            self._rotation_index = (self._rotation_index + 1) % len(steps)
+            self._rotation_started_at = now
+            current_step = steps[self._rotation_index]
+            duration_minutes = self._step_minutes(current_step)
+
+        if duration_minutes is None:
+            remaining_seconds = 0
+        else:
+            elapsed_seconds = now - self._rotation_started_at
+            remaining_seconds = int(duration_minutes * 60 - elapsed_seconds)
+
+        return {
+            **current_step,
+            "remaining": max(0, remaining_seconds),
+            "index": self._rotation_index,
+            "total": len(steps),
+        }
 
     def advance_step(self):
         
         steps = self.cycle_steps()
         if not steps:
             return
-        self._rot_idx = (self._rot_idx + 1) % len(steps)
-        self._rot_started = time.monotonic()
+        self._rotation_index = (self._rotation_index + 1) % len(steps)
+        self._rotation_started_at = time.monotonic()
 
     def cycle_status(self):
         
         steps = self.cycle_steps()
-        if not steps or self._rot_started is None or self._rot_idx >= len(steps):
-            return {"type": None, "accId": None, "remaining": 0, "index": -1,
-                    "total": len(steps), "enabled": self.cycle_enabled()}
-        step = steps[self._rot_idx]
-        mins = self._step_minutes(step)
-        remaining = int(mins * 60 - (time.monotonic() - self._rot_started)) if mins is not None else 0
-        return {"type": step.get("type"), "accId": step.get("accId"),
-                "remaining": max(0, remaining), "index": self._rot_idx,
-                "total": len(steps), "enabled": self.cycle_enabled()}
+        if (
+            not steps
+            or self._rotation_started_at is None
+            or self._rotation_index >= len(steps)
+        ):
+            return {
+                "type": None,
+                "accId": None,
+                "remaining": 0,
+                "index": -1,
+                "total": len(steps),
+                "enabled": self.cycle_enabled(),
+            }
 
-    def run_path(self, steps, ev):
+        current_step = steps[self._rotation_index]
+        duration_minutes = self._step_minutes(current_step)
+        if duration_minutes is None:
+            remaining_seconds = 0
+        else:
+            elapsed_seconds = time.monotonic() - self._rotation_started_at
+            remaining_seconds = int(duration_minutes * 60 - elapsed_seconds)
+
+        return {
+            "type": current_step.get("type"),
+            "accId": current_step.get("accId"),
+            "remaining": max(0, remaining_seconds),
+            "index": self._rotation_index,
+            "total": len(steps),
+            "enabled": self.cycle_enabled(),
+        }
+
+    def run_path(self, steps, stop_event):
         
         try:
             for step in steps:
-                if ev.is_set():
+                if stop_event.is_set():
                     return False
-                self._run_step(step, ev)
+                self._run_step(step, stop_event)
             return True
         finally:
             self._release_all()
 
-    def _webhook_enabled(self):
-        return bool(self._fish().get("webhookEnabled", False))
 
-    def _webhook_urls(self):
-        seen, urls = set(), []
-        for w in (self.config.webhooks or []):
-            url = (w.get("url") or "").strip()
-            if w.get("active", True) and url and url not in seen:
-                seen.add(url)
-                urls.append(url)
-        return urls
 
-    def _version(self):
+
+
+    def _fishing_webhooks_enabled(self):
+        return bool(self._fishing_config().get("webhookEnabled", False))
+
+    def _active_webhook_urls(self):
+        seen_urls = set()
+        active_urls = []
+
+        for webhook in self.config.webhooks or []:
+            url = (webhook.get("url") or "").strip()
+            if webhook.get("active", True) and url and url not in seen_urls:
+                seen_urls.add(url)
+                active_urls.append(url)
+
+        return active_urls
+
+    def _app_version(self):
         try:
             return self.config.data.get("version") or "?"
         except Exception:
             return "?"
 
-    def _session_time(self):
-        secs = max(0, int(time.time() - self._session_start))
-        return f"{secs // 3600:02d}:{(secs % 3600) // 60:02d}:{secs % 60:02d}"
+    def _session_duration(self):
+        elapsed_seconds = max(0, int(time.time() - self._session_start))
+        hours = elapsed_seconds // 3600
+        minutes = (elapsed_seconds % 3600) // 60
+        seconds = elapsed_seconds % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    def _fire_fish_webhook(self, is_catch, total_caught, since_sell):
-        if not self._webhook_enabled():
+    def _send_catch_webhook(self, catch_succeeded, total_caught, caught_since_sell):
+        if not self._fishing_webhooks_enabled():
             return
-        urls = self._webhook_urls()
-        if not urls:
+
+        webhook_urls = self._active_webhook_urls()
+        if not webhook_urls:
             return
+
         try:
-            if is_catch:
+            if catch_succeeded:
                 webhooks.fish_caught(
-                    urls, self._active_account, total_caught,
-                    since_sell, self._session_time(), self._version(),
+                    webhook_urls,
+                    self._active_account,
+                    total_caught,
+                    caught_since_sell,
+                    self._session_duration(),
+                    self._app_version(),
                 )
             else:
                 webhooks.fish_failed(
-                    urls, self._active_account, total_caught,
-                    self._session_time(), self._version(),
+                    webhook_urls,
+                    self._active_account,
+                    total_caught,
+                    self._session_duration(),
+                    self._app_version(),
                 )
-        except Exception as e:
-            print(f"[Fishing] Webhook send failed: {e}")
+        except Exception as error:
+            print(f"[Fishing] Webhook send failed: {error}")
 
-    def _failsafe_notify_on(self):
+    def _failsafe_notifications_enabled(self):
         try:
-            notif = self.config.automation.get("notifications", {}) or {}
-            return bool(notif.get("failsafes", False))
+            notification_config = self.config.automation.get("notifications", {}) or {}
+            return bool(notification_config.get("failsafes", False))
         except Exception:
             return False
 
-    def _fire_failsafe_webhook(self, label, success, detail=""):
-        if not self._failsafe_notify_on():
+    def _send_failsafe_webhook(self, label, success, detail=""):
+        if not self._failsafe_notifications_enabled():
             return
-        urls = self._webhook_urls()
-        if not urls:
+
+        webhook_urls = self._active_webhook_urls()
+        if not webhook_urls:
             return
+
         try:
             webhooks.failsafe_result(
-                urls, label, self._active_account, success,
-                self._session_time(), self._version(), detail=detail,
+                webhook_urls,
+                label,
+                self._active_account,
+                success,
+                self._session_duration(),
+                self._app_version(),
+                detail=detail,
             )
-        except Exception as e:
-            print(f"[Fishing] Failsafe webhook failed: {e}")
+        except Exception as error:
+            print(f"[Fishing] Failsafe webhook failed: {error}")
 
-    def _fire_sell_route_webhook(self, route_name, shop=True):
-        if not self._webhook_enabled():
+    def _send_sell_route_webhook(self, route_name, shop=True):
+        if not self._fishing_webhooks_enabled():
             return
-        urls = self._webhook_urls()
-        if not urls:
+
+        webhook_urls = self._active_webhook_urls()
+        if not webhook_urls:
             return
+
         try:
-            total = int(self.config.time_tracking().get("fishCaught", 0))
+            lifetime_catch_count = int(self.config.time_tracking().get("fishCaught", 0))
         except Exception:
-            total = self.total_caught
+            lifetime_catch_count = self.total_caught
+
         try:
             webhooks.sell_route(
-                urls, self._active_account, route_name, total,
-                self._session_time(), self._version(), shop=shop,
+                webhook_urls,
+                self._active_account,
+                route_name,
+                lifetime_catch_count,
+                self._session_duration(),
+                self._app_version(),
+                shop=shop,
             )
-        except Exception as e:
-            print(f"[Fishing] Sell route webhook failed: {e}")
+        except Exception as error:
+            print(f"[Fishing] Sell route webhook failed: {error}")
+
+
+
+
 
     def _detect_catch_result(self):
-        if not self._ocr_failsafe("fishingFailed"):
+        if not self._ocr_failsafe_enabled("fishingFailed"):
             return True
         if not ocr.available():
-            print("[Fishing] Fishing Failed failsafe ON but Tesseract not available — counting as catch.")
+            print(
+                "[Fishing] Fishing Failed failsafe ON but Tesseract not "
+                "available — counting as catch."
+            )
             return True
         region = self._region("fishing_failed")
         if region is None:
-            print("[Fishing] Fishing Failed failsafe ON but no 'Fishing Failed' region calibrated — counting as catch.")
+            print(
+                "[Fishing] Fishing Failed failsafe ON but no 'Fishing Failed' "
+                "region calibrated — counting as catch."
+            )
             return True
         status_events.push_event("Scanning catch result…", kind="info", ttl=1.5)
-        x, y, w, h = region
-        reads = ocr.read_region_variants(x, y, w, h)
-        print(f"[Fishing][OCR] fishing_failed region=({x},{y},{w}x{h}) | reads: {reads!r}")
+        region_x, region_y, region_width, region_height = region
+        text_variants = ocr.read_region_variants(
+            region_x, region_y, region_width, region_height
+        )
+        print(
+            "[Fishing][OCR] fishing_failed "
+            f"region=({region_x},{region_y},{region_width}x{region_height}) | "
+            f"reads: {text_variants!r}"
+        )
 
-        meaningful = [r for r in reads if len(ocr.normalize(r)) >= 3]
-        if not meaningful:
+        readable_variants = [
+            text for text in text_variants if len(ocr.normalize(text)) >= 3
+        ]
+        if not readable_variants:
             print("[Fishing][OCR] No readable text in region — NOT counting catch.")
             status_events.push_event("No catch detected", kind="warn", ttl=2.0)
             return False
         failed_score = 0.0
         caught_score = 0.0
-        for txt in reads:
-            failed_score = max(failed_score, ocr.similarity(txt, FAILED_TEXT))
-            caught_score = max(caught_score, ocr.similarity(txt, CAUGHT_TEXT))
+        for text in text_variants:
+            failed_score = max(failed_score, ocr.similarity(text, FAILED_TEXT))
+            caught_score = max(caught_score, ocr.similarity(text, CAUGHT_TEXT))
         if failed_score >= OCR_TEXT_THRESHOLD and failed_score >= caught_score:
-            print(f"[Fishing][OCR] 'Fishing Failed' detected (failed={failed_score:.2f}, caught={caught_score:.2f}) — NOT counting catch.")
+            print(
+                "[Fishing][OCR] 'Fishing Failed' detected "
+                f"(failed={failed_score:.2f}, caught={caught_score:.2f}) — "
+                "NOT counting catch."
+            )
             status_events.push_event("Fishing Failed", kind="bad", ttl=4.0)
             return False
         if caught_score >= OCR_TEXT_THRESHOLD:
-            print(f"[Fishing][OCR] 'Fish Caught' detected (caught={caught_score:.2f}, failed={failed_score:.2f}) — counting catch.")
+            print(
+                "[Fishing][OCR] 'Fish Caught' detected "
+                f"(caught={caught_score:.2f}, failed={failed_score:.2f}) — "
+                "counting catch."
+            )
             status_events.push_event("Fish Caught", kind="good", ttl=4.0)
             return True
 
-        print(f"[Fishing][OCR] No clear match (failed={failed_score:.2f}, caught={caught_score:.2f}) — NOT counting catch.")
+        print(
+            "[Fishing][OCR] No clear match "
+            f"(failed={failed_score:.2f}, caught={caught_score:.2f}) — "
+            "NOT counting catch."
+        )
         status_events.push_event("Catch unclear — not counting", kind="warn", ttl=2.0)
         return False
 
     def _shop_name_ok(self):
         if not ocr.available():
             return True
+
         region = self._region("shop_name")
         if region is None:
-            print("[Fishing] Sell Fish Shop failsafe ON but no 'Shop Name' region calibrated — assuming shop OK.")
+            print(
+                "[Fishing] Sell Fish Shop failsafe ON but no 'Shop Name' "
+                "region calibrated — assuming shop OK."
+            )
             return True
-        status_events.push_event("Checking shop name…", kind="info", ttl=1.5)
-        x, y, w, h = region
-        reads = ocr.read_region_variants(x, y, w, h)
-        score = 0.0
-        for txt in reads:
-            score = max(score, ocr.similarity(txt, SHOP_NAME_TARGET))
-        print(f"[Fishing][OCR] shop_name region=({x},{y},{w}x{h}) | reads: {reads!r} | '{SHOP_NAME_TARGET}' score={score:.2f}")
-        ok = score >= OCR_TEXT_THRESHOLD
-        if ok:
-            status_events.push_event("Captain Flarg found", kind="good", ttl=1.8)
-        return ok
 
-    def do_cycle(self, ev, focus_fn=None, account=None):
+        status_events.push_event("Checking shop name…", kind="info", ttl=1.5)
+        region_x, region_y, region_width, region_height = region
+        text_variants = ocr.read_region_variants(
+            region_x, region_y, region_width, region_height
+        )
+        best_match_score = 0.0
+        for text in text_variants:
+            best_match_score = max(
+                best_match_score, ocr.similarity(text, SHOP_NAME_TARGET)
+            )
+
+        print(
+            "[Fishing][OCR] shop_name "
+            f"region=({region_x},{region_y},{region_width}x{region_height}) | "
+            f"reads: {text_variants!r} | '{SHOP_NAME_TARGET}' "
+            f"score={best_match_score:.2f}"
+        )
+        shop_name_found = best_match_score >= OCR_TEXT_THRESHOLD
+        if shop_name_found:
+            status_events.push_event("Captain Flarg found", kind="good", ttl=1.8)
+        return shop_name_found
+
+
+
+
+
+    def do_cycle(self, stop_event, focus_fn=None, account=None):
         self._active_account = account
-        self._active_account_id = (account or {}).get("id") if isinstance(account, dict) else None
+        self._active_account_id = (
+            (account or {}).get("id") if isinstance(account, dict) else None
+        )
         if not win_input.IS_WINDOWS or not self.ready():
-            ev.wait(1.0)
+            stop_event.wait(1.0)
             return False
 
         if focus_fn is not None:
@@ -449,59 +656,93 @@ class FishingEngine:
         else:
             focus_roblox()
 
-        if self._acc_cfg().get("primeRoute", False):
-            acc_id = self._current_acc_id()
-            if acc_id is not None and self._primed_acc != acc_id:
-                name = self._acc_cfg().get("route", "")
-                steps = fishing_presets.get_route(name)
-                if steps:
-                    print(f"[Fishing] Priming route '{name}' — walking without opening the shop.")
-                    status_events.push_event("Walking the route (no shop)…", kind="info", ttl=2.0)
+        account_config = self._active_account_config()
+        if account_config.get("primeRoute", False):
+            account_id = self._current_account_id()
+            if account_id is not None and self._primed_account_id != account_id:
+                route_name = account_config.get("route", "")
+                route_steps = fishing_presets.get_route(route_name)
+                if route_steps:
+                    print(
+                        f"[Fishing] Priming route '{route_name}' — walking "
+                        "without opening the shop."
+                    )
+                    status_events.push_event(
+                        "Walking the route (no shop)…", kind="info", ttl=2.0
+                    )
                     status_events.set_detail("Walking the sell route — no shop")
                     self.phase = "selling"
-                    self._run_route_steps(steps, ev, max(1, self._acc_int("sellCycle", 1)), skip_shop=True)
-                    if ev.is_set() or not self.enabled():
+                    self._run_route_steps(
+                        route_steps,
+                        stop_event,
+                        max(1, self._account_int("sellCycle", 1)),
+                        skip_shop=True,
+                    )
+                    if stop_event.is_set() or not self.enabled():
                         self.phase = "idle"
                         return False
                 else:
-                    print(f"[Fishing] Route prime skipped: route '{name}' not found.")
-                self._primed_acc = acc_id
+                    print(
+                        f"[Fishing] Route prime skipped: route '{route_name}' "
+                        "not found."
+                    )
+                self._primed_account_id = account_id
 
         self.phase = "casting"
         status_events.set_detail("Casting the line")
 
-        claim = self._point("claim_button")
-        if claim is not None:
-            win_input.click_at(claim[0], claim[1])
-            if ev.wait(0.3):
+        claim_button = self._point("claim_button")
+        if claim_button is not None:
+            win_input.click_at(claim_button[0], claim_button[1])
+            if stop_event.wait(0.3):
                 self.phase = "idle"
                 return False
 
-        cast = self._point("cast_point")
-        win_input.click_at(cast[0], cast[1])
-        if ev.wait(0.35):
+        cast_point = self._point("cast_point")
+        win_input.click_at(cast_point[0], cast_point[1])
+        if stop_event.wait(0.35):
             self.phase = "idle"
             return False
 
         self.phase = "waiting"
-        bite = self._wait_for_bite(ev)
-        if bite != "bite":
-            if bite == "timeout" and self._ocr_failsafe("noBite"):
-                print(f"[Fishing] No bite for {NO_BITE_TIMEOUT:.0f}s — running sell route WITHOUT opening the shop.")
-                status_events.push_event("No bite — running sell route (no shop)", kind="warn", ttl=None)
+        bite_result = self._wait_for_bite(stop_event)
+        if bite_result != "bite":
+            if bite_result == "timeout" and self._ocr_failsafe_enabled("noBite"):
+                print(
+                    f"[Fishing] No bite for {NO_BITE_TIMEOUT:.0f}s — "
+                    "running sell route WITHOUT opening the shop."
+                )
+                status_events.push_event(
+                    "No bite — running sell route (no shop)",
+                    kind="warn",
+                    ttl=5.0,
+                )
                 status_events.set_detail("Running sell route — no shop")
-                self._fire_failsafe_webhook("No Bite Failsafe", False,
-                                            detail=f"No bite for {NO_BITE_TIMEOUT:.0f}s — selling without shop")
+                self._send_failsafe_webhook(
+                    "No Bite Failsafe",
+                    False,
+                    detail=(
+                        f"No bite for {NO_BITE_TIMEOUT:.0f}s — selling without shop"
+                    ),
+                )
                 self.phase = "selling"
-                name = self._acc_cfg().get("route", "")
-                steps = fishing_presets.get_route(name)
-                if steps:
-                    cycles = max(1, self._acc_int("sellCycle", 1))
-                    self._fire_sell_route_webhook(name, shop=False)
-                    self._run_route_steps(steps, ev, cycles, skip_shop=True)
+                route_name = account_config.get("route", "")
+                route_steps = fishing_presets.get_route(route_name)
+                if route_steps:
+                    sell_cycles = max(1, self._account_int("sellCycle", 1))
+                    self._send_sell_route_webhook(route_name, shop=False)
+                    self._run_route_steps(
+                        route_steps,
+                        stop_event,
+                        sell_cycles,
+                        skip_shop=True,
+                    )
                 else:
-                    print(f"[Fishing] No-bite failsafe: route '{name}' not found — skipping.")
-            elif bite == "timeout":
+                    print(
+                        f"[Fishing] No-bite failsafe: route '{route_name}' "
+                        "not found — skipping."
+                    )
+            elif bite_result == "timeout":
                 print(f"[Fishing] No bite for {BITE_TIMEOUT:.0f}s — recasting.")
                 status_events.push_event("No bite — recasting", kind="warn", ttl=2.0)
             self.phase = "idle"
@@ -510,221 +751,337 @@ class FishingEngine:
         status_events.push_event("Bite! Reeling in", kind="good", ttl=1.5)
         self.phase = "reeling"
         status_events.set_detail("Reeling it in")
-        self._reel(ev)
+        self._reel(stop_event)
 
-        if ev.is_set():
+        if stop_event.is_set():
             self.phase = "idle"
             return False
 
-        claim = self._point("claim_button")
+        claim_button = self._point("claim_button")
         time.sleep(0.3)
 
-        is_catch = self._detect_catch_result()
+        catch_succeeded = self._detect_catch_result()
 
-        win_input.click_at(claim[0], claim[1])
+        win_input.click_at(claim_button[0], claim_button[1])
         time.sleep(0.3)
 
-        if is_catch:
+        if catch_succeeded:
             with self._lock:
                 self.catch_count += 1
                 self.total_caught += 1
-                since = self.catch_count
+                caught_since_sell = self.catch_count
 
             try:
-                lifetime = self.config.add_fish_caught(1)
+                lifetime_catch_count = self.config.add_fish_caught(1)
             except Exception:
-                lifetime = None
-            self._fire_fish_webhook(True, lifetime if lifetime is not None else self.total_caught, since)
+                lifetime_catch_count = None
+
+            self._send_catch_webhook(
+                True,
+                (
+                    lifetime_catch_count
+                    if lifetime_catch_count is not None
+                    else self.total_caught
+                ),
+                caught_since_sell,
+            )
         else:
             with self._lock:
-                since = self.catch_count
+                caught_since_sell = self.catch_count
             try:
-                lifetime = int(self.config.time_tracking().get("fishCaught", 0))
+                lifetime_catch_count = int(
+                    self.config.time_tracking().get("fishCaught", 0)
+                )
             except Exception:
-                lifetime = self.total_caught
-            self._fire_fish_webhook(False, lifetime, since)
+                lifetime_catch_count = self.total_caught
+            self._send_catch_webhook(False, lifetime_catch_count, caught_since_sell)
 
-        if is_catch and self._acc_cfg().get("autoSell", False):
-            sell_after = max(1, self._acc_int("sellAfter", 20))
-            if since >= sell_after:
+        if catch_succeeded and account_config.get("autoSell", False):
+            sell_after = max(1, self._account_int("sellAfter", 20))
+            if caught_since_sell >= sell_after:
                 self.phase = "selling"
-                if self._run_sell_route(ev):
+                if self._run_sell_route(stop_event):
                     with self._lock:
                         self.catch_count = 0
                         self.sell_count += 1
         self.phase = "idle"
         return True
 
-    def _wait_for_bite(self, ev):
-        indicator = self._point("bite_indicator")
+
+
+
+
+    def _wait_for_bite(self, stop_event):
+        bite_indicator = self._point("bite_indicator")
         status_events.clear_event()
         status_events.set_detail("Waiting for a bite")
-        timeout = NO_BITE_TIMEOUT if self._ocr_failsafe("noBite") else BITE_TIMEOUT
-        baseline = win_pixel.get_pixel(indicator[0], indicator[1])
-        already_white = win_pixel.color_match(baseline, WHITE, BITE_TOLERANCE)
-        print(f"[Fishing] Waiting for bite — indicator@{indicator} rgb={baseline} "
-              f"matchesWhite={already_white} (tol={BITE_TOLERANCE})")
-        if already_white:
-            print("[Fishing] WARNING: the Fish Indicator Pixel is ALREADY white before any "
-                  "bite — this causes instant false bites (cast → reel 0s → repeat). Re-set "
-                  "'Fish Indicator Pixel' in Calibration onto the spot that ONLY turns white "
-                  "when a fish bites.")
+        timeout = (
+            NO_BITE_TIMEOUT if self._ocr_failsafe_enabled("noBite") else BITE_TIMEOUT
+        )
+        baseline_color = win_pixel.get_pixel(bite_indicator[0], bite_indicator[1])
+        indicator_already_white = win_pixel.color_match(
+            baseline_color, WHITE, BITE_TOLERANCE
+        )
+        print(
+            f"[Fishing] Waiting for bite — indicator@{bite_indicator} "
+            f"rgb={baseline_color} matchesWhite={indicator_already_white} "
+            f"(tol={BITE_TOLERANCE})"
+        )
+        if indicator_already_white:
+            print(
+                "[Fishing] WARNING: the Fish Indicator Pixel is ALREADY white "
+                "before any bite — this causes instant false bites "
+                "(cast → reel 0s → repeat). Re-set 'Fish Indicator Pixel' in "
+                "Calibration onto the spot that ONLY turns white when a fish "
+                "bites."
+            )
+
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if ev.is_set() or not self.enabled():
+            if stop_event.is_set() or not self.enabled():
                 return "stopped"
-            rgb = win_pixel.get_pixel(indicator[0], indicator[1])
-            if win_pixel.color_match(rgb, WHITE, BITE_TOLERANCE):
-                print(f"[Fishing] Bite detected — indicator rgb={rgb}")
+            current_color = win_pixel.get_pixel(bite_indicator[0], bite_indicator[1])
+            if win_pixel.color_match(current_color, WHITE, BITE_TOLERANCE):
+                print(f"[Fishing] Bite detected — indicator rgb={current_color}")
                 return "bite"
             time.sleep(0.05)
         return "timeout"
 
-    def _reel(self, ev):
-        sample = self._point("bar_sample")
-        left = self._point("zone_left")
-        right = self._point("zone_right")
-        reel_click = self._point("reel_click")
+    def _reel(self, stop_event):
+        bar_sample_point = self._point("bar_sample")
+        zone_left_point = self._point("zone_left")
+        zone_right_point = self._point("zone_right")
+        reel_click_point = self._point("reel_click")
 
-        x1 = min(left[0], right[0])
-        x2 = max(left[0], right[0])
-        width = max(1, x2 - x1 + 1)
-        y = sample[1]
-        top = max(0, y - STRIP_BAND // 2)
+        scan_left_x = min(zone_left_point[0], zone_right_point[0])
+        scan_right_x = max(zone_left_point[0], zone_right_point[0])
+        scan_width = max(1, scan_right_x - scan_left_x + 1)
+        scan_y = bar_sample_point[1]
+        scan_top_y = max(0, scan_y - STRIP_BAND // 2)
 
-        win_input.move_to(reel_click[0], reel_click[1])
-        time.sleep(0.06)
 
-        pixels = []
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                px = win_pixel.get_pixel(sample[0] + dx, sample[1] + dy)
-                if px:
-                    pixels.append(px)
 
-        if pixels:
-            avg_r = sum(p[0] for p in pixels) // len(pixels)
-            avg_g = sum(p[1] for p in pixels) // len(pixels)
-            avg_b = sum(p[2] for p in pixels) // len(pixels)
-            bar_color = (avg_r, avg_g, avg_b)
+
+
+
+        initial_color_samples = []
+        for x_offset in (-1, 0, 1):
+            for y_offset in (-1, 0, 1):
+                pixel_color = win_pixel.get_pixel(
+                    bar_sample_point[0] + x_offset,
+                    bar_sample_point[1] + y_offset,
+                )
+                if pixel_color:
+                    initial_color_samples.append(pixel_color)
+
+        target_color = _median_color(initial_color_samples)
+        print(
+            "[Fishing] Initial overlapped target colour="
+            f"{target_color} at {bar_sample_point}"
+        )
+
+        win_input.move_to(
+            reel_click_point[0],
+            reel_click_point[1],
+            duration=0.05,
+            steps=6,
+        )
+        time.sleep(0.02)
+
+
+        base_tolerance = self._fishing_int("reelTolerance", REEL_TOLERANCE)
+        warm_tolerance = self._fishing_int("reelWarmTolerance", REEL_WARM_TOL)
+
+
+
+
+
+        target_red, target_green, target_blue = target_color
+        red_is_dominant = (
+            target_red >= target_green
+            and target_red >= target_blue
+            and target_red - min(target_green, target_blue) > 40
+        )
+        if red_is_dominant:
+            channel_tolerances = (
+                base_tolerance,
+                warm_tolerance,
+                warm_tolerance,
+            )
         else:
-            bar_color = WHITE
-
-        zone_color = bar_color
-
-
-        current_tolerance = self._int("reelTolerance", REEL_TOLERANCE)
-        warm_tolerance = self._int("reelWarmTolerance", REEL_WARM_TOL)
-
-
-
-
-
-        r0, g0, b0 = bar_color
-        if r0 >= g0 and r0 >= b0 and r0 - min(g0, b0) > 40:
-            tol_rgb = (current_tolerance, warm_tolerance, warm_tolerance)
-        else:
-            tol_rgb = (current_tolerance, current_tolerance, current_tolerance)
+            channel_tolerances = (
+                base_tolerance,
+                base_tolerance,
+                base_tolerance,
+            )
 
         deadline = time.time() + REEL_DURATION
         while time.time() < deadline:
-            if ev.is_set() or not self.enabled():
+            if stop_event.is_set() or not self.enabled():
                 return
 
-            found = win_pixel.color_in_region_pc(x1, top, width, STRIP_BAND,
-                                                 bar_color, tol_rgb)
-            if not found:
+            target_found = win_pixel.color_block_in_region_pc(
+                scan_left_x,
+                scan_top_y,
+                scan_width,
+                STRIP_BAND,
+                target_color,
+                channel_tolerances,
+                min_columns=2,
+                min_rows=3,
+            )
+            if not target_found:
                 win_input.click_here(0.0)
 
             time.sleep(REEL_POLL)
 
 
-    def run_sell(self, ev, focus_fn=None, account=None):
+
+
+
+
+    def run_sell(self, stop_event, focus_fn=None, account=None):
         
         self._active_account = account
-        self._active_account_id = (account or {}).get("id") if isinstance(account, dict) else None
+        self._active_account_id = (
+            (account or {}).get("id") if isinstance(account, dict) else None
+        )
         if not win_input.IS_WINDOWS or not self.ready():
             return False
+
         if focus_fn is not None:
             focus_fn()
         else:
             focus_roblox()
+
         self.phase = "selling"
-        ok = self._run_sell_route(ev)
-        if ok:
+        sell_succeeded = self._run_sell_route(stop_event)
+        if sell_succeeded:
             with self._lock:
                 self.catch_count = 0
                 self.sell_count += 1
         self.phase = "idle"
-        return ok
+        return sell_succeeded
 
-    def _run_sell_route(self, ev):
-        name = self._acc_cfg().get("route", "")
-        steps = fishing_presets.get_route(name)
-        if not steps:
-            print(f"[Fishing] Sell skipped: route '{name}' not found.")
+    def _run_sell_route(self, stop_event):
+        route_name = self._active_account_config().get("route", "")
+        route_steps = fishing_presets.get_route(route_name)
+        if not route_steps:
+            print(f"[Fishing] Sell skipped: route '{route_name}' not found.")
             return False
-        cycles = max(1, self._acc_int("sellCycle", 1))
 
-        failsafe = self._ocr_failsafe("sellFishShop")
-        self._fire_sell_route_webhook(name, shop=True)
-        if not failsafe:
-            print(f"[Fishing] Running sell route '{name}' (sell cycle x{cycles}).")
-            return self._run_route_steps(steps, ev, cycles, skip_shop=False)
+        sell_cycles = max(1, self._account_int("sellCycle", 1))
+        verify_shop = self._ocr_failsafe_enabled("sellFishShop")
+        self._send_sell_route_webhook(route_name, shop=True)
+
+        if not verify_shop:
+            print(
+                f"[Fishing] Running sell route '{route_name}' "
+                f"(sell cycle x{sell_cycles})."
+            )
+            return self._run_route_steps(
+                route_steps, stop_event, sell_cycles, skip_shop=False
+            )
 
         for attempt in range(1, SHOP_MAX_ATTEMPTS + 1):
-            if ev.is_set() or not self.enabled():
+            if stop_event.is_set() or not self.enabled():
                 self._release_all()
                 return False
-            print(f"[Fishing] Running sell route '{name}' (attempt {attempt}/{SHOP_MAX_ATTEMPTS}, sell cycle x{cycles}).")
-            status_events.set_detail(f"Selling — shop attempt {attempt}/{SHOP_MAX_ATTEMPTS}")
-            result = self._run_route_steps(steps, ev, cycles, skip_shop=False, verify_shop=True)
-            if result == "shop_missing":
-                print(f"[Fishing] Captain Flarg not found on attempt {attempt} — retrying route.")
+
+            print(
+                f"[Fishing] Running sell route '{route_name}' "
+                f"(attempt {attempt}/{SHOP_MAX_ATTEMPTS}, "
+                f"sell cycle x{sell_cycles})."
+            )
+            status_events.set_detail(
+                f"Selling — shop attempt {attempt}/{SHOP_MAX_ATTEMPTS}"
+            )
+            route_result = self._run_route_steps(
+                route_steps,
+                stop_event,
+                sell_cycles,
+                skip_shop=False,
+                verify_shop=True,
+            )
+            if route_result == "shop_missing":
+                print(
+                    "[Fishing] Captain Flarg not found on attempt "
+                    f"{attempt} — retrying route."
+                )
                 status_events.push_event(
-                    f"Sell Fish Shop failsafe failed — shop route try {attempt}/{SHOP_MAX_ATTEMPTS}",
-                    kind="warn", ttl=2.5)
+                    "Sell Fish Shop failsafe failed — shop route try "
+                    f"{attempt}/{SHOP_MAX_ATTEMPTS}",
+                    kind="warn",
+                    ttl=2.5,
+                )
                 self._release_all()
                 continue
-            self._fire_failsafe_webhook("Sell Fish Shop Failsafe", True,
-                                        detail="Captain Flarg verified")
-            return bool(result)
 
-        print(f"[Fishing] Captain Flarg not found after {SHOP_MAX_ATTEMPTS} attempts — running route with shop skipped.")
+            self._send_failsafe_webhook(
+                "Sell Fish Shop Failsafe",
+                True,
+                detail="Captain Flarg verified",
+            )
+            return bool(route_result)
+
+        print(
+            f"[Fishing] Captain Flarg not found after {SHOP_MAX_ATTEMPTS} "
+            "attempts — running route with shop skipped."
+        )
         status_events.push_event(
             "Sell Fish Shop failsafe gave up — running route, shop skipped",
-            kind="bad", ttl=3.0)
-        self._fire_failsafe_webhook("Sell Fish Shop Failsafe", False,
-                                    detail=f"Captain Flarg not found after {SHOP_MAX_ATTEMPTS} tries")
-        return self._run_route_steps(steps, ev, cycles, skip_shop=True)
+            kind="bad",
+            ttl=3.0,
+        )
+        self._send_failsafe_webhook(
+            "Sell Fish Shop Failsafe",
+            False,
+            detail=f"Captain Flarg not found after {SHOP_MAX_ATTEMPTS} tries",
+        )
+        return self._run_route_steps(
+            route_steps, stop_event, sell_cycles, skip_shop=True
+        )
 
-    def _run_route_steps(self, steps, ev, cycles, skip_shop=False, verify_shop=False):
-        for step in steps:
-            if ev.is_set() or not self.enabled():
+    def _run_route_steps(
+        self,
+        route_steps,
+        stop_event,
+        sell_cycles,
+        skip_shop=False,
+        verify_shop=False,
+    ):
+        for route_step in route_steps:
+            if stop_event.is_set() or not self.enabled():
                 self._release_all()
                 return False
 
-            if isinstance(step, dict) and step.get("shop_name_check"):
+            if isinstance(route_step, dict) and route_step.get("shop_name_check"):
                 if verify_shop:
-                    ev.wait(SHOP_WAIT)
+                    stop_event.wait(SHOP_WAIT)
                     if not self._shop_name_ok():
                         return "shop_missing"
                 continue
 
-            if skip_shop and isinstance(step, dict) and step.get("shop_step"):
+            if (
+                skip_shop
+                and isinstance(route_step, dict)
+                and route_step.get("shop_step")
+            ):
                 continue
 
-            if isinstance(step, dict) and step.get("sell_cycle"):
+            if isinstance(route_step, dict) and route_step.get("sell_cycle"):
                 if skip_shop:
                     continue
-                for _ in range(cycles):
+
+                for _ in range(sell_cycles):
                     for unit_step in fishing_presets.SELL_CYCLE_UNIT:
-                        if ev.is_set() or not self.enabled():
+                        if stop_event.is_set() or not self.enabled():
                             self._release_all()
                             return False
-                        self._run_step(unit_step, ev)
+                        self._run_step(unit_step, stop_event)
                 continue
-            self._run_step(step, ev)
+
+            self._run_step(route_step, stop_event)
         self._release_all()
         print("[Fishing] Sell route done.")
         return True
@@ -733,56 +1090,67 @@ class FishingEngine:
         for key in ("w", "a", "s", "d", "space"):
             win_input.key_up(key)
 
-    def _run_step(self, step, ev):
+    def _run_step(self, step, stop_event):
         if not isinstance(step, dict):
             return
+
         if "wait" in step:
             delay = float(step["wait"])
-            extra = step.get("slow_extra")
-            if extra and self._slow_reset():
-                delay += float(extra)
-            ev.wait(delay)
+            slow_machine_extra = step.get("slow_extra")
+            if slow_machine_extra and self._slow_reset_enabled():
+                delay += float(slow_machine_extra)
+            stop_event.wait(delay)
             return
+
         if "tap" in step:
-            t = step.get("time")
-            if t is not None:
-                win_input.hold_key(step["tap"], float(t))
+            hold_time = step.get("time")
+            if hold_time is not None:
+                win_input.hold_key(step["tap"], float(hold_time))
                 time.sleep(0.04)
             else:
                 win_input.press_key(step["tap"], 0.08)
             return
+
         if "hold" in step:
             win_input.hold_key(step["hold"], float(step.get("time", 0.5)))
             time.sleep(0.08)
             return
+
         if "down" in step:
             win_input.key_down(step["down"])
             return
+
         if "up" in step:
             win_input.key_up(step["up"])
             return
+
         if "click" in step:
-            pos = step["click"]
-            win_input.click_at(int(pos[0]), int(pos[1]))
+            position = step["click"]
+            win_input.click_at(int(position[0]), int(position[1]))
             time.sleep(0.12)
             return
+
         if "click_slot" in step:
-            pos = self._point(step["click_slot"])
-            if pos:
-                win_input.click_at(pos[0], pos[1])
+            position = self._point(step["click_slot"])
+            if position:
+                win_input.click_at(position[0], position[1])
                 time.sleep(0.12)
             return
+
         if "move" in step:
-            pos = step["move"]
-            win_input.move_to(int(pos[0]), int(pos[1]))
+            position = step["move"]
+            win_input.move_to(int(position[0]), int(position[1]))
             return
+
         if "scroll" in step:
             win_input.scroll(int(step["scroll"]))
             return
+
         if "look" in step:
-            d = step["look"]
-            win_input.look(int(d[0]), int(d[1]))
+            look_delta = step["look"]
+            win_input.look(int(look_delta[0]), int(look_delta[1]))
             return
+
         if "type" in step:
             win_input.type_text(str(step["type"]))
             return
@@ -792,9 +1160,15 @@ class FishingEngine:
             return {"ok": False, "error": "not_windows"}
         if slot not in fishing_presets.slot_keys():
             return {"ok": False, "error": "bad_slot"}
-        pos = win_input.capture_next_click(timeout=timeout)
-        if not pos:
+        position = win_input.capture_next_click(timeout=timeout)
+        if not position:
             return {"ok": False, "error": "timeout"}
-        self.config.set_fishing_pixel(slot, [pos[0], pos[1]])
-        print(f"[Fishing] Captured '{slot}' -> {pos[0]}, {pos[1]}")
-        return {"ok": True, "slot": slot, "x": pos[0], "y": pos[1]}
+
+        self.config.set_fishing_pixel(slot, [position[0], position[1]])
+        print(f"[Fishing] Captured '{slot}' -> {position[0]}, {position[1]}")
+        return {
+            "ok": True,
+            "slot": slot,
+            "x": position[0],
+            "y": position[1],
+        }

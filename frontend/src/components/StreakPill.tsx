@@ -26,10 +26,10 @@ export function StreakPill() {
     const duration = 850;
     setPop(true);
     const frame = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(from + (to - from) * eased));
-      if (t < 1) raf.current = requestAnimationFrame(frame);
+      if (progress < 1) raf.current = requestAnimationFrame(frame);
       else setDisplay(to);
     };
     raf.current = requestAnimationFrame(frame);

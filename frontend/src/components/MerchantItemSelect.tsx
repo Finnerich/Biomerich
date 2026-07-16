@@ -38,27 +38,27 @@ export function MerchantItemSelect({ mid, value, onChange, exclude, disabled, cl
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    const t = window.setTimeout(() => inputRef.current?.focus(), 10);
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 10);
     const onDocMouseDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDocMouseDown);
-    return () => { window.clearTimeout(t); document.removeEventListener("mousedown", onDocMouseDown); };
+    return () => { window.clearTimeout(focusTimer); document.removeEventListener("mousedown", onDocMouseDown); };
   }, [open]);
 
-  const q = query.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
   const catalog = MERCHANT_AUTOBUY_CATALOG[mid].filter(
-    (i) => (i.name === value || !exclude?.has(i.name)) && (!q || i.name.toLowerCase().includes(q)),
+    (item) => (item.name === value || !exclude?.has(item.name)) && (!normalizedQuery || item.name.toLowerCase().includes(normalizedQuery)),
   );
 
   const groups: Array<{ tier: string; items: MerchantItem[] }> = [];
-  for (const it of catalog) {
+  for (const item of catalog) {
     const last = groups[groups.length - 1];
-    if (last && last.tier === it.tier) last.items.push(it);
-    else groups.push({ tier: it.tier, items: [it] });
+    if (last && last.tier === item.tier) last.items.push(item);
+    else groups.push({ tier: item.tier, items: [item] });
   }
 
-  const selected = MERCHANT_AUTOBUY_CATALOG[mid].find((i) => i.name === value);
+  const selected = MERCHANT_AUTOBUY_CATALOG[mid].find((item) => item.name === value);
 
   return (
     <div
@@ -98,21 +98,21 @@ export function MerchantItemSelect({ mid, value, onChange, exclude, disabled, cl
           />
         </div>
         <div className="ps-scroll">
-          {groups.map((g, gi) => (
-            <div key={`${g.tier}-${gi}`} className="ps-group">
-              <div className="ps-group-head" style={headStyle(g.tier)}>
-                <span className="ps-dot" style={dotStyle(g.tier)}></span>
-                {merchantTierMeta(g.tier)?.label || g.tier}
+          {groups.map((group, i) => (
+            <div key={`${group.tier}-${i}`} className="ps-group">
+              <div className="ps-group-head" style={headStyle(group.tier)}>
+                <span className="ps-dot" style={dotStyle(group.tier)}></span>
+                {merchantTierMeta(group.tier)?.label || group.tier}
               </div>
-              {g.items.map((it) => (
+              {group.items.map((item) => (
                 <div
-                  key={it.name}
-                  className={`cs-option ps-option${it.name === value ? " selected" : ""}`}
-                  onMouseDown={(e) => { e.preventDefault(); onChange(it.name); setOpen(false); }}
+                  key={item.name}
+                  className={`cs-option ps-option${item.name === value ? " selected" : ""}`}
+                  onMouseDown={(e) => { e.preventDefault(); onChange(item.name); setOpen(false); }}
                 >
-                  <span className="ps-dot" style={dotStyle(it.tier)}></span>
-                  <span className="ps-oname">{it.name}</span>
-                  <BuffBadges buffs={it.buffs} />
+                  <span className="ps-dot" style={dotStyle(item.tier)}></span>
+                  <span className="ps-oname">{item.name}</span>
+                  <BuffBadges buffs={item.buffs} />
                 </div>
               ))}
             </div>

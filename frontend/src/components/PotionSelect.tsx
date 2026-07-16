@@ -5,11 +5,11 @@ export function BuffBadges({ buffs }: { buffs: Buff[] }) {
   if (!buffs.length) return null;
   return (
     <span className="ps-buffs">
-      {buffs.map((b, i) => {
-        const m = BUFF_META[b.kind];
+      {buffs.map((buff, i) => {
+        const meta = BUFF_META[buff.kind];
         return (
-          <span key={i} className="ps-buff" style={{ ["--bg-grad" as string]: m.grad }} title={`${m.label}${b.amount ? " " + b.amount : ""} buff`}>
-            <i className={`fa-solid ${m.icon}`}></i>{b.amount || m.label}
+          <span key={i} className="ps-buff" style={{ ["--bg-grad" as string]: meta.grad }} title={`${meta.label}${buff.amount ? " " + buff.amount : ""} buff`}>
+            <i className={`fa-solid ${meta.icon}`}></i>{buff.amount || meta.label}
           </span>
         );
       })}
@@ -31,17 +31,17 @@ export function PotionSelect({ value, onChange, disabled, className }: {
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    const t = window.setTimeout(() => inputRef.current?.focus(), 10);
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 10);
     const onDocMouseDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDocMouseDown);
-    return () => { window.clearTimeout(t); document.removeEventListener("mousedown", onDocMouseDown); };
+    return () => { window.clearTimeout(focusTimer); document.removeEventListener("mousedown", onDocMouseDown); };
   }, [open]);
 
-  const selTier = value ? potionTier(value) : null;
-  const q = query.trim().toLowerCase();
-  const matches = (name: string) => !q || name.toLowerCase().includes(q);
+  const selectedTier = value ? potionTier(value) : null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = (name: string) => !normalizedQuery || name.toLowerCase().includes(normalizedQuery);
   const anyMatch = POTIONS.some((p) => matches(p.name));
 
   return (
@@ -60,7 +60,7 @@ export function PotionSelect({ value, onChange, disabled, className }: {
       >
         {value ? (
           <span className="ps-val">
-            <span className="ps-dot" style={{ background: selTier?.color || "transparent" }}></span>
+            <span className="ps-dot" style={{ background: selectedTier?.color || "transparent" }}></span>
             <span className="ps-oname">{value}</span>
             <BuffBadges buffs={potionBuffs(value)} />
           </span>
@@ -90,15 +90,15 @@ export function PotionSelect({ value, onChange, disabled, className }: {
                 <div className="ps-group-head" style={{ color: tier.color }}>
                   <span className="ps-dot" style={{ background: tier.color }}></span>{tier.label}
                 </div>
-                {items.map((p) => (
+                {items.map((potion) => (
                   <div
-                    key={p.name}
-                    className={`cs-option ps-option${p.name === value ? " selected" : ""}`}
-                    onMouseDown={(e) => { e.preventDefault(); onChange(p.name); setOpen(false); }}
+                    key={potion.name}
+                    className={`cs-option ps-option${potion.name === value ? " selected" : ""}`}
+                    onMouseDown={(e) => { e.preventDefault(); onChange(potion.name); setOpen(false); }}
                   >
                     <span className="ps-dot" style={{ background: tier.color }}></span>
-                    <span className="ps-oname">{p.name}</span>
-                    <BuffBadges buffs={p.buffs} />
+                    <span className="ps-oname">{potion.name}</span>
+                    <BuffBadges buffs={potion.buffs} />
                   </div>
                 ))}
               </div>

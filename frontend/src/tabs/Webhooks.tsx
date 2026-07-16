@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 import { useState } from "react";
 import { useStore } from "../store";
 import { callPy } from "../bridge";
@@ -5,6 +12,8 @@ import { maskWebhook } from "../utils";
 import { DEFAULT_AVATAR } from "../data/biomes";
 import { Modal } from "../components/Modal";
 import type { Account, BackendState } from "../types";
+
+
 
 interface Webhook {
   id: number;
@@ -19,6 +28,8 @@ const NOTIFS = [
   { key: "biomeRandomizer", name: "Biome Randomizer", desc: "Sends an embed each time the Biome Randomizer runs: green when used, red when skipped." },
 ];
 
+
+
 type EditState = { id: number; name: string; url: string } | null;
 
 export function Webhooks() {
@@ -30,22 +41,22 @@ export function Webhooks() {
   const patchWebhook = useStore((s) => s.patchWebhook);
   const patchAutomation = useStore((s) => s.patchAutomation);
 
-  const [whName, setWhName] = useState("");
-  const [whUrl, setWhUrl] = useState("");
+  const [webhookName, setWebhookName] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
   const [edit, setEdit] = useState<EditState>(null);
 
-  const notif = (automation.notifications as Record<string, boolean>) || {};
+  const notifications = (automation.notifications as Record<string, boolean>) || {};
   const autopop = (automation.autopop as Record<string, unknown>) || {};
   const fishingWebhook = !!(automation.fishing as { webhookEnabled?: boolean } | undefined)?.webhookEnabled;
 
   async function addWebhook() {
     if (running) return;
-    const name = whName.trim();
-    const url = whUrl.trim();
+    const name = webhookName.trim();
+    const url = webhookUrl.trim();
     if (!name || !url) return;
     applyState(await callPy<BackendState>("add_webhook", name, url));
-    setWhName("");
-    setWhUrl("");
+    setWebhookName("");
+    setWebhookUrl("");
   }
   async function deleteWebhook(id: number) {
     if (running) return;
@@ -53,24 +64,24 @@ export function Webhooks() {
   }
   async function toggleWebhookState(id: number) {
     if (running) return;
-    const wh = webhooks.find((w) => w.id === id);
-    if (!wh) return;
-    const next = !wh.active;
-    patchWebhook(id, { active: next });
-    await callPy("set_webhook_active", id, next);
+    const webhook = webhooks.find((w) => w.id === id);
+    if (!webhook) return;
+    const nextActive = !webhook.active;
+    patchWebhook(id, { active: nextActive });
+    await callPy("set_webhook_active", id, nextActive);
   }
   async function toggleRouting(webhookId: number, accountId: number, enabled: boolean) {
     if (running) return;
-    const wh = webhooks.find((w) => w.id === webhookId);
-    if (!wh) return;
-    const cur = wh.routedAccounts || [];
-    const nextList = enabled ? [...new Set([...cur, accountId])] : cur.filter((x) => x !== accountId);
-    patchWebhook(webhookId, { routedAccounts: nextList });
+    const webhook = webhooks.find((w) => w.id === webhookId);
+    if (!webhook) return;
+    const currentRouted = webhook.routedAccounts || [];
+    const nextRouted = enabled ? [...new Set([...currentRouted, accountId])] : currentRouted.filter((routedId) => routedId !== accountId);
+    patchWebhook(webhookId, { routedAccounts: nextRouted });
     await callPy("set_routing", webhookId, accountId, enabled);
   }
 
   async function onNotifToggle(key: string, checked: boolean) {
-    patchAutomation({ notifications: { ...notif, [key]: checked } });
+    patchAutomation({ notifications: { ...notifications, [key]: checked } });
     applyState(await callPy<BackendState>("set_notification", key, checked));
   }
   async function onAutopopOption(key: string, checked: boolean) {
@@ -98,22 +109,22 @@ export function Webhooks() {
           <h2>Webhooks</h2>
         </div>
         <div className="glass card input-bar">
-          <input type="text" className="field" placeholder="Server Name" value={whName} disabled={running} onChange={(e) => setWhName(e.target.value)} />
-          <input type="text" className="field" placeholder="Webhook URL" value={whUrl} disabled={running} onChange={(e) => setWhUrl(e.target.value)} />
+          <input type="text" className="field" placeholder="Server Name" value={webhookName} disabled={running} onChange={(e) => setWebhookName(e.target.value)} />
+          <input type="text" className="field" placeholder="Webhook URL" value={webhookUrl} disabled={running} onChange={(e) => setWebhookUrl(e.target.value)} />
           <button className="btn-add" disabled={running} onClick={() => void addWebhook()}>
             <i className="fa-solid fa-plus"></i> Add
           </button>
         </div>
         <div className="wh-list" style={{ marginTop: 12 }}>
-          {webhooks.map((wh) => (
+          {webhooks.map((webhook) => (
             <WebhookCard
-              key={wh.id}
-              wh={wh}
+              key={webhook.id}
+              wh={webhook}
               accounts={accounts}
-              onEdit={() => setEdit({ id: wh.id, name: wh.name, url: wh.url || "" })}
-              onDelete={() => void deleteWebhook(wh.id)}
-              onToggleActive={() => void toggleWebhookState(wh.id)}
-              onToggleRouting={(accId, enabled) => void toggleRouting(wh.id, accId, enabled)}
+              onEdit={() => setEdit({ id: webhook.id, name: webhook.name, url: webhook.url || "" })}
+              onDelete={() => void deleteWebhook(webhook.id)}
+              onToggleActive={() => void toggleWebhookState(webhook.id)}
+              onToggleRouting={(accId, enabled) => void toggleRouting(webhook.id, accId, enabled)}
             />
           ))}
         </div>
@@ -140,16 +151,16 @@ export function Webhooks() {
           <div className="panel-head">
             <div className="panel-title"><i className="fa-solid fa-cubes"></i> Module Runs</div>
           </div>
-          {NOTIFS.map((n, i) => (
-            <div key={n.key}>
-              {i > 0 && <div className="afk-divider"></div>}
+          {NOTIFS.map((option, index) => (
+            <div key={option.key}>
+              {index > 0 && <div className="afk-divider"></div>}
               <div className="setting-row">
                 <div className="setting-info">
-                  <span className="setting-name">{n.name}</span>
-                  <span className="setting-desc">{n.desc}</span>
+                  <span className="setting-name">{option.name}</span>
+                  <span className="setting-desc">{option.desc}</span>
                 </div>
                 <label className="switch">
-                  <input type="checkbox" checked={!!notif[n.key]} onChange={(e) => void onNotifToggle(n.key, e.target.checked)} />
+                  <input type="checkbox" checked={!!notifications[option.key]} onChange={(e) => void onNotifToggle(option.key, e.target.checked)} />
                   <span className="slider"></span>
                 </label>
               </div>
@@ -187,7 +198,7 @@ export function Webhooks() {
               <span className="setting-desc">Sends an embed when a failsafe passes or triggers (wrong item, merchant item not confirmed, Sell Fish Shop check). Green for passed, red for triggered.</span>
             </div>
             <label className="switch">
-              <input type="checkbox" checked={!!notif.failsafes} onChange={(e) => void onNotifToggle("failsafes", e.target.checked)} />
+              <input type="checkbox" checked={!!notifications.failsafes} onChange={(e) => void onNotifToggle("failsafes", e.target.checked)} />
               <span className="slider"></span>
             </label>
           </div>
@@ -239,6 +250,8 @@ export function Webhooks() {
   );
 }
 
+
+
 function WebhookCard(props: {
   wh: Webhook;
   accounts: Account[];
@@ -248,7 +261,7 @@ function WebhookCard(props: {
   onToggleRouting: (accId: number, enabled: boolean) => void;
 }) {
   const { wh, accounts } = props;
-  const count = (wh.routedAccounts || []).length;
+  const routedCount = (wh.routedAccounts || []).length;
 
   return (
     <div className={`wh-card${wh.active ? "" : " wh-inactive"}`} data-wh-id={wh.id}>
@@ -273,27 +286,27 @@ function WebhookCard(props: {
       <div className="wh-body">
         <div className="wh-route-head">
           <span className="wh-route-label"><i className="fa-solid fa-route"></i> Route to accounts</span>
-          <span className={`wh-routed-badge ${count ? "has" : "none"}`}>
-            {count ? `${count} account${count === 1 ? "" : "s"}` : "No accounts"}
+          <span className={`wh-routed-badge ${routedCount ? "has" : "none"}`}>
+            {routedCount ? `${routedCount} account${routedCount === 1 ? "" : "s"}` : "No accounts"}
           </span>
         </div>
         <div className="wh-route-list">
           {accounts.length === 0 ? (
             <span className="wh-no-acc"><i className="fa-solid fa-user-plus"></i> No accounts yet</span>
           ) : (
-            accounts.map((acc) => {
-              const disabled = acc.enabled === false;
+            accounts.map((account) => {
+              const disabled = account.enabled === false;
               return (
-                <label className={`wh-route-acc${disabled ? " acc-disabled" : ""}`} key={acc.id}>
+                <label className={`wh-route-acc${disabled ? " acc-disabled" : ""}`} key={account.id}>
                   <input
                     type="checkbox"
                     className="wh-route-cb"
-                    checked={(wh.routedAccounts || []).includes(acc.id)}
-                    onChange={(e) => props.onToggleRouting(acc.id, e.target.checked)}
+                    checked={(wh.routedAccounts || []).includes(account.id)}
+                    onChange={(e) => props.onToggleRouting(account.id, e.target.checked)}
                   />
                   <span className="wh-route-check"><i className="fa-solid fa-check"></i></span>
-                  <img src={acc.avatar || DEFAULT_AVATAR} className="wh-route-avatar" alt="" />
-                  <span className="wh-route-name">{acc.name}</span>
+                  <img src={account.avatar || DEFAULT_AVATAR} className="wh-route-avatar" alt="" />
+                  <span className="wh-route-name">{account.name}</span>
                   {disabled && <span className="acc-disabled-tag">disabled</span>}
                 </label>
               );

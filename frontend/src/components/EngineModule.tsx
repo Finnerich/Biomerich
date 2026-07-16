@@ -29,13 +29,13 @@ export function EngineModule() {
   const running = useStore((s) => s.running);
   const signal = useStore((s) => s.engineSignal);
 
-  const mod = running ? signal?.module ?? { key: "idle", label: "Idle" } : { key: "offline", label: "Engine offline" };
-  const key = mod.key || "offline";
-  const vis = MODULE_VISUALS[key] || MODULE_VISUALS.offline;
-  const label = mod.label || "Idle";
+  const activeModule = running ? signal?.module ?? { key: "idle", label: "Idle" } : { key: "offline", label: "Engine offline" };
+  const key = activeModule.key || "offline";
+  const visual = MODULE_VISUALS[key] || MODULE_VISUALS.offline;
+  const label = activeModule.label || "Idle";
 
-  let baseSub = key === "fishing" && mod.phase ? FISHING_PHASE_SUB[mod.phase] || vis.sub : vis.sub;
-  if (mod.account) baseSub += " · " + mod.account;
+  let baseSub = key === "fishing" && activeModule.phase ? FISHING_PHASE_SUB[activeModule.phase] || visual.sub : visual.sub;
+  if (activeModule.account) baseSub += " · " + activeModule.account;
 
   const status = signal?.status;
   const event = status?.event;
@@ -57,7 +57,7 @@ export function EngineModule() {
   return (
     <div className={`topbar-module${key !== "offline" ? " is-live" : ""}`} data-key={key} data-event={eventKind}>
       <span className="tm-frame">
-        <span className="tm-icon"><i className={`fa-solid ${vis.icon}`}></i></span>
+        <span className="tm-icon"><i className={`fa-solid ${visual.icon}`}></i></span>
         <span className="tm-text">
           <span className="tm-label">{label}</span>
           <span className="tm-sub tm-event-in">{subNode}</span>

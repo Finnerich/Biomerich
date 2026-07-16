@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
 import { callPy } from "../bridge";
-import type { StatusPayload } from "../types";
+import type { ActivityEntry, StatusPayload } from "../types";
 import type { EngineSignal } from "../store";
 
 export function useEngine(): void {
@@ -31,12 +31,26 @@ export function useEngine(): void {
     const signalPoll = setInterval(async () => {
       const sig = await callPy<EngineSignal>("get_engine_signal").catch(() => null);
       if (sig) useStore.getState().setEngineSignal(sig);
+    }, 1000);
+
+    
+    
+    useStore.getState().clearActivity();
+    let activityCursor = 0;
+    const activityPoll = setInterval(async () => {
+      const res = await callPy<{ entries?: ActivityEntry[]; last?: number }>(
+        "get_activity_log", activityCursor,
+      ).catch(() => null);
+      if (!res) return;
+      if (typeof res.last === "number") activityCursor = res.last;
+      if (res.entries?.length) useStore.getState().appendActivity(res.entries);
     }, 2000);
 
     return () => {
       clearInterval(tick);
       clearInterval(poll);
       clearInterval(signalPoll);
+      clearInterval(activityPoll);
     };
   }, [running]);
 }

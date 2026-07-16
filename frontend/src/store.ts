@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Account, AppSettings, Automation, BackendState, CycleStatus, EdenStats, StatusPayload, TimeTracking, Webhook } from "./types";
+import type { Account, ActivityEntry, AppSettings, Automation, BackendState, CycleStatus, EdenStats, StatusPayload, TimeTracking, Webhook } from "./types";
 
 export interface EngineSignal {
   module?: { key?: string; label?: string; phase?: string; account?: string };
@@ -101,6 +101,11 @@ interface Store {
 
   engineSignal: EngineSignal | null;
   setEngineSignal: (s: EngineSignal | null) => void;
+
+  
+  activity: ActivityEntry[];
+  appendActivity: (entries: ActivityEntry[]) => void;
+  clearActivity: () => void;
 
   streak: Streak | null;
   setStreak: (s: Streak | null) => void;
@@ -209,7 +214,12 @@ export const useStore = create<Store>((set) => ({
   setTheme: (id, lock) => set({ themeId: id, themeLock: lock }),
 
   engineSignal: null,
-  setEngineSignal: (s) => set({ engineSignal: s }),
+  setEngineSignal: (s) => set((st) => ({ engineSignal: keepIfEqual(st.engineSignal, s) })),
+
+  activity: [],
+  appendActivity: (entries) =>
+    set((st) => (entries.length ? { activity: [...st.activity, ...entries].slice(-500) } : {})),
+  clearActivity: () => set({ activity: [] }),
   streak: null,
   setStreak: (s) => set({ streak: s }),
 
@@ -253,14 +263,14 @@ export const useStore = create<Store>((set) => ({
   applyStatus: (s) => {
     if (!s) return;
     set((st) => ({
-      biomeCounts: s.biomeCounts ?? st.biomeCounts,
-      unknownBiomes: s.unknownBiomes ?? st.unknownBiomes,
-      merchantCounts: s.merchantCounts ?? st.merchantCounts,
-      moduleCounts: (s as Record<string, unknown>).moduleCounts as Record<string, number> ?? st.moduleCounts,
+      biomeCounts: keepIfEqual(st.biomeCounts, s.biomeCounts),
+      unknownBiomes: keepIfEqual(st.unknownBiomes, s.unknownBiomes),
+      merchantCounts: keepIfEqual(st.merchantCounts, s.merchantCounts),
+      moduleCounts: keepIfEqual(st.moduleCounts, (s as Record<string, unknown>).moduleCounts as Record<string, number> | undefined),
       timeTracking: s.timeTracking ?? st.timeTracking,
-      fishingStatus: (s.fishing as Store["fishingStatus"]) ?? st.fishingStatus,
-      edenStats: s.edenStats ?? st.edenStats,
-      cycleStatus: s.cycle ?? st.cycleStatus,
+      fishingStatus: keepIfEqual(st.fishingStatus, s.fishing as Store["fishingStatus"] | undefined),
+      edenStats: keepIfEqual(st.edenStats, s.edenStats),
+      cycleStatus: keepIfEqual(st.cycleStatus, s.cycle),
       accounts: Array.isArray(s.accountStates) ? mergeAccountStates(st.accounts, s.accountStates) : st.accounts,
     }));
   },
@@ -279,6 +289,19 @@ export const useStore = create<Store>((set) => ({
   patchAutomation: (patch) => set((st) => ({ automation: { ...st.automation, ...patch } })),
 }));
 
+
+
+
+function keepIfEqual<T>(prev: T, next: T | undefined): T {
+  if (next === undefined) return prev;
+  if (prev === next) return next;
+  try {
+    return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+  } catch {
+    return next;
+  }
+}
+
 function preserveAccountLiveFields(next: Account[], prev: Account[]): Account[] {
   const prevById = new Map(prev.map((a) => [a.id, a]));
   return next.map((a) => {
@@ -287,6 +310,7 @@ function preserveAccountLiveFields(next: Account[], prev: Account[]): Account[] 
     return {
       ...a,
       currentBiome: old.currentBiome ?? null,
+      biomeSince: old.biomeSince ?? null,
       online: !!old.online,
       window: old.window ?? null,
       hwndKnown: !!old.hwndKnown,
@@ -299,15 +323,28 @@ function mergeAccountStates(
   states: Array<Record<string, unknown>>,
 ): Account[] {
   const byId = new Map(states.map((s) => [s.id, s]));
-  return accounts.map((acc) => {
+  
+  
+  
+  let changed = false;
+  const next = accounts.map((acc) => {
     const st = byId.get(acc.id);
-    if (!st) return { ...acc, currentBiome: null, online: false, window: null, hwndKnown: false };
-    return {
-      ...acc,
-      currentBiome: (st.currentBiome ?? null) as string | null,
-      online: !!st.online,
-      window: (st.window ?? null) as string | null,
-      hwndKnown: !!st.hwndKnown,
-    };
+    const currentBiome = (st ? (st.currentBiome ?? null) : null) as string | null;
+    const biomeSince = (st ? (st.biomeSince ?? null) : null) as number | null;
+    const online = !!(st && st.online);
+    const windowName = (st ? (st.window ?? null) : null) as string | null;
+    const hwndKnown = !!(st && st.hwndKnown);
+    if (
+      (acc.currentBiome ?? null) === currentBiome &&
+      (acc.biomeSince ?? null) === biomeSince &&
+      !!acc.online === online &&
+      (acc.window ?? null) === windowName &&
+      !!acc.hwndKnown === hwndKnown
+    ) {
+      return acc;
+    }
+    changed = true;
+    return { ...acc, currentBiome, biomeSince, online, window: windowName, hwndKnown };
   });
+  return changed ? next : accounts;
 }

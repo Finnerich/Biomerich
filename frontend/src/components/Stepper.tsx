@@ -15,10 +15,10 @@ export function Stepper(props: {
   const [draft, setDraft] = useState("");
 
   const clamp = (v: number) => Math.max(min, Math.min(max, Math.round(v)));
-  const bump = (d: number) => {
+  const bump = (delta: number) => {
     if (disabled) return;
-    const nv = clamp(value + d);
-    if (nv !== value) onChange(nv);
+    const next = clamp(value + delta);
+    if (next !== value) onChange(next);
   };
   const startEdit = () => {
     if (disabled) return;
@@ -26,8 +26,8 @@ export function Stepper(props: {
     setEditing(true);
   };
   const commit = () => {
-    const n = parseInt(draft, 10);
-    onChange(Number.isNaN(n) ? value : clamp(n));
+    const parsed = parseInt(draft, 10);
+    onChange(Number.isNaN(parsed) ? value : clamp(parsed));
     setEditing(false);
   };
 

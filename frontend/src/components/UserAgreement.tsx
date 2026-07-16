@@ -9,15 +9,15 @@ export function UserAgreement() {
 
   useEffect(() => {
     if (!open) { setAtEnd(false); return; }
-    const el = bodyRef.current;
-    if (el && el.scrollHeight <= el.clientHeight + 4) setAtEnd(true);
+    const body = bodyRef.current;
+    if (body && body.scrollHeight <= body.clientHeight + 4) setAtEnd(true);
   }, [open]);
 
   if (!open) return null;
 
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) setAtEnd(true);
+    const body = e.currentTarget;
+    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 16) setAtEnd(true);
   };
 
   return (

@@ -9,8 +9,8 @@ export function ToastLayer() {
   if (!toasts.length) return null;
   return (
     <div className="toast-layer">
-      {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} />
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} />
       ))}
     </div>
   );

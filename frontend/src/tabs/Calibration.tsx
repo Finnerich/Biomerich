@@ -1,6 +1,13 @@
+
+
+
+
+
+
+
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import { callPy } from "../bridge";
+import { callPy, callPyWithTimeout } from "../bridge";
 import { CaptureRow } from "../components/CaptureRow";
 import { PresetPicker } from "../components/PresetPicker";
 import { PIXEL_SLOTS, FISHING_PIXEL_SLOTS, FISHING_REGION_SLOTS } from "../data/slots";
@@ -8,15 +15,20 @@ import { MERCHANT_CALIB_GROUPS, EXTRA_CALIB_GROUPS, type CalibGroup } from "../d
 import { TesseractInstallButton } from "../components/TesseractInstallButton";
 import type { BackendState } from "../types";
 
+
+
 type Pos = number[] | undefined;
-const pixelInfo = (p: Pos) => {
-  const isSet = Array.isArray(p) && p.length === 2;
-  return { isSet, coord: isSet ? `${p![0]}, ${p![1]}` : "Not set" };
+const CALIBRATION_RPC_TIMEOUT_MS = 70_000;
+const pixelInfo = (pos: Pos) => {
+  const isSet = Array.isArray(pos) && pos.length === 2;
+  return { isSet, coord: isSet ? `${pos![0]}, ${pos![1]}` : "Not set" };
 };
-const regionInfo = (b: Pos) => {
-  const isSet = Array.isArray(b) && b.length === 4;
-  return { isSet, coord: isSet ? `${b![0]},${b![1]} · ${b![2]}×${b![3]}` : "Not set" };
+const regionInfo = (box: Pos) => {
+  const isSet = Array.isArray(box) && box.length === 4;
+  return { isSet, coord: isSet ? `${box![0]},${box![1]} · ${box![2]}×${box![3]}` : "Not set" };
 };
+
+
 
 export function Calibration() {
   const running = useStore((s) => s.running);
@@ -28,7 +40,7 @@ export function Calibration() {
     () => new Set(["inv", "fish", "merch", ...EXTRA_CALIB_GROUPS.map((g) => g.key)]),
   );
   const [presets, setPresets] = useState({ inv: [] as string[], fish: [] as string[], merch: [] as string[], extra: [] as string[], global: [] as string[] });
-  const [copyFb, setCopyFb] = useState<Record<string, "ok" | "fail">>({});
+  const [copyFeedback, setCopyFeedback] = useState<Record<string, "ok" | "fail">>({});
   const [showBusy, setShowBusy] = useState<Set<string>>(new Set());
   const [loadedPreset, setLoadedPreset] = useState<string | null>(null);
 
@@ -36,14 +48,14 @@ export function Calibration() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [inv, fish, merch, extra] = await Promise.all([
+      const [invRes, fishRes, merchRes, extraRes] = await Promise.all([
         callPy<{ presets?: string[] }>("get_automation_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_fishing_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_merchant_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_extra_presets").catch(() => null),
       ]);
       if (!alive) return;
-      const invNames = inv?.presets || [], fishNames = fish?.presets || [], merchNames = merch?.presets || [], extraNames = extra?.presets || [];
+      const invNames = invRes?.presets || [], fishNames = fishRes?.presets || [], merchNames = merchRes?.presets || [], extraNames = extraRes?.presets || [];
       const seen = new Set<string>(), allNames: string[] = [];
       [invNames, fishNames, merchNames, extraNames].forEach((names) => names.forEach((name) => { if (!seen.has(name)) { seen.add(name); allNames.push(name); } }));
       setPresets({ inv: invNames, fish: fishNames, merch: merchNames, extra: extraNames, global: allNames });
@@ -51,13 +63,17 @@ export function Calibration() {
     return () => { alive = false; };
   }, []);
 
-  const toggle = (id: string) =>
-    setCollapsed((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const togglePanel = (id: string) =>
+    setCollapsed((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
   async function runCapture(name: string, ...args: unknown[]) {
-    const res = await callPy<{ ok?: boolean; error?: string }>(name, ...args);
-    if (res?.ok) applyState(await callPy<BackendState>("get_state"));
-    return res;
+    const response = await callPyWithTimeout<{ ok?: boolean; error?: string }>(
+      CALIBRATION_RPC_TIMEOUT_MS,
+      name,
+      ...args,
+    );
+    if (response?.ok) applyState(await callPy<BackendState>("get_state"));
+    return response;
   }
 
   async function loadGlobal(name: string) {
@@ -73,16 +89,16 @@ export function Calibration() {
   async function copyCalibration(scope: string) {
     const text = await callPy<string>("get_calibration_text", scope);
     if (!text) return;
-    let ok = false;
-    try { await navigator.clipboard.writeText(text); ok = true; } catch { ok = false; }
-    setCopyFb((p) => ({ ...p, [scope]: ok ? "ok" : "fail" }));
-    setTimeout(() => setCopyFb((p) => { const n = { ...p }; delete n[scope]; return n; }), 1600);
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch { copied = false; }
+    setCopyFeedback((prev) => ({ ...prev, [scope]: copied ? "ok" : "fail" }));
+    setTimeout(() => setCopyFeedback((prev) => { const next = { ...prev }; delete next[scope]; return next; }), 1600);
   }
   async function showPoints(scope: string) {
     if (running || showBusy.has(scope)) return;
-    setShowBusy((p) => new Set(p).add(scope));
+    setShowBusy((prev) => new Set(prev).add(scope));
     await callPy("show_calibration_points", scope, 4.0).catch(() => {});
-    setTimeout(() => setShowBusy((p) => { const n = new Set(p); n.delete(scope); return n; }), 4000);
+    setTimeout(() => setShowBusy((prev) => { const next = new Set(prev); next.delete(scope); return next; }), 4000);
   }
 
   const pixels = (automation.pixels as Record<string, Pos>) || {};
@@ -92,26 +108,27 @@ export function Calibration() {
   const extraCalib = (automation.calib as Record<string, { pixels?: Record<string, Pos>; regions?: Record<string, Pos> }>) || {};
   const autopopRegion = (automation.autopop as { amountRegion?: Pos })?.amountRegion;
 
-  const invNormal = PIXEL_SLOTS.filter(([k]) => k !== "first_item_slot");
-  const invSet = (regionInfo(firstItemRegion).isSet ? 1 : 0) + invNormal.filter(([k]) => pixelInfo(pixels[k]).isSet).length;
-  const fishSet = FISHING_PIXEL_SLOTS.filter(([k]) => pixelInfo(fishing.pixels?.[k]).isSet).length;
-  const merchCount = (() => {
+  
+  const invPixelSlots = PIXEL_SLOTS.filter(([key]) => key !== "first_item_slot");
+  const invSetCount = (regionInfo(firstItemRegion).isSet ? 1 : 0) + invPixelSlots.filter(([key]) => pixelInfo(pixels[key]).isSet).length;
+  const fishSetCount = FISHING_PIXEL_SLOTS.filter(([key]) => pixelInfo(fishing.pixels?.[key]).isSet).length;
+  const merchProgress = (() => {
     let total = 0, set = 0;
-    MERCHANT_CALIB_GROUPS.forEach((g) => {
-      const calib = merchCalib[g.key] || {};
-      g.points.forEach(([k]) => { total++; if (pixelInfo(calib.pixels?.[k]).isSet) set++; });
-      g.regions.forEach(([k]) => { total++; if (regionInfo(calib.regions?.[k]).isSet) set++; });
+    MERCHANT_CALIB_GROUPS.forEach((group) => {
+      const calib = merchCalib[group.key] || {};
+      group.points.forEach(([key]) => { total++; if (pixelInfo(calib.pixels?.[key]).isSet) set++; });
+      group.regions.forEach(([key]) => { total++; if (regionInfo(calib.regions?.[key]).isSet) set++; });
     });
     return { total, set };
   })();
-  const extraCount = (g: CalibGroup) => {
-    const calib = extraCalib[g.key] || {};
+  const extraProgress = (group: CalibGroup) => {
+    const calib = extraCalib[group.key] || {};
     let total = 0, set = 0;
-    const pt = (k: string) => { total++; if (pixelInfo(calib.pixels?.[k]).isSet) set++; };
-    const rg = (k: string) => { total++; if (regionInfo(calib.regions?.[k]).isSet) set++; };
-    g.points.forEach(([k]) => pt(k));
-    g.regions.forEach(([k]) => rg(k));
-    (g.subgroups || []).forEach((sg) => { sg.points.forEach(([k]) => pt(k)); sg.regions.forEach(([k]) => rg(k)); });
+    const countPixel = (key: string) => { total++; if (pixelInfo(calib.pixels?.[key]).isSet) set++; };
+    const countRegion = (key: string) => { total++; if (regionInfo(calib.regions?.[key]).isSet) set++; };
+    group.points.forEach(([key]) => countPixel(key));
+    group.regions.forEach(([key]) => countRegion(key));
+    (group.subgroups || []).forEach((subgroup) => { subgroup.points.forEach(([key]) => countPixel(key)); subgroup.regions.forEach(([key]) => countRegion(key)); });
     return { total, set };
   };
 
@@ -119,27 +136,27 @@ export function Calibration() {
   
   
   const presetGaps: string[] = (() => {
-    const out: string[] = [];
-    if (!regionInfo(firstItemRegion).isSet) out.push("Inventory: First Item Slot");
-    invNormal.forEach(([k, label]) => { if (!pixelInfo(pixels[k]).isSet) out.push(`Inventory: ${label}`); });
-    if (!regionInfo(autopopRegion).isSet) out.push("Auto Pop: Amount Label Region");
-    FISHING_PIXEL_SLOTS.forEach(([k, label]) => { if (!pixelInfo(fishing.pixels?.[k]).isSet) out.push(`Fishing: ${label}`); });
-    FISHING_REGION_SLOTS.forEach(([k, label]) => { if (!regionInfo(fishing.regions?.[k]).isSet) out.push(`Fishing: ${label} (OCR region)`); });
-    MERCHANT_CALIB_GROUPS.forEach((g) => {
-      const c = merchCalib[g.key] || {};
-      g.points.forEach(([k, label]) => { if (!pixelInfo(c.pixels?.[k]).isSet) out.push(`${g.label}: ${label}`); });
-      g.regions.forEach(([k, label]) => { if (!regionInfo(c.regions?.[k]).isSet) out.push(`${g.label}: ${label}`); });
+    const gaps: string[] = [];
+    if (!regionInfo(firstItemRegion).isSet) gaps.push("Inventory: First Item Slot");
+    invPixelSlots.forEach(([key, label]) => { if (!pixelInfo(pixels[key]).isSet) gaps.push(`Inventory: ${label}`); });
+    if (!regionInfo(autopopRegion).isSet) gaps.push("Auto Pop: Amount Label Region");
+    FISHING_PIXEL_SLOTS.forEach(([key, label]) => { if (!pixelInfo(fishing.pixels?.[key]).isSet) gaps.push(`Fishing: ${label}`); });
+    FISHING_REGION_SLOTS.forEach(([key, label]) => { if (!regionInfo(fishing.regions?.[key]).isSet) gaps.push(`Fishing: ${label} (OCR region)`); });
+    MERCHANT_CALIB_GROUPS.forEach((group) => {
+      const calib = merchCalib[group.key] || {};
+      group.points.forEach(([key, label]) => { if (!pixelInfo(calib.pixels?.[key]).isSet) gaps.push(`${group.label}: ${label}`); });
+      group.regions.forEach(([key, label]) => { if (!regionInfo(calib.regions?.[key]).isSet) gaps.push(`${group.label}: ${label}`); });
     });
-    EXTRA_CALIB_GROUPS.forEach((g) => {
-      const c = extraCalib[g.key] || {};
-      g.points.forEach(([k, label]) => { if (!pixelInfo(c.pixels?.[k]).isSet) out.push(`${g.label}: ${label}`); });
-      g.regions.forEach(([k, label]) => { if (!regionInfo(c.regions?.[k]).isSet) out.push(`${g.label}: ${label}`); });
-      (g.subgroups || []).forEach((sg) => {
-        sg.points.forEach(([k, label]) => { if (!pixelInfo(c.pixels?.[k]).isSet) out.push(`${g.label} · ${sg.label}: ${label}`); });
-        sg.regions.forEach(([k, label]) => { if (!regionInfo(c.regions?.[k]).isSet) out.push(`${g.label} · ${sg.label}: ${label}`); });
+    EXTRA_CALIB_GROUPS.forEach((group) => {
+      const calib = extraCalib[group.key] || {};
+      group.points.forEach(([key, label]) => { if (!pixelInfo(calib.pixels?.[key]).isSet) gaps.push(`${group.label}: ${label}`); });
+      group.regions.forEach(([key, label]) => { if (!regionInfo(calib.regions?.[key]).isSet) gaps.push(`${group.label}: ${label}`); });
+      (group.subgroups || []).forEach((subgroup) => {
+        subgroup.points.forEach(([key, label]) => { if (!pixelInfo(calib.pixels?.[key]).isSet) gaps.push(`${group.label} · ${subgroup.label}: ${label}`); });
+        subgroup.regions.forEach(([key, label]) => { if (!regionInfo(calib.regions?.[key]).isSet) gaps.push(`${group.label} · ${subgroup.label}: ${label}`); });
       });
     });
-    return out;
+    return gaps;
   })();
 
   return (
@@ -171,8 +188,8 @@ export function Calibration() {
                 patched in a future update.
               </p>
               <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {presetGaps.map((g) => (
-                  <span key={g} className="badge badge-soft" style={{ fontSize: 11 }}>{g}</span>
+                {presetGaps.map((gap) => (
+                  <span key={gap} className="badge badge-soft" style={{ fontSize: 11 }}>{gap}</span>
                 ))}
               </div>
             </div>
@@ -180,23 +197,23 @@ export function Calibration() {
         )}
         <div className="calib-foot">
           <p className="pixel-hint"><i className="fa-solid fa-clipboard"></i> Copy every panel's calibration to clipboard at once.</p>
-          <CopyButton state={copyFb.all} onClick={() => void copyCalibration("all")} label="Copy all calibrations" />
+          <CopyButton state={copyFeedback.all} onClick={() => void copyCalibration("all")} label="Copy all calibrations" />
         </div>
       </div>
 
       {}
       <div className="calib-grid">
       <CalibPanel
-        icon="fa-solid fa-boxes-stacked" title="Inventory Calibrations" badge={`${invSet}/${invNormal.length + 1} set`}
-        collapsed={collapsed.has("inv")} onToggle={() => toggle("inv")}
+        icon="fa-solid fa-boxes-stacked" title="Inventory Calibrations" badge={`${invSetCount}/${invPixelSlots.length + 1} set`}
+        collapsed={collapsed.has("inv")} onToggle={() => togglePanel("inv")}
         showBusy={showBusy.has("automation")} onShow={() => void showPoints("automation")}
         copyHint={<>Click <b>Set</b>, switch to Roblox and click the exact spot. For <b>First Item Slot</b>: click <b>top-left</b> then <b>bottom-right</b>.</>}
-        copyState={copyFb.automation} onCopy={() => void copyCalibration("automation")}
+        copyState={copyFeedback.automation} onCopy={() => void copyCalibration("automation")}
       >
         <div className="pixel-list">
           <CaptureRow label="First Item Slot (Region)" region {...regionInfo(firstItemRegion)} disabled={running} onCapture={() => runCapture("capture_item_region")} />
-          {invNormal.map(([k, label]) => (
-            <CaptureRow key={k} label={label} {...pixelInfo(pixels[k])} disabled={running} onCapture={() => runCapture("capture_pixel", k)} />
+          {invPixelSlots.map(([key, label]) => (
+            <CaptureRow key={key} label={label} {...pixelInfo(pixels[key])} disabled={running} onCapture={() => runCapture("capture_pixel", key)} />
           ))}
         </div>
         <div className="afk-divider"></div>
@@ -208,48 +225,48 @@ export function Calibration() {
 
       {}
       <CalibPanel
-        icon="fa-solid fa-fish" title="Fishing Calibrations" badge={`${fishSet}/${FISHING_PIXEL_SLOTS.length} set`}
-        collapsed={collapsed.has("fish")} onToggle={() => toggle("fish")}
+        icon="fa-solid fa-fish" title="Fishing Calibrations" badge={`${fishSetCount}/${FISHING_PIXEL_SLOTS.length} set`}
+        collapsed={collapsed.has("fish")} onToggle={() => togglePanel("fish")}
         showBusy={showBusy.has("fishing")} onShow={() => void showPoints("fishing")}
         copyHint={<>Click <b>Set</b>, switch to Roblox and click <b>top-left</b> then <b>bottom-right</b> of the text area.</>}
-        copyState={copyFb.fishing} onCopy={() => void copyCalibration("fishing")}
+        copyState={copyFeedback.fishing} onCopy={() => void copyCalibration("fishing")}
       >
         <div className="pixel-list">
-          {FISHING_PIXEL_SLOTS.map(([k, label]) => (
-            <CaptureRow key={k} label={label} {...pixelInfo(fishing.pixels?.[k])} disabled={running} onCapture={() => runCapture("capture_fishing_pixel", k)} />
+          {FISHING_PIXEL_SLOTS.map(([key, label]) => (
+            <CaptureRow key={key} label={label} {...pixelInfo(fishing.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_pixel", key)} />
           ))}
         </div>
         <div className="afk-divider"></div>
         <div className="px-section-label"><i className="fa-solid fa-vector-square"></i> OCR Regions</div>
         <div className="pixel-list">
-          {FISHING_REGION_SLOTS.map(([k, label]) => (
-            <CaptureRow key={k} label={label} region {...regionInfo(fishing.regions?.[k])} disabled={running} onCapture={() => runCapture("capture_fishing_region", k)} />
+          {FISHING_REGION_SLOTS.map(([key, label]) => (
+            <CaptureRow key={key} label={label} region {...regionInfo(fishing.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_region", key)} />
           ))}
         </div>
       </CalibPanel>
 
       {}
       <CalibPanel
-        icon="fa-solid fa-store" title="Merchant Calibrations" badge={`${merchCount.set}/${merchCount.total} set`}
-        collapsed={collapsed.has("merch")} onToggle={() => toggle("merch")}
+        icon="fa-solid fa-store" title="Merchant Calibrations" badge={`${merchProgress.set}/${merchProgress.total} set`}
+        collapsed={collapsed.has("merch")} onToggle={() => togglePanel("merch")}
         showBusy={showBusy.has("merchants")} onShow={() => void showPoints("merchants")}
         copyHint={<>For <b>points</b>: click <b>Set</b>, then click the spot in Roblox. For <b>regions</b>: click <b>top-left</b> then <b>bottom-right</b>.</>}
-        copyState={copyFb.merchants} onCopy={() => void copyCalibration("merchants")}
+        copyState={copyFeedback.merchants} onCopy={() => void copyCalibration("merchants")}
       >
         <div className="inline-note">
           <i className="fa-solid fa-circle-info"></i>
           <span><b>General</b> is shared by every merchant. <b>Mari</b>, <b>Jester</b> and <b>Rin</b> each have their own dialogue buttons.</span>
         </div>
-        {MERCHANT_CALIB_GROUPS.map((g, idx) => (
-          <div key={g.key}>
-            {idx > 0 && <div className="afk-divider"></div>}
-            <div className="px-section-label"><i className="fa-solid fa-layer-group"></i> {g.label}<span className="px-scope-hint">{g.scope}</span></div>
+        {MERCHANT_CALIB_GROUPS.map((group, index) => (
+          <div key={group.key}>
+            {index > 0 && <div className="afk-divider"></div>}
+            <div className="px-section-label"><i className="fa-solid fa-layer-group"></i> {group.label}<span className="px-scope-hint">{group.scope}</span></div>
             <div className="pixel-list">
-              {g.points.map(([k, label]) => (
-                <CaptureRow key={k} label={label} {...pixelInfo(merchCalib[g.key]?.pixels?.[k])} disabled={running} onCapture={() => runCapture("capture_merchant_pixel", g.key, k)} />
+              {group.points.map(([key, label]) => (
+                <CaptureRow key={key} label={label} {...pixelInfo(merchCalib[group.key]?.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_pixel", group.key, key)} />
               ))}
-              {g.regions.map(([k, label]) => (
-                <CaptureRow key={k} label={label} region {...regionInfo(merchCalib[g.key]?.regions?.[k])} disabled={running} onCapture={() => runCapture("capture_merchant_region", g.key, k)} />
+              {group.regions.map(([key, label]) => (
+                <CaptureRow key={key} label={label} region {...regionInfo(merchCalib[group.key]?.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_region", group.key, key)} />
               ))}
             </div>
           </div>
@@ -257,40 +274,40 @@ export function Calibration() {
       </CalibPanel>
 
       {}
-      {EXTRA_CALIB_GROUPS.map((g) => {
-        const count = extraCount(g);
-        const calib = extraCalib[g.key] || {};
-        const ptRow = (k: string, label: string) => (
-          <CaptureRow key={k} label={label} {...pixelInfo(calib.pixels?.[k])} disabled={running} onCapture={() => runCapture("capture_extra_pixel", g.key, k)} />
+      {EXTRA_CALIB_GROUPS.map((group) => {
+        const progress = extraProgress(group);
+        const calib = extraCalib[group.key] || {};
+        const pixelRow = (key: string, label: string) => (
+          <CaptureRow key={key} label={label} {...pixelInfo(calib.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_pixel", group.key, key)} />
         );
-        const rgRow = (k: string, label: string) => (
-          <CaptureRow key={k} label={label} region {...regionInfo(calib.regions?.[k])} disabled={running} onCapture={() => runCapture("capture_extra_region", g.key, k)} />
+        const regionRow = (key: string, label: string) => (
+          <CaptureRow key={key} label={label} region {...regionInfo(calib.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_region", group.key, key)} />
         );
         return (
           <CalibPanel
-            key={g.key} icon={g.icon || "fa-solid fa-sliders"} title={`${g.label} Calibrations`} badge={`${count.set}/${count.total} set`}
-            collapsed={collapsed.has(g.key)} onToggle={() => toggle(g.key)}
-            showBusy={showBusy.has(g.key)} onShow={() => void showPoints(g.key)}
+            key={group.key} icon={group.icon || "fa-solid fa-sliders"} title={`${group.label} Calibrations`} badge={`${progress.set}/${progress.total} set`}
+            collapsed={collapsed.has(group.key)} onToggle={() => togglePanel(group.key)}
+            showBusy={showBusy.has(group.key)} onShow={() => void showPoints(group.key)}
             copyHint={<>Click <b>Set</b>, switch to Roblox and click the spot. For <b>regions</b> click <b>top-left</b> then <b>bottom-right</b>.</>}
-            copyState={copyFb[g.key]} onCopy={() => void copyCalibration(g.key)}
+            copyState={copyFeedback[group.key]} onCopy={() => void copyCalibration(group.key)}
           >
-            {g.points.length > 0 && <div className="pixel-list">{g.points.map(([k, l]) => ptRow(k, l))}</div>}
-            {g.regions.length > 0 && (
+            {group.points.length > 0 && <div className="pixel-list">{group.points.map(([key, label]) => pixelRow(key, label))}</div>}
+            {group.regions.length > 0 && (
               <>
-                {g.points.length > 0 && <><div className="afk-divider"></div><div className="px-section-label"><i className="fa-solid fa-vector-square"></i> OCR Regions</div></>}
-                <div className="pixel-list">{g.regions.map(([k, l]) => rgRow(k, l))}</div>
+                {group.points.length > 0 && <><div className="afk-divider"></div><div className="px-section-label"><i className="fa-solid fa-vector-square"></i> OCR Regions</div></>}
+                <div className="pixel-list">{group.regions.map(([key, label]) => regionRow(key, label))}</div>
               </>
             )}
-            {(g.subgroups || []).map((sg) => (
-              <div key={sg.key}>
+            {(group.subgroups || []).map((subgroup) => (
+              <div key={subgroup.key}>
                 <div className="afk-divider"></div>
-                <div className="px-section-label"><i className="fa-solid fa-layer-group"></i> {sg.label}<span className="px-scope-hint">{g.label}</span></div>
-                <div className="pixel-list">{sg.points.map(([k, l]) => ptRow(k, l))}</div>
-                {sg.regions.length > 0 && (
+                <div className="px-section-label"><i className="fa-solid fa-layer-group"></i> {subgroup.label}<span className="px-scope-hint">{group.label}</span></div>
+                <div className="pixel-list">{subgroup.points.map(([key, label]) => pixelRow(key, label))}</div>
+                {subgroup.regions.length > 0 && (
                   <>
                     <div className="afk-divider"></div>
                     <div className="px-section-label"><i className="fa-solid fa-vector-square"></i> OCR Regions</div>
-                    <div className="pixel-list">{sg.regions.map(([k, l]) => rgRow(k, l))}</div>
+                    <div className="pixel-list">{subgroup.regions.map(([key, label]) => regionRow(key, label))}</div>
                   </>
                 )}
               </div>
@@ -324,6 +341,8 @@ export function Calibration() {
     </section>
   );
 }
+
+
 
 function CopyButton({ state, onClick, label }: { state?: "ok" | "fail"; onClick: () => void; label: string }) {
   return (

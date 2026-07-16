@@ -13,6 +13,19 @@ export function getNormalAccountId(settings: AppSettings): number | null {
   return typeof v === "number" ? v : null;
 }
 
+
+export function getMacroAccounts<T extends { id: number; enabled?: boolean }>(
+  accounts: T[],
+  settings: AppSettings,
+): T[] {
+  if (getMacroMode(settings) === "normal") {
+    const selectedId = getNormalAccountId(settings);
+    const selected = selectedId == null ? undefined : accounts.find((account) => account.id === selectedId);
+    return selected ? [selected] : accounts.slice(0, 1);
+  }
+  return accounts.filter((account) => account.enabled !== false);
+}
+
 export async function setMacroMode(mode: MacroMode): Promise<void> {
   useStore.getState().patchSettings({ macroMode: mode });
   await callPy("set_setting", "macroMode", mode);

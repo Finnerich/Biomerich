@@ -31,13 +31,13 @@ export async function toggleWindowBind(accId: number): Promise<void> {
 
   setBind(accId, "waiting");
   setBindingAccId(accId);
-  let res: { ok?: boolean } | null = null;
+  let response: { ok?: boolean } | null = null;
   try {
-    res = await callPy<{ ok?: boolean }>("start_bind_window", accId);
+    response = await callPy<{ ok?: boolean }>("start_bind_window", accId);
   } catch {
-    res = null;
+    response = null;
   }
-  if (!res?.ok && useStore.getState().bindingAccId === accId) {
+  if (!response?.ok && useStore.getState().bindingAccId === accId) {
     setBindingAccId(null);
     setBind(accId, null);
   }
@@ -51,18 +51,18 @@ export function useWindowBindPoll(): void {
     async function poll() {
       const states = await callPy<Array<Record<string, unknown>>>("get_account_windows").catch(() => null);
       if (!alive || !states) return;
-      const st = useStore.getState();
-      st.applyAccountWindows(states);
-      const bound = new Set(states.filter((s) => s.window).map((s) => s.id));
-      const bs = st.bindStates;
-      Object.keys(bs).forEach((k) => {
-        const id = Number(k);
-        if (bs[id] === "bound" && !bound.has(id)) st.setBind(id, null);
+      const store = useStore.getState();
+      store.applyAccountWindows(states);
+      const boundIds = new Set(states.filter((s) => s.window).map((s) => s.id));
+      const bindStates = store.bindStates;
+      Object.keys(bindStates).forEach((key) => {
+        const accId = Number(key);
+        if (bindStates[accId] === "bound" && !boundIds.has(accId)) store.setBind(accId, null);
       });
     }
     void poll();
-    const id = setInterval(poll, 2500);
-    return () => { alive = false; clearInterval(id); };
+    const intervalId = setInterval(poll, 2500);
+    return () => { alive = false; clearInterval(intervalId); };
   }, [running]);
 }
 
@@ -85,20 +85,26 @@ export function BindButton(props: {
   const bindState = useStore((s) => s.bindStates[props.acc.id]);
   const { waiting, bound } = bindStatus(props.acc, bindState);
 
-  const base = props.baseClass ?? "prio-chip prio-chip-bind";
-  const active = props.activeClass ?? "on";
-  const cls = `${base}${waiting ? " waiting" : bound ? " " + active : ""}`;
+  const baseClass = props.baseClass ?? "prio-chip prio-chip-bind";
+  const activeClass = props.activeClass ?? "on";
+  const buttonClass = `${baseClass}${waiting ? " waiting" : bound ? " " + activeClass : ""}`;
   const icon = waiting ? "fa-xmark" : bound ? (props.boundIcon ?? "fa-check") : "fa-link";
   const label = waiting
     ? (props.labels?.waiting ?? "Cancel")
     : bound
       ? (props.labels?.bound ?? "Bound")
       : (props.labels?.bind ?? "Bind Window");
+  const title = waiting
+    ? "Cancel window binding"
+    : bound
+      ? "This account is matched to a Roblox window. Click to clear the binding."
+      : "Match this account to its open Roblox window";
 
   return (
     <button
-      className={cls}
+      className={buttonClass}
       disabled={props.disabled}
+      title={title}
       onClick={() => void toggleWindowBind(props.acc.id).then(() => props.onAfter?.())}
     >
       <i className={`fa-solid ${icon}`}></i>

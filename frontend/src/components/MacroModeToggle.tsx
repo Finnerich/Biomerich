@@ -1,37 +1,36 @@
 import { useStore } from "../store";
 import { getMacroMode, setMacroMode } from "../data/macroMode";
 
-export function MacroModeToggle() {
+export function MacroModeToggle(props: { id?: string; className?: string }) {
   const settings = useStore((s) => s.settings);
   const running = useStore((s) => s.running);
   const mode = getMacroMode(settings);
 
   return (
-    <div className="glass card macro-mode-bar" id="macroModeToggle" data-reveal>
-      <div className="mm-info">
-        <span className="mm-title"><i className="fa-solid fa-layer-group"></i> Macro Mode</span>
-        <span className="mm-desc">
-          {mode === "normal"
-            ? "Normal: one account, simple setup. Switch to Multi-Macro for many accounts at once."
-            : "Multi-Macro: full control over many accounts. Switch to Normal for a simple one-account setup."}
-        </span>
-      </div>
-      <div className="macro-mode-seg">
-        <button
-          className={`mms-btn${mode === "normal" ? " sel" : ""}`}
-          disabled={running}
-          onClick={() => void setMacroMode("normal")}
-        >
-          <i className="fa-solid fa-user"></i> Normal
-        </button>
-        <button
-          className={`mms-btn${mode === "multi" ? " sel" : ""}`}
-          disabled={running}
-          onClick={() => void setMacroMode("multi")}
-        >
-          <i className="fa-solid fa-users"></i> Multi-Macro
-        </button>
-      </div>
+    <div
+      id={props.id}
+      className={`mode-seg mode-seg-2 macro-mode-switch ${mode}${props.className ? ` ${props.className}` : ""}`}
+      role="group"
+      aria-label="Macro mode"
+      title={running ? "Stop the engine before changing Macro mode" : "Switch between Normal and Multi-Macro mode"}
+    >
+      <span className="mode-seg-glider"></span>
+      <button
+        className={`mode-seg-opt${mode === "normal" ? " active" : ""}`}
+        data-mode="normal"
+        disabled={running}
+        onClick={() => void setMacroMode("normal")}
+      >
+        <i className="fa-solid fa-user"></i><span>Normal</span>
+      </button>
+      <button
+        className={`mode-seg-opt${mode === "multi" ? " active" : ""}`}
+        data-mode="multi"
+        disabled={running}
+        onClick={() => void setMacroMode("multi")}
+      >
+        <i className="fa-solid fa-users"></i><span>Multi-Macro</span>
+      </button>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { renderMarkdown } from "../markdown";
 import { isUpdateAvailable, latestUrl } from "../update";
 import { useUpdateInstall } from "../updateInstall";
 
-const mb = (b: number) => (Math.max(0, b) / 1048576).toFixed(1);
+const mb = (bytes: number) => (Math.max(0, bytes) / 1048576).toFixed(1);
 
 export function UpdateModal() {
   const open = useStore((s) => s.updateModalOpen);
@@ -32,15 +32,15 @@ export function UpdateModal() {
 
   if (!isUpdateAvailable(releases)) return null;
   const latest = releases!.releases![0];
-  const url = latestUrl(releases);
-  const cur = "v" + String(releases!.current || "?").replace(/^v/i, "");
-  const lat = "v" + String(releases!.latest || latest.tag || "?").replace(/^v/i, "");
+  const githubUrl = latestUrl(releases);
+  const currentVersion = "v" + String(releases!.current || "?").replace(/^v/i, "");
+  const latestVersion = "v" + String(releases!.latest || latest.tag || "?").replace(/^v/i, "");
   const body = latest.body;
   const exeUrl = latest.exeUrl;
-  const exeName = latest.exeName || `SolRich-${lat}.exe`;
+  const exeName = latest.exeName || `SolRich-${latestVersion}.exe`;
 
   function openGithub() {
-    if (url) void callPy("open_url", url);
+    if (githubUrl) void callPy("open_url", githubUrl);
     close();
   }
   function install() {
@@ -61,12 +61,12 @@ export function UpdateModal() {
         <div className="update-versions">
           <div className="uv-box">
             <span className="uv-label">Current</span>
-            <span className="uv-val">{cur}</span>
+            <span className="uv-val">{currentVersion}</span>
           </div>
           <i className="fa-solid fa-arrow-right uv-arrow"></i>
           <div className="uv-box new">
             <span className="uv-label">New</span>
-            <span className="uv-val">{lat}</span>
+            <span className="uv-val">{latestVersion}</span>
           </div>
         </div>
         {latest.unstable && (

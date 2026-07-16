@@ -11,6 +11,8 @@ export interface AppSettings {
   ramTrimInterval?: number;
   slowReset?: boolean;
   fakePingGuard?: boolean;
+  monitorDimEnabled?: boolean;
+  monitorDimLevel?: number;
   tesseractPromptDismissed?: boolean;
   [key: string]: unknown;
 }
@@ -115,9 +117,19 @@ export interface Account {
   tokenUser?: string;
   tokenValid?: boolean;
   currentBiome?: string | null;
+  biomeSince?: number | null;
   online?: boolean;
   window?: string | null;
   hwndKnown?: boolean;
+}
+
+export interface ActivityEntry {
+  id: number;
+  ts: number;
+  text: string;
+  kind: string;
+  account?: string | null;
+  biome?: string | null;
 }
 
 export interface Webhook {

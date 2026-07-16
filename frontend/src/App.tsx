@@ -45,7 +45,8 @@ export function App() {
       <div className="app-shell">
         <Sidebar />
         <div className="right-col">
-          <Topbar />
+          {}
+          {currentTab !== "monitor" && <Topbar />}
           <GlobalSearch />
           <main className="main" ref={mainRef}>
             <ErrorBoundary key={currentTab}>

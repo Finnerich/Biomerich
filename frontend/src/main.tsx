@@ -28,12 +28,12 @@ interface HotkeyResult {
 }
 
 expose((result) => {
-  const r = result as HotkeyResult | undefined;
-  if (r && r.ok === false) {
-    void showStartErrors(r.errors);
+  const hotkeyResult = result as HotkeyResult | undefined;
+  if (hotkeyResult && hotkeyResult.ok === false) {
+    void showStartErrors(hotkeyResult.errors);
     return;
   }
-  useStore.getState().setRunning(true, r?.uptime ?? 0);
+  useStore.getState().setRunning(true, hotkeyResult?.uptime ?? 0);
 }, "js_on_hotkey_start");
 
 expose(() => {
@@ -45,9 +45,9 @@ expose((mode) => {
 }, "js_on_mode_hotkey");
 
 expose((payload) => {
-  const p = (payload || {}) as { running?: boolean; uptime?: number; mode?: string };
-  useStore.getState().setRunning(!!p.running, p.uptime ?? 0);
-  if (p.mode != null) useStore.getState().setAutomationMode(String(p.mode));
+  const sync = (payload || {}) as { running?: boolean; uptime?: number; mode?: string };
+  useStore.getState().setRunning(!!sync.running, sync.uptime ?? 0);
+  if (sync.mode != null) useStore.getState().setAutomationMode(String(sync.mode));
 }, "js_on_engine_sync");
 
 expose((settings) => {
@@ -60,7 +60,7 @@ expose((accId, success) => {
 
 expose((accId, success, info) => {
   void callPy<BackendState>("get_state")
-    .then((s) => { if (s) useStore.getState().applyState(s); })
+    .then((state) => { if (state) useStore.getState().applyState(state); })
     .catch(() => {});
   window.dispatchEvent(new CustomEvent("solrich:browser-login", {
     detail: { accId: Number(accId), success: !!success, info: String(info ?? "") },
@@ -69,13 +69,13 @@ expose((accId, success, info) => {
 
 expose((freedBytes, count) => {
   const freed = Number(freedBytes) || 0;
-  const mb = freed / 1048576;
-  const amount = mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${Math.round(mb)} MB`;
-  const procs = Number(count) || 0;
+  const freedMb = freed / 1048576;
+  const amountLabel = freedMb >= 1024 ? `${(freedMb / 1024).toFixed(2)} GB` : `${Math.round(freedMb)} MB`;
+  const processCount = Number(count) || 0;
   useStore.getState().pushToast({
     icon: "fa-memory",
-    title: `RAM trimmed: ${amount} freed`,
-    detail: procs ? `Cleaned ${procs} processes` : "System memory cleaned",
+    title: `RAM trimmed: ${amountLabel} freed`,
+    detail: processCount ? `Cleaned ${processCount} processes` : "System memory cleaned",
   });
 }, "js_on_ram_trimmed");
 
@@ -97,31 +97,31 @@ expose((result) => {
 
 (async () => {
   try {
-    await Promise.race([waitReady(), new Promise((r) => setTimeout(r, 1500))]);
+    await Promise.race([waitReady(), new Promise((resolve) => setTimeout(resolve, 1500))]);
     const state = await callPy<BackendState>("get_state").catch(() => null);
     if (state) {
       useStore.getState().applyState(state);
       applyAccent(getAccentIndex(state.settings?.accentIndex));
       applyTheme(getCurrentThemeId(state.settings?.themeId), false);
     }
-    const ocr = await callPy<{ available?: boolean }>("get_ocr_status").catch(() => null);
-    if (ocr) useStore.getState().setOcrAvailable(!!ocr.available);
+    const ocrStatus = await callPy<{ available?: boolean }>("get_ocr_status").catch(() => null);
+    if (ocrStatus) useStore.getState().setOcrAvailable(!!ocrStatus.available);
     const streak = await callPy<{ count: number; previous: number; advanced: boolean }>("tick_streak").catch(() => null);
     if (streak) useStore.getState().setStreak(streak);
     void loadReleases();
-    const tt = await callPy<Record<string, unknown>>("get_time_tracking").catch(() => null);
-    if (tt) useStore.getState().setTimeTracking(tt);
+    const timeTracking = await callPy<Record<string, unknown>>("get_time_tracking").catch(() => null);
+    if (timeTracking) useStore.getState().setTimeTracking(timeTracking);
   } catch (err) {
     console.warn("[SolRich] backend not reachable yet:", err);
   } finally {
     setTimeout(() => useStore.getState().setLoading(false), 650);
     setTimeout(async () => {
-      const s = useStore.getState();
-      const settings = s.settings as Record<string, unknown>;
+      const store = useStore.getState();
+      const settings = store.settings as Record<string, unknown>;
       if (!agreementAccepted(settings)) {
         await useAgreement.getState().show();
       }
-      maybeStartTutorial(useStore.getState().settings as Record<string, unknown>, s.version);
+      maybeStartTutorial(useStore.getState().settings as Record<string, unknown>, store.version);
     }, 1500);
   }
 })();

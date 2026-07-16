@@ -31,6 +31,21 @@
 
 
 .mb-list { display: flex; flex-direction: column; gap: 10px; }
+.mb-account-head-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.mb-bind-tutorial-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 28px; padding: 5px 10px; border-radius: var(--r-xs);
+    border: 1px solid rgba(var(--ar), var(--ag), var(--ab), 0.28);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.08);
+    color: var(--accent); cursor: pointer;
+    font-family: var(--font); font-size: 10px; font-weight: 600;
+    letter-spacing: var(--track-caps); text-transform: uppercase;
+    transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.mb-bind-tutorial-btn:hover {
+    color: var(--text); background: rgba(var(--ar), var(--ag), var(--ab), 0.14);
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.42);
+}
 .mb-acc {
     padding: 12px 14px; border-radius: var(--r-sm);
     border: 1px solid var(--stroke-soft); background: var(--glass-soft);

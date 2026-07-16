@@ -22,7 +22,7 @@ from .time_tracking import default_tracking as _default_time_tracking, TIME_MODU
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.0.0-hotfix"
+APP_VERSION = "1.1.0"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"
@@ -198,6 +198,8 @@ def _default_config() -> dict:
             "throttleAccounts": [],
             "slowReset": False,
             "fakePingGuard": True,
+            "monitorDimEnabled": False,
+            "monitorDimLevel": 40,
             "hotkey": "F5",
         },
         "automation": _default_automation(),
@@ -525,8 +527,45 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
     def _find(self, items, item_id):
         return next((x for x in items if x.get("id") == item_id), None)
 
+    @staticmethod
+    def _account_name_key(name) -> str:
+        return str(name or "").strip().casefold()
+
+    def account_name_owner(self, name, exclude_id=None):
+        
+        key = self._account_name_key(name)
+        if not key:
+            return None
+        with self._lock:
+            return next((acc for acc in self.accounts
+                         if acc.get("id") != exclude_id
+                         and self._account_name_key(acc.get("name")) == key), None)
+
+    def token_owner(self, token, exclude_id=None):
+        
+        wanted = str(token or "").strip()
+        if not wanted:
+            return None
+        with self._lock:
+            return next((acc for acc in self.accounts
+                         if acc.get("id") != exclude_id
+                         and self.tokens.get(acc.get("id")) == wanted), None)
+
+    def linked_user_owner(self, username, exclude_id=None):
+        
+        key = self._account_name_key(username)
+        if not key:
+            return None
+        with self._lock:
+            return next((acc for acc in self.accounts
+                         if acc.get("id") != exclude_id
+                         and self.tokens.has(acc.get("id"))
+                         and self._account_name_key(acc.get("tokenUser")) == key), None)
+
     def add_account(self, name: str, link: str = "", avatar: str = "", acc_id=None) -> dict:
         with self._lock:
+            if self.account_name_owner(name):
+                raise ValueError("duplicate_account")
             acc = {
                 "id": acc_id or self._new_id(),
                 "name": name.strip(),
@@ -545,6 +584,8 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             if not acc:
                 return False
             if name is not None:
+                if self.account_name_owner(name, exclude_id=acc_id):
+                    raise ValueError("duplicate_account")
                 acc["name"] = name.strip()
             if link is not None:
                 acc["link"] = link.strip()

@@ -1,8 +1,16 @@
+
+
+
+
+
+
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { TimeTrackingPanel } from "../components/TimeTrackingPanel";
 import { Collapse } from "../components/Collapse";
 import { CountUp } from "../components/CountUp";
+import { getMacroAccounts } from "../data/macroMode";
 import {
   BIOMES,
   TIERS,
@@ -26,16 +34,19 @@ interface Webhook {
   active?: boolean;
 }
 
+
+
+
 function formatTime(sec: number): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(Math.floor(sec / 3600))}:${p(Math.floor((sec % 3600) / 60))}:${p(sec % 60)}`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)}`;
 }
-function loc(n: number): string {
+function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
-function fmtRarity(x: number | null): string {
-  if (!x) return "1 in ?";
-  return "1 in " + loc(Number(x));
+function fmtRarity(rarity: number | null): string {
+  if (!rarity) return "1 in ?";
+  return "1 in " + formatNumber(Number(rarity));
 }
 
 const MERCHANT_META = [
@@ -44,10 +55,13 @@ const MERCHANT_META = [
   { key: "rin", name: "Rin", color: "#FAA61A" },
 ];
 
+
+
 export function Stats() {
   const running = useStore((s) => s.running);
   const uptime = useStore((s) => s.uptime);
   const accounts = useStore((s) => s.accounts) as Account[];
+  const settings = useStore((s) => s.settings);
   const webhooks = useStore((s) => s.webhooks) as Webhook[];
   const biomeCounts = useStore((s) => s.biomeCounts);
   const unknownBiomes = useStore((s) => s.unknownBiomes);
@@ -58,10 +72,10 @@ export function Stats() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleTier = (key: string) =>
     setCollapsed((prev) => {
-      const n = new Set(prev);
-      if (n.has(key)) n.delete(key);
-      else n.add(key);
-      return n;
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
     });
   const [countsCollapsed, setCountsCollapsed] = useState(() => localStorage.getItem("biomeCountsCollapsed") === "1");
   const [countsFlush, setCountsFlush] = useState(countsCollapsed);
@@ -76,31 +90,32 @@ export function Stats() {
     return () => window.clearTimeout(flushTimer.current);
   }, [countsCollapsed]);
   const toggleCounts = () =>
-    setCountsCollapsed((c) => {
-      localStorage.setItem("biomeCountsCollapsed", c ? "0" : "1");
-      return !c;
+    setCountsCollapsed((current) => {
+      localStorage.setItem("biomeCountsCollapsed", current ? "0" : "1");
+      return !current;
     });
 
-  const count = (k: string) => biomeCounts[k] || 0;
+  const count = (key: string) => biomeCounts[key] || 0;
   const total = Object.values(biomeCounts).reduce((a, b) => a + b, 0);
-  const max = Math.max(1, ...Object.values(biomeCounts), ...Object.values(unknownBiomes));
+  const maxCount = Math.max(1, ...Object.values(biomeCounts), ...Object.values(unknownBiomes));
 
-  const tt = { normal: 0, event: 0, rare: 0 } as Record<string, number>;
-  BIOMES.forEach((b) => {
-    const target = b.tier === "semi-rare" ? "rare" : b.tier;
-    if (tt[target] !== undefined) tt[target] += count(b.key);
+  
+  const tierTotals = { normal: 0, event: 0, rare: 0 } as Record<string, number>;
+  BIOMES.forEach((biome) => {
+    const target = biome.tier === "semi-rare" ? "rare" : biome.tier;
+    if (tierTotals[target] !== undefined) tierTotals[target] += count(biome.key);
   });
 
   const fishCaught = Number((timeTracking?.fishCaught as number) || 0);
   const activeWebhooks = webhooks.filter((w) => w.active).length;
 
-  const safe = total || 1;
-  const pct = (n: number) => ((n / safe) * 100).toFixed(n && n / safe < 0.01 ? 2 : 1);
+  const totalSafe = total || 1;
+  const pct = (value: number) => ((value / totalSafe) * 100).toFixed(value && value / totalSafe < 0.01 ? 2 : 1);
 
   const groups: Array<{ key: string; label: string; color: string; total: number; rows: Biome[]; unknown?: boolean }> = [];
   TIERS.forEach((tier) => {
-    let list = BIOMES.filter((b) =>
-      tier.key === "rare" ? b.tier === "rare" || b.tier === "semi-rare" : b.tier === tier.key,
+    let list = BIOMES.filter((biome) =>
+      tier.key === "rare" ? biome.tier === "rare" || biome.tier === "semi-rare" : biome.tier === tier.key,
     );
     if (tier.key === "rare") {
       const order = [...RARE_KEYS, ...SEMI_RARE_KEYS];
@@ -113,7 +128,7 @@ export function Stats() {
       key: tier.key,
       label: tier.label,
       color: tier.color,
-      total: list.reduce((s, b) => s + count(b.key), 0),
+      total: list.reduce((sum, biome) => sum + count(biome.key), 0),
       rows: list,
     });
   });
@@ -122,13 +137,13 @@ export function Stats() {
     (a, b) => (unknownBiomes[b] || 0) - (unknownBiomes[a] || 0),
   );
 
-  const merch = MERCHANT_META.map((m) => ({ ...m, v: merchantCounts[m.key] || 0 }));
-  const merchTotal = merch.reduce((a, b) => a + b.v, 0);
-  const mSafe = merchTotal || 1;
-  const mPct = (n: number) => ((n / mSafe) * 100).toFixed(n && n / mSafe < 0.01 ? 2 : 1);
+  const merchantStats = MERCHANT_META.map((meta) => ({ ...meta, found: merchantCounts[meta.key] || 0 }));
+  const merchantTotal = merchantStats.reduce((sum, merchant) => sum + merchant.found, 0);
+  const merchantSafe = merchantTotal || 1;
+  const merchantPct = (value: number) => ((value / merchantSafe) * 100).toFixed(value && value / merchantSafe < 0.01 ? 2 : 1);
 
-  const liveAccounts = accounts.filter((a) => a.enabled !== false);
-  const onlineCount = running ? liveAccounts.filter((a) => a.online).length : 0;
+  const liveAccounts = getMacroAccounts(accounts, settings);
+  const onlineCount = running ? liveAccounts.filter((account) => account.online).length : 0;
 
   return (
     <section className="tab active-tab" id="stats">
@@ -158,7 +173,7 @@ export function Stats() {
           {liveAccounts.length === 0 ? (
             <div className="log-empty">No active accounts. Add or enable one under the Accounts tab.</div>
           ) : (
-            liveAccounts.map((acc) => <LogRow key={acc.id} acc={acc} running={running} />)
+            liveAccounts.map((account) => <LogRow key={account.id} acc={account} running={running} />)
           )}
         </div>
       </div>
@@ -167,24 +182,24 @@ export function Stats() {
       <div className="glass card panel" data-reveal>
         <div className="panel-head">
           <div className="panel-title"><i className="fa-solid fa-layer-group"></i> Rarity Breakdown</div>
-          <span className="badge badge-soft">{loc(total)} logged</span>
+          <span className="badge badge-soft">{formatNumber(total)} logged</span>
         </div>
         <div className="rarity-bar">
-          <div className="rarity-seg normal" style={{ flexGrow: tt.normal }}></div>
-          <div className="rarity-seg event" style={{ flexGrow: tt.event }}></div>
-          <div className="rarity-seg rare" style={{ flexGrow: tt.rare }}></div>
+          <div className="rarity-seg normal" style={{ flexGrow: tierTotals.normal }}></div>
+          <div className="rarity-seg event" style={{ flexGrow: tierTotals.event }}></div>
+          <div className="rarity-seg rare" style={{ flexGrow: tierTotals.rare }}></div>
         </div>
         <div className="rarity-legend">
           {[
-            { c: "#5b6075", n: "Normal", v: tt.normal },
-            { c: "var(--t-event)", n: "Event", v: tt.event },
-            { c: "linear-gradient(90deg,#22c55e,#f368d4 38%,#38bdf8 68%,#fb923c)", n: "Rare", v: tt.rare },
-          ].map((x) => (
-            <div className="rl-item" key={x.n}>
-              <span className="rl-swatch" style={{ background: x.c }}></span>
+            { color: "#5b6075", name: "Normal", value: tierTotals.normal },
+            { color: "var(--t-event)", name: "Event", value: tierTotals.event },
+            { color: "linear-gradient(90deg,#22c55e,#f368d4 38%,#38bdf8 68%,#fb923c)", name: "Rare", value: tierTotals.rare },
+          ].map((item) => (
+            <div className="rl-item" key={item.name}>
+              <span className="rl-swatch" style={{ background: item.color }}></span>
               <span className="rl-text">
-                <span className="rl-name">{x.n}</span>
-                <span className="rl-val">{loc(x.v)} · {pct(x.v)}%</span>
+                <span className="rl-name">{item.name}</span>
+                <span className="rl-val">{formatNumber(item.value)} · {pct(item.value)}%</span>
               </span>
             </div>
           ))}
@@ -198,15 +213,15 @@ export function Stats() {
           <span className="badge badge-rare"><i className="fa-solid fa-bolt"></i> Extremely Rare</span>
         </div>
         <div className="rare-spotlight">
-          {[...RARE_KEYS, ...SEMI_RARE_KEYS].map((k) => {
-            const b = biomeMeta(k)!;
-            const c = count(k);
+          {[...RARE_KEYS, ...SEMI_RARE_KEYS].map((key) => {
+            const meta = biomeMeta(key)!;
+            const found = count(key);
             return (
-              <div className={`rare-card ${c > 0 ? "hit" : ""}`} key={k}
-                style={{ ["--biome-grad" as string]: b.grad, ["--biome-shadow" as string]: b.shadow }}>
-                <div className="rc-top"><span className="rc-swatch"></span><span className="rc-name">{b.name}</span></div>
-                <div className={`rc-count ${c === 0 ? "zero" : ""}`}>{loc(c)}</div>
-                <div className="rc-cap">{c === 0 ? "not yet found" : c === 1 ? "time found" : "times found"}</div>
+              <div className={`rare-card ${found > 0 ? "hit" : ""}`} key={key}
+                style={{ ["--biome-grad" as string]: meta.grad, ["--biome-shadow" as string]: meta.shadow }}>
+                <div className="rc-top"><span className="rc-swatch"></span><span className="rc-name">{meta.name}</span></div>
+                <div className={`rc-count ${found === 0 ? "zero" : ""}`}>{formatNumber(found)}</div>
+                <div className="rc-cap">{found === 0 ? "not yet found" : found === 1 ? "time found" : "times found"}</div>
               </div>
             );
           })}
@@ -224,17 +239,17 @@ export function Stats() {
         </div>
         <Collapse open={!countsCollapsed}>
         <div className="biome-groups">
-          {groups.map((g) => (
-            <div className={`biome-group${collapsed.has(g.key) ? " collapsed" : ""}`} key={g.key}>
-              <div className="tier-head" onClick={() => toggleTier(g.key)}>
+          {groups.map((group) => (
+            <div className={`biome-group${collapsed.has(group.key) ? " collapsed" : ""}`} key={group.key}>
+              <div className="tier-head" onClick={() => toggleTier(group.key)}>
                 <i className="fa-solid fa-chevron-down tier-chevron"></i>
-                <span className="tier-dot" style={{ background: g.color }}></span>
-                <span className="tier-label" style={{ color: g.color }}>{g.label}</span>
+                <span className="tier-dot" style={{ background: group.color }}></span>
+                <span className="tier-label" style={{ color: group.color }}>{group.label}</span>
                 <span className="tier-line"></span>
-                <span className="tier-meta">{loc(g.total)}</span>
+                <span className="tier-meta">{formatNumber(group.total)}</span>
               </div>
               <div className="biome-rows">
-                {g.rows.map((b) => <BiomeRow key={b.key} b={b} count={count(b.key)} max={max} />)}
+                {group.rows.map((biome) => <BiomeRow key={biome.key} b={biome} count={count(biome.key)} max={maxCount} />)}
               </div>
             </div>
           ))}
@@ -245,10 +260,10 @@ export function Stats() {
                 <span className="tier-dot" style={{ background: "var(--text-faint)" }}></span>
                 <span className="tier-label" style={{ color: "var(--text-faint)" }}>Unknown</span>
                 <span className="tier-line"></span>
-                <span className="tier-meta">{loc(unknownNames.reduce((s, n) => s + (unknownBiomes[n] || 0), 0))}</span>
+                <span className="tier-meta">{formatNumber(unknownNames.reduce((sum, name) => sum + (unknownBiomes[name] || 0), 0))}</span>
               </div>
               <div className="biome-rows">
-                {unknownNames.map((n) => <UnknownRow key={n} name={n} count={unknownBiomes[n] || 0} max={max} />)}
+                {unknownNames.map((name) => <UnknownRow key={name} name={name} count={unknownBiomes[name] || 0} max={maxCount} />)}
               </div>
             </div>
           )}
@@ -260,30 +275,30 @@ export function Stats() {
       <div className="glass card panel" data-reveal>
         <div className="panel-head">
           <div className="panel-title"><i className="fa-solid fa-store"></i> Merchant Breakdown</div>
-          <span className="badge badge-soft">{loc(merchTotal)} found</span>
+          <span className="badge badge-soft">{formatNumber(merchantTotal)} found</span>
         </div>
         <div className="rarity-bar">
-          {merch.map((m) => (
-            <div className="rarity-seg" key={m.key} style={{ flexGrow: m.v, background: m.color }}></div>
+          {merchantStats.map((merchant) => (
+            <div className="rarity-seg" key={merchant.key} style={{ flexGrow: merchant.found, background: merchant.color }}></div>
           ))}
         </div>
         <div className="rarity-legend">
-          {merch.map((m) => (
-            <div className="rl-item" key={m.key}>
-              <span className="rl-swatch" style={{ background: m.color }}></span>
+          {merchantStats.map((merchant) => (
+            <div className="rl-item" key={merchant.key}>
+              <span className="rl-swatch" style={{ background: merchant.color }}></span>
               <span className="rl-text">
-                <span className="rl-name">{m.name}</span>
-                <span className="rl-val">{loc(m.v)} · {mPct(m.v)}%</span>
+                <span className="rl-name">{merchant.name}</span>
+                <span className="rl-val">{formatNumber(merchant.found)} · {merchantPct(merchant.found)}%</span>
               </span>
             </div>
           ))}
         </div>
         <div className="merchant-counts">
-          {merch.map((m) => (
-            <div className={`merchant-count-card ${m.v > 0 ? "hit" : ""}`} key={m.key} style={{ ["--m-color" as string]: m.color }}>
-              <div className="mc-top"><span className="mc-swatch" style={{ background: m.color }}></span><span className="mc-name">{m.name}</span></div>
-              <div className={`mc-count ${m.v === 0 ? "zero" : ""}`}>{loc(m.v)}</div>
-              <div className="mc-cap">{m.v === 0 ? "not yet found" : m.v === 1 ? "time found" : "times found"}</div>
+          {merchantStats.map((merchant) => (
+            <div className={`merchant-count-card ${merchant.found > 0 ? "hit" : ""}`} key={merchant.key} style={{ ["--m-color" as string]: merchant.color }}>
+              <div className="mc-top"><span className="mc-swatch" style={{ background: merchant.color }}></span><span className="mc-name">{merchant.name}</span></div>
+              <div className={`mc-count ${merchant.found === 0 ? "zero" : ""}`}>{formatNumber(merchant.found)}</div>
+              <div className="mc-cap">{merchant.found === 0 ? "not yet found" : merchant.found === 1 ? "time found" : "times found"}</div>
             </div>
           ))}
         </div>
@@ -292,6 +307,8 @@ export function Stats() {
     </section>
   );
 }
+
+
 
 function StatCard({ ico, icoClass, value, cap, small }: { ico: string; icoClass: string; value: ReactNode; cap: string; small?: boolean }) {
   return (
@@ -337,7 +354,7 @@ function LogRow({ acc, running }: { acc: Account; running: boolean }) {
   const meta = disabled ? null : biomeMeta(acc.currentBiome);
   const isRare = !!(meta && (meta.tier === "rare" || meta.tier === "semi-rare"));
   const online = !!acc.online;
-  const winLabel = acc.window ? ` · ${acc.window}` : "";
+  const windowLabel = acc.window ? ` · ${acc.window}` : "";
 
   return (
     <div className={`log-row${isRare && running ? " is-rare" : ""}${disabled ? " acc-disabled" : ""}`}
@@ -349,11 +366,11 @@ function LogRow({ acc, running }: { acc: Account; running: boolean }) {
           {meta ? (
             <span className={`biome-pill ${isRare ? "rare" : ""}`}>
               <span className="d" style={{ ["--g" as string]: meta.shadow }}></span>
-              {meta.name}{winLabel}
+              {meta.name}{windowLabel}
             </span>
           ) : (
             <span className="biome-pill">
-              {disabled ? "Disabled" : running ? (online ? `Awaiting biome…${winLabel}` : "Searching window…") : "Idle"}
+              {disabled ? "Disabled" : running ? (online ? `Awaiting biome…${windowLabel}` : "Searching window…") : "Idle"}
             </span>
           )}
         </span>

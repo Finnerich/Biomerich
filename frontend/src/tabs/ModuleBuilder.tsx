@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { callPy } from "../bridge";
@@ -13,8 +21,9 @@ import { BiomePingSettings } from "../components/BiomePingSettings";
 import { Stepper } from "../components/Stepper";
 import { TesseractInstallButton } from "../components/TesseractInstallButton";
 import { useWindowBindPoll } from "../windowBind";
-import { MacroModeToggle } from "../components/MacroModeToggle";
 import { getMacroMode } from "../data/macroMode";
+import { TUTORIALS } from "../data/tutorials";
+import { useTutorial } from "../tutorial";
 import { NormalMode } from "./NormalMode";
 import type { Account, BackendState, CycleStep } from "../types";
 
@@ -40,21 +49,26 @@ import {
   isRegion,
 } from "./moduleBuilder/parts";
 
+
+
 interface WebhookLite { url?: string; active?: boolean; routedAccounts?: unknown[] }
 
 function loggingRequirementsMet(accounts: Account[], webhooks: unknown[]): boolean {
-  const enabled = accounts.filter((a) => a.enabled !== false);
-  if (!enabled.length || !webhooks.length) return false;
-  const whs = webhooks as WebhookLite[];
-  if (!whs.some((w) => (w.url || "").trim())) return false;
-  return whs.some((w) => (w.active ?? true) && (w.routedAccounts || []).length > 0);
+  const enabledAccounts = accounts.filter((account) => account.enabled !== false);
+  if (!enabledAccounts.length || !webhooks.length) return false;
+  const webhookList = webhooks as WebhookLite[];
+  if (!webhookList.some((webhook) => (webhook.url || "").trim())) return false;
+  return webhookList.some((webhook) => (webhook.active ?? true) && (webhook.routedAccounts || []).length > 0);
 }
+
 
 
 export function ModuleBuilder() {
   const macroMode = useStore((s) => getMacroMode(s.settings));
   return macroMode === "normal" ? <NormalMode /> : <MultiMacroBuilder />;
 }
+
+
 
 function MultiMacroBuilder() {
   const running = useStore((s) => s.running);
@@ -83,21 +97,21 @@ function MultiMacroBuilder() {
       setDrawer(null);
     }
   }, [tutorialDrawer]);
-  const [apBiomeKeys, setApBiomeKeys] = useState<string[]>(BIOMES.map((b) => b.key));
+  const [apBiomeKeys, setApBiomeKeys] = useState<string[]>(BIOMES.map((biome) => biome.key));
   const [apUnknownKeys, setApUnknownKeys] = useState<string[]>([]);
   const [routeNames, setRouteNames] = useState<string[]>([]);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [ap, fp] = await Promise.all([
+      const [autopopBiomes, fishingPresets] = await Promise.all([
         callPy<{ biomes?: string[]; unknown?: string[] }>("get_autopop_biomes").catch(() => null),
         callPy<{ routes?: string[] }>("get_fishing_presets").catch(() => null),
       ]);
       if (!alive) return;
-      if (ap?.biomes) setApBiomeKeys(ap.biomes);
-      if (ap?.unknown) setApUnknownKeys(ap.unknown);
-      if (fp?.routes) setRouteNames(fp.routes);
+      if (autopopBiomes?.biomes) setApBiomeKeys(autopopBiomes.biomes);
+      if (autopopBiomes?.unknown) setApUnknownKeys(autopopBiomes.unknown);
+      if (fishingPresets?.routes) setRouteNames(fishingPresets.routes);
     })();
     return () => { alive = false; };
   }, []);
@@ -107,16 +121,16 @@ function MultiMacroBuilder() {
   const fishing = automation.fishing || {};
   let cycleSteps: CycleStep[] = [];
   const ocrFailsafe = automation.ocrFailsafe || {};
-  const notif = automation.notifications || {};
+  const notifications = automation.notifications || {};
   const intervals = automation.intervals || {};
   const autopop = automation.autopop || {};
   const apAccounts = autopop.accounts || {};
 
   const pixels = automation.pixels || {};
-  const invReady = PIXEL_SLOTS.every(([k]) => isPoint(pixels[k]));
+  const invReady = PIXEL_SLOTS.every(([slotKey]) => isPoint(pixels[slotKey]));
   const merchGeneral = (automation.merchants?.calib || {}).general || {};
   const merchReady = isPoint(merchGeneral.pixels?.dialogue_skip) && isRegion(merchGeneral.regions?.merchant_name);
-  const fishReady = FISHING_REQUIRED_SLOTS.every((k) => isPoint(fishing.pixels?.[k]));
+  const fishReady = FISHING_REQUIRED_SLOTS.every((slotKey) => isPoint(fishing.pixels?.[slotKey]));
   const chatCalibAll = (automation.calib || {}).chat || {};
   const auraReady = isPoint(chatCalibAll.pixels?.chat_button) && isPoint(chatCalibAll.pixels?.server_messages_button) && isRegion(chatCalibAll.regions?.chat_region);
   const apAmountReady = isRegion(autopop.amountRegion);
@@ -153,7 +167,8 @@ function MultiMacroBuilder() {
   const slowResetOn = !!settings.slowReset;
   const fakePingOn = settings.fakePingGuard !== false;
   let miscOn = slowResetOn || fakePingOn;
-  const boundCount = accounts.filter((a) => a.enabled !== false && a.window).length;
+  const boundCount = accounts.filter((account) =>
+    account.enabled !== false && (!!account.window || bindStates[account.id] === "bound")).length;
 
   async function toggleAfk(checked: boolean) {
     if (running) return;
@@ -165,40 +180,40 @@ function MultiMacroBuilder() {
     applyState(await callPy<BackendState>("set_setting", "ramTrimEnabled", checked));
   }
   const toggleAccountEnabled = useCallback(async (accId: number, enabled: boolean) => {
-    const st = useStore.getState();
-    if (st.running) return;
-    st.applyState(await callPy<BackendState>("set_account_enabled", accId, enabled));
+    const state = useStore.getState();
+    if (state.running) return;
+    state.applyState(await callPy<BackendState>("set_account_enabled", accId, enabled));
   }, []);
   const toggleModule = useCallback(async (accId: number, task: string) => {
-    const st = useStore.getState();
-    if (st.running) return;
-    const acc = (st.accounts as Account[]).find((a) => a.id === accId);
-    if (!acc || acc.enabled === false) return;
-    const cur = !!acc.modules?.[task as keyof NonNullable<Account["modules"]>];
-    if (!cur) {
+    const state = useStore.getState();
+    if (state.running) return;
+    const account = (state.accounts as Account[]).find((a) => a.id === accId);
+    if (!account || account.enabled === false) return;
+    const moduleOn = !!account.modules?.[task as keyof NonNullable<Account["modules"]>];
+    if (!moduleOn) {
       if (task === "merchantTeleporter" && locksRef.current.merchant) return;
       if (task === "auraDetection" && locksRef.current.aura) return;
       if (task === "fishing" && locksRef.current.fishing) return;
       if ((task === "strangeController" || task === "biomeRandomizer") && locksRef.current.item) return;
     }
-    st.applyState(await callPy<BackendState>("set_account_module", accId, task, !cur));
+    state.applyState(await callPy<BackendState>("set_account_module", accId, task, !moduleOn));
   }, []);
   const enabledBiomeCount = (accId: number) => {
-    const bm = (apAccounts[String(accId)]?.biomes || {}) as Record<string, { enabled?: boolean }>;
-    return Object.values(bm).filter((b) => b?.enabled).length;
+    const biomeMap = (apAccounts[String(accId)]?.biomes || {}) as Record<string, { enabled?: boolean }>;
+    return Object.values(biomeMap).filter((biome) => biome?.enabled).length;
   };
 
   const toggleAutopop = useCallback(async (accId: number) => {
-    const st = useStore.getState();
-    if (st.running) return;
-    const acc = (st.accounts as Account[]).find((a) => a.id === accId);
-    if (!acc || acc.enabled === false) return;
-    const apAcc = (st.automation.autopop?.accounts || {})[String(accId)];
-    const on = !!apAcc?.enabled;
-    if (!on && locksRef.current.autopop) return;
-    const biomeCount = Object.values((apAcc?.biomes || {}) as Record<string, { enabled?: boolean }>).filter((b) => b?.enabled).length;
-    if (!on && biomeCount === 0) return;
-    st.applyState(await callPy<BackendState>("set_autopop_account", accId, !on));
+    const state = useStore.getState();
+    if (state.running) return;
+    const account = (state.accounts as Account[]).find((a) => a.id === accId);
+    if (!account || account.enabled === false) return;
+    const autopopAccount = (state.automation.autopop?.accounts || {})[String(accId)];
+    const autopopOn = !!autopopAccount?.enabled;
+    if (!autopopOn && locksRef.current.autopop) return;
+    const biomeCount = Object.values((autopopAccount?.biomes || {}) as Record<string, { enabled?: boolean }>).filter((biome) => biome?.enabled).length;
+    if (!autopopOn && biomeCount === 0) return;
+    state.applyState(await callPy<BackendState>("set_autopop_account", accId, !autopopOn));
   }, []);
   const openDrawer = useCallback((accId: number, kind: "strangeController" | "biomeRandomizer" | "merchant" | "autopop" | "aura" | "fishing") => {
     setDrawer(kind === "autopop" || kind === "merchant" || kind === "fishing" ? { kind, accId } : ({ kind } as DrawerState));
@@ -213,27 +228,27 @@ function MultiMacroBuilder() {
     applyState(await callPy<BackendState>("set_notification", key, checked));
   }
 
-  const enabledAccounts = useMemo(() => accounts.filter((a) => a.enabled !== false), [accounts]);
+  const enabledAccounts = useMemo(() => accounts.filter((account) => account.enabled !== false), [accounts]);
   const steps = useMemo(() => {
-    const out: Array<{ icon: string; label: string }> = [];
+    const chips: Array<{ icon: string; label: string }> = [];
     [...ITEM_TASKS,
      { key: "merchantTeleporter", name: "Merchant Det.", full: "Merchant Detection", icon: "fa-store" },
      { key: "fishing", name: "Fishing", full: "Fishing", icon: "fa-fish" },
-    ].forEach((t) => {
+    ].forEach((task) => {
       enabledAccounts
-        .filter((a) => a.modules?.[t.key as keyof NonNullable<Account["modules"]>])
-        .forEach((a) => out.push({ icon: t.icon, label: `${t.name} · ${a.name}` }));
+        .filter((account) => account.modules?.[task.key as keyof NonNullable<Account["modules"]>])
+        .forEach((account) => chips.push({ icon: task.icon, label: `${task.name} · ${account.name}` }));
     });
-    return out;
+    return chips;
   }, [enabledAccounts]);
   const autoMode = automation.mode === "automation";
   const popAccounts = useMemo(
-    () => (autoMode ? enabledAccounts.filter((a) => !!apAccounts[String(a.id)]?.enabled) : []),
+    () => (autoMode ? enabledAccounts.filter((account) => !!apAccounts[String(account.id)]?.enabled) : []),
     [autoMode, enabledAccounts, apAccounts]);
 
-  const drawerAcc =
+  const drawerAccount =
     drawer?.kind === "autopop" || drawer?.kind === "fishing" || drawer?.kind === "merchant" || drawer?.kind === "limbo"
-      ? accounts.find((a) => a.id === drawer.accId)
+      ? accounts.find((account) => account.id === drawer.accId)
       : null;
 
   return (
@@ -245,8 +260,6 @@ function MultiMacroBuilder() {
           module via its <i className="fa-solid fa-gear" style={{ fontSize: 11 }}></i> settings.
         </p>
       </header>
-
-      <MacroModeToggle />
 
       {}
       <div className="glass card panel" data-reveal>
@@ -341,9 +354,18 @@ function MultiMacroBuilder() {
       <div className="glass card panel" data-reveal>
         <div className="panel-head">
           <div className="panel-title"><i className="fa-solid fa-cubes"></i> Accounts &amp; Modules</div>
-          <span className="badge badge-soft">
-            {boundCount > 0 ? `${boundCount} window${boundCount === 1 ? "" : "s"} bound` : running ? "no windows bound" : "engine off"}
-          </span>
+          <div className="mb-account-head-actions">
+            <span className="badge badge-soft">
+              {boundCount > 0 ? `${boundCount} window${boundCount === 1 ? "" : "s"} bound` : running ? "no windows bound" : "engine off"}
+            </span>
+            <button
+              className="mb-bind-tutorial-btn"
+              type="button"
+              onClick={() => useTutorial.getState().start(TUTORIALS.bindWindows)}
+            >
+              <i className="fa-solid fa-circle-question"></i> Bind tutorial
+            </button>
+          </div>
         </div>
         {anyLocked && accounts.length > 0 && (
           <div className="mb-locks-note">
@@ -358,15 +380,15 @@ function MultiMacroBuilder() {
           </div>
         )}
         <div className="mb-list">
-          {accounts.map((acc) => (
+          {accounts.map((account) => (
             <AccountRow
-              key={acc.id}
-              acc={acc}
+              key={account.id}
+              acc={account}
               running={running}
               locks={locks}
-              bindState={bindStates[acc.id]}
-              autopopOn={!!apAccounts[String(acc.id)]?.enabled}
-              autopopHasBiome={enabledBiomeCount(acc.id) > 0}
+              bindState={bindStates[account.id]}
+              autopopOn={!!apAccounts[String(account.id)]?.enabled}
+              autopopHasBiome={enabledBiomeCount(account.id) > 0}
               onToggleEnabled={toggleAccountEnabled}
               onToggleModule={toggleModule}
               onToggleAutopop={toggleAutopop}
@@ -401,8 +423,8 @@ function MultiMacroBuilder() {
               {loggingOn && <span className="po-chip passive"><i className="fa-solid fa-satellite-dish"></i> Biome Logging</span>}
               {afkOn && <span className="po-chip passive"><i className="fa-solid fa-person-running"></i> Anti-AFK</span>}
               {ramTrimOn && <span className="po-chip passive"><i className="fa-solid fa-memory"></i> Auto-Trim RAM</span>}
-              {popAccounts.map((a) => (
-                <span className="po-chip passive" key={a.id}><i className="fa-solid fa-wand-magic-sparkles"></i> Auto Pop · {a.name}</span>
+              {popAccounts.map((account) => (
+                <span className="po-chip passive" key={account.id}><i className="fa-solid fa-wand-magic-sparkles"></i> Auto Pop · {account.name}</span>
               ))}
             </div>
           )}
@@ -414,12 +436,12 @@ function MultiMacroBuilder() {
             <>
               {steps.length > 0 && (
                 <div className="prio-order-chain">
-                  {steps.map((s, i) => (
+                  {steps.map((step, i) => (
                     <span key={i} style={{ display: "contents" }}>
                       {i > 0 && (
                         <span className="po-arrow"><i className="fa-solid fa-arrow-right"></i></span>
                       )}
-                      <span className="po-chip"><i className={`fa-solid ${s.icon}`}></i> {s.label}</span>
+                      <span className="po-chip"><i className={`fa-solid ${step.icon}`}></i> {step.label}</span>
                     </span>
                   ))}
                   <span className="po-arrow po-loop"><i className="fa-solid fa-rotate-right"></i></span>
@@ -460,10 +482,10 @@ function MultiMacroBuilder() {
         <MiscSettings />
       </ModuleDrawer>
 
-      {ITEM_TASKS.map((t) => (
+      {ITEM_TASKS.map((task) => (
         <ModuleDrawer
-          key={t.key}
-          open={drawer?.kind === t.key} icon={t.icon} title={t.full}
+          key={task.key}
+          open={drawer?.kind === task.key} icon={task.icon} title={task.full}
           sub="Item module: uses the inventory click points" onClose={() => setDrawer(null)}
         >
           <div className="mb-scope-note">
@@ -471,58 +493,58 @@ function MultiMacroBuilder() {
             <span>These settings are <b>global</b>: they apply to every account running this module. Item name and amount are fixed (the in-game item never changes).</span>
           </div>
           <ToggleRow
-            name="OCR Item Failsafe" desc={OCR_FAILSAFE_DESC[t.key]}
-            checked={!!ocrFailsafe[t.key]}
-            disabled={running || (!ocrAvailable && !ocrFailsafe[t.key])}
+            name="OCR Item Failsafe" desc={OCR_FAILSAFE_DESC[task.key]}
+            checked={!!ocrFailsafe[task.key]}
+            disabled={running || (!ocrAvailable && !ocrFailsafe[task.key])}
             locked={!ocrAvailable}
-            onChange={(c) => void onOcrFailsafe(t.key, c)}
+            onChange={(checked) => void onOcrFailsafe(task.key, checked)}
           />
           <div className="afk-divider"></div>
           <ToggleRow
             name="Run notifications" desc="Sends a Discord embed each run: green when used, red when the failsafe skipped it."
-            checked={!!notif[t.key]} onChange={(c) => void onNotif(t.key, c)}
+            checked={!!notifications[task.key]} onChange={(checked) => void onNotif(task.key, checked)}
           />
         </ModuleDrawer>
       ))}
 
       <ModuleDrawer
         open={drawer?.kind === "merchant"} icon="fa-store" title="Merchant Detection" wide
-        sub={drawerAcc ? `Detection global · Auto Buy per account · ${drawerAcc.name}` : "Teleports to merchants, OCR-reads who arrived, posts the embed"}
+        sub={drawerAccount ? `Detection global · Auto Buy per account · ${drawerAccount.name}` : "Teleports to merchants, OCR-reads who arrived, posts the embed"}
         onClose={() => setDrawer(null)}
       >
-        {drawer?.kind === "merchant" && drawerAcc && (
+        {drawer?.kind === "merchant" && drawerAccount && (
           <MerchantSettings
-            acc={drawerAcc}
+            acc={drawerAccount}
             running={running}
             ocrAvailable={ocrAvailable}
             interval={Number(intervals.merchantTeleporter) || 1800}
-            screenshotOn={!!notif.merchantScreenshot}
+            screenshotOn={!!notifications.merchantScreenshot}
             failsafeOn={!!ocrFailsafe.merchantTeleporter}
-            autoBuyWebhookOn={!!notif.merchantAutoBuy}
-            onScreenshot={(c) => void onNotif("merchantScreenshot", c)}
-            onFailsafe={(c) => void onOcrFailsafe("merchantTeleporter", c)}
-            onAutoBuyWebhook={(c) => void onNotif("merchantAutoBuy", c)}
-            onOpenItems={(mid, title, items) => setAbModal({ accId: drawerAcc.id, mid, title, items })}
+            autoBuyWebhookOn={!!notifications.merchantAutoBuy}
+            onScreenshot={(checked) => void onNotif("merchantScreenshot", checked)}
+            onFailsafe={(checked) => void onOcrFailsafe("merchantTeleporter", checked)}
+            onAutoBuyWebhook={(checked) => void onNotif("merchantAutoBuy", checked)}
+            onOpenItems={(mid, title, items) => setAbModal({ accId: drawerAccount.id, mid, title, items })}
           />
         )}
       </ModuleDrawer>
 
       <ModuleDrawer
         open={drawer?.kind === "fishing"} icon="fa-fish" title="Fishing"
-        sub={drawerAcc ? `Per-account settings · ${drawerAcc.name}` : "Per-account settings"}
+        sub={drawerAccount ? `Per-account settings · ${drawerAccount.name}` : "Per-account settings"}
         onClose={() => setDrawer(null)}
       >
-        {drawer?.kind === "fishing" && drawerAcc && (
+        {drawer?.kind === "fishing" && drawerAccount && (
           <FishingSettings
-            acc={drawerAcc}
+            acc={drawerAccount}
             running={running}
             ocrAvailable={ocrAvailable}
-            cfg={fishing.accounts?.[String(drawerAcc.id)] || {}}
-            isActive={cycleStatus.type === "fishing" && cycleStatus.accId === drawerAcc.id}
+            cfg={fishing.accounts?.[String(drawerAccount.id)] || {}}
+            isActive={cycleStatus.type === "fishing" && cycleStatus.accId === drawerAccount.id}
             fishingStatus={fishingStatus}
             routeNames={routeNames}
             ocrFailsafe={ocrFailsafe}
-            onOcrFailsafe={(task, c) => void onOcrFailsafe(task, c)}
+            onOcrFailsafe={(task, checked) => void onOcrFailsafe(task, checked)}
           />
         )}
       </ModuleDrawer>
@@ -530,18 +552,18 @@ function MultiMacroBuilder() {
 
       <ModuleDrawer
         open={drawer?.kind === "autopop"} icon="fa-wand-magic-sparkles" title="Auto Pop" wide
-        sub={drawerAcc ? `Per-account config · ${drawerAcc.name}` : "Per-account config"} onClose={() => setDrawer(null)}
+        sub={drawerAccount ? `Per-account config · ${drawerAccount.name}` : "Per-account config"} onClose={() => setDrawer(null)}
       >
-        {drawer?.kind === "autopop" && drawerAcc && (
+        {drawer?.kind === "autopop" && drawerAccount && (
           <AutopopSettings
-            acc={drawerAcc}
+            acc={drawerAccount}
             running={running}
             ocrAvailable={ocrAvailable}
             autopop={autopop}
             biomeKeys={apBiomeKeys}
             unknownKeys={apUnknownKeys}
-            onOpenItems={(biome, title, items) => setApModal({ kind: "items", accId: drawerAcc.id, biome, title, items })}
-            onOpenImport={() => setApModal({ kind: "import", accId: drawerAcc.id, name: "", json: "" })}
+            onOpenItems={(biome, title, items) => setApModal({ kind: "items", accId: drawerAccount.id, biome, title, items })}
+            onOpenImport={() => setApModal({ kind: "import", accId: drawerAccount.id, name: "", json: "" })}
             onOpenExport={(json) => setApModal({ kind: "export", json })}
           />
         )}
@@ -556,15 +578,15 @@ function MultiMacroBuilder() {
           if (!apModal) return true;
           if (apModal.kind === "items") {
             const items = apModal.items
-              .map((i) => ({ name: (i.name || "").trim(), amount: Math.max(1, i.amount || 1), all: !!i.all }))
-              .filter((i) => i.name);
+              .map((item) => ({ name: (item.name || "").trim(), amount: Math.max(1, item.amount || 1), all: !!item.all }))
+              .filter((item) => item.name);
             applyState(await callPy<BackendState>("set_autopop_account_items", apModal.accId, apModal.biome, items));
             return true;
           }
           if (apModal.kind === "import") {
             if (!apModal.json.trim()) return false;
-            const r = await callPy<{ ok?: boolean; state?: BackendState }>("import_autopop_preset", apModal.name.trim(), apModal.json.trim());
-            if (r?.ok) { if (r.state) applyState(r.state); return true; }
+            const result = await callPy<{ ok?: boolean; state?: BackendState }>("import_autopop_preset", apModal.name.trim(), apModal.json.trim());
+            if (result?.ok) { if (result.state) applyState(result.state); return true; }
             void alertDialog("Import failed. Make sure you pasted a valid exported preset.", { title: "Import failed" });
             return false;
           }
@@ -576,16 +598,16 @@ function MultiMacroBuilder() {
             <p className="ap-modal-hint"><i className="fa-solid fa-circle-info"></i> Items are used top-to-bottom the moment this biome starts on this account. With the amount scan on, if stock is lower than the amount, the macro uses all it has. Tick <b>Use all</b> to always pop the whole stack.</p>
             <div className="ap-item-head"><span>Potion</span><span>Amount</span><span></span></div>
             <div>
-              {apModal.items.map((it, i) => (
+              {apModal.items.map((item, i) => (
                 <div className="ap-item-row" key={i}>
-                  <PotionSelect className="ap-item-name" value={it.name}
+                  <PotionSelect className="ap-item-name" value={item.name}
                     onChange={(name) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, name } : x)) })} />
-                  {it.all ? (
+                  {item.all ? (
                     <span className="ap-item-amt ap-item-all-tag">All</span>
                   ) : (
                     <div className="ap-item-amt">
-                      <Stepper value={it.amount} min={1}
-                        onChange={(v) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(1, v) } : x)) })} />
+                      <Stepper value={item.amount} min={1}
+                        onChange={(value) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(1, value) } : x)) })} />
                     </div>
                   )}
                   <button className="ap-item-del" title="Remove"
@@ -596,7 +618,7 @@ function MultiMacroBuilder() {
                   <div className="ap-item-all">
                     <span>Always use all</span>
                     <label className="switch" style={{ transform: "scale(0.85)" }}>
-                      <input type="checkbox" checked={!!it.all}
+                      <input type="checkbox" checked={!!item.all}
                         onChange={(e) => setApModal({ ...apModal, items: apModal.items.map((x, j) => (j === i ? { ...x, all: e.target.checked } : x)) })} />
                       <span className="slider"></span>
                     </label>
@@ -637,15 +659,15 @@ function MultiMacroBuilder() {
         onSave={async () => {
           if (!abModal) return true;
           const items = abModal.items
-            .map((i) => ({ name: (i.name || "").trim(), amount: Math.max(0, i.amount ?? 1), all: !!i.all }))
-            .filter((i) => i.name);
+            .map((item) => ({ name: (item.name || "").trim(), amount: Math.max(0, item.amount ?? 1), all: !!item.all }))
+            .filter((item) => item.name);
           applyState(await callPy<BackendState>("set_merchant_autobuy_items", abModal.accId, abModal.mid, items));
           return true;
         }}
       >
         {abModal && (() => {
           const catalog = MERCHANT_AUTOBUY_ITEMS[abModal.mid];
-          const used = new Set(abModal.items.map((i) => i.name).filter(Boolean));
+          const usedNames = new Set(abModal.items.map((item) => item.name).filter(Boolean));
           return (
             <div className="ap-modal">
               <p className="ap-modal-hint">
@@ -655,21 +677,21 @@ function MultiMacroBuilder() {
               </p>
               <div className="ap-item-head"><span>Item</span><span>Amount</span><span></span></div>
               <div>
-                {abModal.items.map((it, i) => (
+                {abModal.items.map((item, i) => (
                   <div className="ap-item-row" key={i}>
                     <MerchantItemSelect
                       className="ap-item-name"
                       mid={abModal.mid}
-                      value={it.name}
-                      exclude={new Set([...used].filter((n) => n !== it.name))}
+                      value={item.name}
+                      exclude={new Set([...usedNames].filter((name) => name !== item.name))}
                       onChange={(name) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, name } : x)) })}
                     />
-                    {it.all ? (
+                    {item.all ? (
                       <span className="ap-item-amt ap-item-all-tag">All</span>
                     ) : (
                       <div className="ap-item-amt">
-                        <Stepper value={it.amount ?? 1} min={0}
-                          onChange={(v) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(0, v) } : x)) })} />
+                        <Stepper value={item.amount ?? 1} min={0}
+                          onChange={(value) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, amount: Math.max(0, value) } : x)) })} />
                       </div>
                     )}
                     <button className="ap-item-del" title="Remove"
@@ -680,7 +702,7 @@ function MultiMacroBuilder() {
                     <div className="ap-item-all">
                       <span>Always buy all</span>
                       <label className="switch" style={{ transform: "scale(0.85)" }}>
-                        <input type="checkbox" checked={!!it.all}
+                        <input type="checkbox" checked={!!item.all}
                           onChange={(e) => setAbModal({ ...abModal, items: abModal.items.map((x, j) => (j === i ? { ...x, all: e.target.checked } : x)) })} />
                         <span className="slider"></span>
                       </label>

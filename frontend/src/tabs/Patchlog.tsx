@@ -7,12 +7,13 @@ import { useUpdateInstall } from "../updateInstall";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-const mb = (b: number) => (Math.max(0, b) / 1048576).toFixed(1);
+
+const mb = (bytes: number) => (Math.max(0, bytes) / 1048576).toFixed(1);
 
 export function Patchlog() {
   const releases = useStore((s) => s.releases);
