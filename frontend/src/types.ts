@@ -160,6 +160,58 @@ export interface TimeTracking {
   [key: string]: unknown;
 }
 
+export interface ModuleUseCounts {
+  strangeController: number;
+  biomeRandomizer: number;
+  combined: number;
+}
+
+export interface CyberspaceAccountProgress {
+  id: number;
+  name: string;
+  avatar?: string;
+  enabled: boolean;
+  active: boolean;
+  modules: {
+    strangeController: boolean;
+    biomeRandomizer: boolean;
+  };
+  lifetime: Omit<ModuleUseCounts, "combined">;
+  session: Omit<ModuleUseCounts, "combined">;
+  combinedLifetime: number;
+  combinedSession: number;
+  usesPerHour: number;
+}
+
+export interface CyberspaceProgress {
+  odds: number;
+  cyberspaceCount: number;
+  lifetime: ModuleUseCounts;
+  unattributed: ModuleUseCounts;
+  session: ModuleUseCounts;
+  sinceLast: ModuleUseCounts;
+  estimatedRemaining: number;
+  averageCycleOverdue: number;
+  progressPercent: number;
+  chanceSinceLastPercent: number;
+  etaSeconds: number | null;
+  etaMode: "averageCycle" | "fromNow";
+  usesPerHour: number;
+  activeAccounts: number;
+  activeSources: number;
+  intervals: {
+    strangeController: number;
+    biomeRandomizer: number;
+  };
+  accounts: CyberspaceAccountProgress[];
+  lastCyberspace: string;
+  lastCyberspaceAccount: number | null;
+  trackingSince: string;
+  anchorReason: "trackingStart" | "cyberspace" | "statsReset" | "migration";
+  sessionCyberspaces: number;
+  accurateSinceLastCyberspace: boolean;
+}
+
 export interface BackendState {
   running?: boolean;
   uptime?: number;
@@ -169,6 +221,8 @@ export interface BackendState {
   accounts?: Account[];
   webhooks?: Webhook[];
   biomeCounts?: Record<string, number>;
+  moduleCounts?: Record<string, number>;
+  cyberspaceProgress?: CyberspaceProgress;
   unknownBiomes?: Record<string, number>;
   merchantCounts?: Record<string, number>;
   edenStats?: EdenStats;
@@ -179,6 +233,8 @@ export interface StatusPayload {
   running?: boolean;
   uptime?: number;
   biomeCounts?: Record<string, number>;
+  moduleCounts?: Record<string, number>;
+  cyberspaceProgress?: CyberspaceProgress;
   unknownBiomes?: Record<string, number>;
   merchantCounts?: Record<string, number>;
   edenStats?: EdenStats;

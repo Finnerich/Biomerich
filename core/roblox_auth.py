@@ -3,9 +3,13 @@ import re
 import sys
 import time
 import random
+import threading
 import urllib.parse
 
 import requests
+
+from .roblox_tray_cleanup import cleanup as _tray_cleanup
+from . import roblox_guard as _detached_guard
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -18,7 +22,14 @@ _BASE_HEADERS = {
     "Origin": "https://www.roblox.com",
 }
 
+_MULTI_INSTANCE_MUTEX = "ROBLOX_singletonMutex"
+_ERROR_ALREADY_EXISTS = 183
 _mutex_handles = []
+_mutex_lock = threading.RLock()
+_mutex_guard_thread = None
+_mutex_guard_stop = None
+_mutex_guard_initialized = None
+_mutex_guard_owns = False
 
 def _cookie_header(token):
     return {"Cookie": f".ROBLOSECURITY={token}"}
@@ -219,20 +230,111 @@ def _place_launcher_url(place_info):
         }
     return base + "?" + urllib.parse.urlencode(params), btid
 
-def ensure_multi_instance():
-    if not IS_WINDOWS or _mutex_handles:
-        return bool(_mutex_handles)
+def _create_multi_instance_mutex():
     import ctypes
     from ctypes import wintypes
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.CreateMutexW.restype = wintypes.HANDLE
     kernel32.CreateMutexW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
-    for name in ("ROBLOX_singletonMutex", "ROBLOX_singletonEvent"):
-        handle = kernel32.CreateMutexW(None, False, name)
-        if handle:
+    ctypes.set_last_error(0)
+    handle = kernel32.CreateMutexW(None, True, _MULTI_INSTANCE_MUTEX)
+    return handle, ctypes.get_last_error() == _ERROR_ALREADY_EXISTS
+
+
+def _mutex_guard_worker(stop_event, initialized_event):
+    
+    global _mutex_guard_owns
+    import ctypes
+    from ctypes import wintypes
+
+    wait_object = 0x00000000
+    wait_abandoned = 0x00000080
+    wait_timeout_ms = 200
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.ReleaseMutex.argtypes = (wintypes.HANDLE,)
+    kernel32.ReleaseMutex.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    handle = None
+    owns_mutex = False
+    try:
+        handle, already_exists = _create_multi_instance_mutex()
+        if not handle:
+            initialized_event.set()
+            return
+
+
+
+
+        if not already_exists:
+            owns_mutex = True
+        else:
+            wait_result = kernel32.WaitForSingleObject(handle, 0)
+            owns_mutex = wait_result in (wait_object, wait_abandoned)
+
+        with _mutex_lock:
             _mutex_handles.append(handle)
-    return bool(_mutex_handles)
+            _mutex_guard_owns = owns_mutex
+        initialized_event.set()
+
+        while not stop_event.is_set():
+            if owns_mutex:
+                stop_event.wait(0.2)
+                continue
+            wait_result = kernel32.WaitForSingleObject(handle, wait_timeout_ms)
+            if wait_result in (wait_object, wait_abandoned):
+                owns_mutex = True
+                with _mutex_lock:
+                    _mutex_guard_owns = True
+    finally:
+        if not initialized_event.is_set():
+            initialized_event.set()
+        if handle:
+            if owns_mutex:
+                try:
+                    kernel32.ReleaseMutex(handle)
+                except Exception:
+                    pass
+            try:
+                kernel32.CloseHandle(handle)
+            except Exception:
+                pass
+        with _mutex_lock:
+            if handle in _mutex_handles:
+                _mutex_handles.remove(handle)
+            _mutex_guard_owns = False
+
+
+def ensure_multi_instance():
+    
+    global _mutex_guard_thread, _mutex_guard_stop, _mutex_guard_initialized
+    if not IS_WINDOWS:
+        return False
+    if _detached_guard.ensure():
+        return True
+    with _mutex_lock:
+        if _mutex_guard_thread is not None and _mutex_guard_thread.is_alive():
+            return bool(_mutex_guard_owns)
+        stop_event = threading.Event()
+        initialized_event = threading.Event()
+        guard_thread = threading.Thread(
+            target=_mutex_guard_worker,
+            args=(stop_event, initialized_event),
+            name="roblox-multi-instance-guard",
+            daemon=True,
+        )
+        _mutex_guard_stop = stop_event
+        _mutex_guard_initialized = initialized_event
+        _mutex_guard_thread = guard_thread
+        guard_thread.start()
+
+    initialized_event.wait(0.75)
+    with _mutex_lock:
+        return bool(_mutex_guard_owns)
 
 def _launch_protocol(ticket, place_launcher_url, btid):
     proto = (
@@ -262,25 +364,38 @@ def _launch_home(ticket):
         return True
     return False
 
-def release_multi_instance():
+def release_multi_instance(stop_detached=False):
     
-    if not IS_WINDOWS or not _mutex_handles:
+    global _mutex_guard_thread, _mutex_guard_stop, _mutex_guard_initialized
+    if not IS_WINDOWS:
         return
-    import ctypes
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    for h in list(_mutex_handles):
-        try:
-            kernel32.CloseHandle(h)
-        except Exception:
-            pass
-    _mutex_handles.clear()
+    if stop_detached:
+        _detached_guard.request_stop()
+    with _mutex_lock:
+        stop_event = _mutex_guard_stop
+        guard_thread = _mutex_guard_thread
+    if stop_event is not None:
+        stop_event.set()
+    if guard_thread is not None and guard_thread.is_alive():
+        guard_thread.join(timeout=2.0)
+    with _mutex_lock:
+        _mutex_guard_thread = None
+        _mutex_guard_stop = None
+        _mutex_guard_initialized = None
+
+
+def _rearm_multi_instance_after_teleport():
+    def rearm():
+        time.sleep(1.5)
+        ensure_multi_instance()
+    threading.Thread(target=rearm, name="roblox-multi-rearm", daemon=True).start()
 
 def teleport_in_place(place_info):
     
     place_id = place_info.get("placeId")
     if not place_id:
         return False
-    release_multi_instance()
+    release_multi_instance(stop_detached=True)
     link_code = place_info.get("linkCode")
     access_code = place_info.get("accessCode")
     if link_code:
@@ -291,6 +406,7 @@ def teleport_in_place(place_info):
         uri = f"roblox://experiences/start?placeId={place_id}"
     if IS_WINDOWS:
         os.startfile(uri)
+        _rearm_multi_instance_after_teleport()
         return True
     return False
 
@@ -307,7 +423,12 @@ def launch_account(account, mode="home"):
     if not IS_WINDOWS:
         return {"ok": False, "error": "not_windows", "refreshed": refreshed}
 
-    ensure_multi_instance()
+    if not ensure_multi_instance():
+        return {
+            "ok": False,
+            "error": "multi_instance_guard_late",
+            "refreshed": refreshed,
+        }
 
     ticket = get_auth_ticket(token)
     if _last_refreshed_cookie:
@@ -318,10 +439,15 @@ def launch_account(account, mode="home"):
     name = info.get("name", "")
 
     if mode == "home":
+
+
+        previous_roblox_pids = _tray_cleanup.process_snapshot()
         try:
             ok = _launch_home(ticket)
         except OSError as e:
             return {"ok": False, "error": f"launch_failed: {e}", "refreshed": refreshed}
+        if ok:
+            _tray_cleanup.register_launch(previous_roblox_pids)
         return {"ok": ok, "name": name, "refreshed": refreshed}
 
     if mode == "public":
@@ -332,8 +458,15 @@ def launch_account(account, mode="home"):
             return {"ok": False, "error": "bad_link", "refreshed": refreshed}
 
     url, btid = _place_launcher_url(place_info)
+    previous_roblox_pids = _tray_cleanup.process_snapshot()
     try:
         ok = _launch_protocol(ticket, url, btid)
     except OSError as e:
         return {"ok": False, "error": f"launch_failed: {e}", "refreshed": refreshed}
+    if ok:
+        _tray_cleanup.register_launch(previous_roblox_pids)
     return {"ok": ok, "name": name, "refreshed": refreshed}
+
+
+def stop_account_launch_cleanup():
+    _tray_cleanup.stop()

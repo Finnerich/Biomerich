@@ -66,9 +66,16 @@ class AutomationEngine:
         self.config      = config
         self._is_tracking = is_tracking
         self._anti_afk   = anti_afk
+        self._throttler  = None
         self._stop       = threading.Event()
         self._thread     = None
-        self._action_lock = threading.Lock()
+
+
+        self._action_lock = threading.RLock()
+        if self._anti_afk is not None:
+            self._anti_afk.set_action_lock(self._action_lock)
+        self._active_action_account = None
+        self._active_action_hwnd = None
         self._next_run   = {}
         self._windows    = {}
         self._win_ts     = 0.0
@@ -86,6 +93,9 @@ class AutomationEngine:
         self.current_action  = "idle"
         self.current_account = ""
         self._session_start = time.time()
+
+    def set_throttler(self, throttler):
+        self._throttler = throttler
 
     def _auto(self):
         return self.config.data.setdefault("automation", {})
@@ -332,6 +342,8 @@ class AutomationEngine:
 
     def _focus_account(self, acc_id):
         name = self._account_name(acc_id)
+        self._active_action_account = None
+        self._active_action_hwnd = None
         hwnd = self._windows.get(acc_id)
         print(f"[Focus] Account '{name}' (id={acc_id}) → target hwnd {hwnd}")
         if not hwnd:
@@ -349,13 +361,80 @@ class AutomationEngine:
                 rect = win_windows.window_rect(hwnd)
                 print(f"[Focus] '{name}' VERIFIED foreground {fg} (wanted {hwnd}) | rect {rect}")
                 time.sleep(0.20)
-                return True
+                if self._throttler is not None:
+                    pid = win_windows.foreground_pid()
+                    if self._throttler.warm_up_process(pid, 3.0):
+                        print(f"[Focus] '{name}' throttle warm-up complete (3.0s).")
+
+
+                fg_after_warmup = win_windows.foreground_hwnd()
+                if fg_after_warmup == int(hwnd):
+                    self._active_action_account = acc_id
+                    self._active_action_hwnd = int(hwnd)
+                    return True
+                print(f"[Focus] '{name}' lost foreground during warm-up "
+                      f"({fg_after_warmup} != {hwnd}); retrying")
             print(f"[Focus] '{name}' attempt {attempt+1} FAILED — foreground {fg} != wanted {hwnd}, retrying")
             self._refresh_windows(force=True)
             hwnd = self._windows.get(acc_id) or hwnd
 
         print(f"[Focus] '{name}' → could NOT bring window to foreground, skipping (no wrong-account run).")
         return False
+
+    def _ensure_action_focus(self):
+        
+        target = getattr(self, "_active_action_hwnd", None)
+        account = getattr(self, "_active_action_account", None)
+        if not target or account is None:
+            raise RuntimeError("no verified action window")
+        if win_windows.foreground_hwnd() == int(target):
+            return True
+
+        print(f"[FocusGuard] Foreground changed during action; restoring "
+              f"'{self._account_name(account)}' before input.")
+        return self._focus_account(account)
+
+    def _begin_input_transaction(self):
+        
+        held = False
+        if self._throttler is not None:
+            held = bool(self._throttler.begin_input_hold())
+        try:
+
+            win_input.release_mouse_buttons(settle=0.05)
+            return held
+        except Exception:
+            if held and self._throttler is not None:
+                self._throttler.end_input_hold()
+            raise
+
+    def _end_input_transaction(self, held):
+        
+        target = getattr(self, "_active_action_hwnd", None)
+        try:
+
+
+            win_input.release_mouse_buttons(settle=0.05)
+            if target and win_windows.foreground_hwnd() == int(target):
+
+
+
+                time.sleep(0.80)
+        finally:
+            if held and self._throttler is not None:
+                self._throttler.end_input_hold()
+            self._active_action_account = None
+            self._active_action_hwnd = None
+
+    def _replace_active_text(self, text):
+        
+        if not self._ensure_action_focus():
+            raise RuntimeError("focus lost before text input")
+        win_input.select_all_and_clear()
+        time.sleep(0.20)
+        if not self._ensure_action_focus():
+            raise RuntimeError("focus lost while preparing text input")
+        win_input.type_text(str(text))
 
     def start(self):
         if not win_input.IS_WINDOWS:
@@ -635,12 +714,15 @@ class AutomationEngine:
             return False
         self._refresh_windows(force=True)
         with self._action_lock:
+            input_held = False
             try:
+                input_held = self._begin_input_transaction()
                 if not self._focus_account(acc_id):
                     print(f"[Automation] Skipped '{task}' on '{self._account_name(acc_id)}': "
                           f"no verified Roblox window (not running on wrong account).")
                     return False
-                used = self._use_inventory_item(self._search_term(task), task, ev)
+                used_at = self._use_inventory_item(self._search_term(task), task, ev)
+                used = bool(used_at)
                 if used:
                     print(f"[Automation] Ran '{task}' on '{self._account_name(acc_id)}'.")
                 else:
@@ -650,7 +732,7 @@ class AutomationEngine:
                 if task in ("strangeController", "biomeRandomizer"):
                     if used:
                         try:
-                            self.config.increment_module_use(task)
+                            self.config.increment_module_use(task, acc_id, used_at=used_at)
                         except Exception as e:
                             print(f"[Automation] module count failed: {e}")
                     self._notify_module(task, acc_id, used,
@@ -664,13 +746,17 @@ class AutomationEngine:
             except Exception as e:
                 print(f"[Automation] Task '{task}' failed: {e}")
                 return False
+            finally:
+                self._end_input_transaction(input_held)
 
-    def _click_slot(self, slot, settle, ev):
+    def _click_slot(self, slot, settle, ev, *, commit_on_click=False):
         pos = self._pixels().get(slot)
         if not (isinstance(pos, (list, tuple)) and len(pos) == 2):
             raise RuntimeError(f"click point '{slot}' is not set")
         x, y = int(pos[0]), int(pos[1])
 
+        if not self._ensure_action_focus():
+            raise RuntimeError(f"focus lost before moving to click point '{slot}'")
         try:
             win_input.move_to(x + 60, y + 60, duration=0.05)
             time.sleep(0.04)
@@ -678,16 +764,28 @@ class AutomationEngine:
             time.sleep(0.05)
         except Exception:
             pass
-        win_input.click_at(x, y)
+        if not self._ensure_action_focus():
+            raise RuntimeError(f"focus lost before click point '{slot}'")
+
+
+        win_input.move_to(x, y, duration=0.01, steps=1)
+        if win_windows.foreground_hwnd() != int(self._active_action_hwnd):
+            raise RuntimeError(f"focus changed immediately before click point '{slot}'")
+
+
+        clicked_at = time.time()
+        if win_input.click_here(settle=0.06) is False:
+            raise RuntimeError(f"Windows rejected click point '{slot}'")
         if ev.is_set():
+            if commit_on_click:
+                return clicked_at
             raise RuntimeError("stopped")
         time.sleep(settle)
+        return clicked_at
 
     def _enter_search(self, search_term, ev):
         self._click_slot("search_bar", 0.55, ev)
-        win_input.select_all_and_clear()
-        time.sleep(0.25)
-        win_input.type_text(search_term)
+        self._replace_active_text(search_term)
         time.sleep(0.90)
 
         pos = self._pixels().get("search_bar")
@@ -738,13 +836,18 @@ class AutomationEngine:
 
         self._click_slot("first_item_slot", 0.55, ev)
         self._click_slot("amount_box", 0.55, ev)
-        win_input.select_all_and_clear()
-        time.sleep(0.20)
-        win_input.type_text(self._amount())
+        self._replace_active_text(self._amount())
         time.sleep(0.45)
-        self._click_slot("use_button", 0.85, ev)
-        self._click_slot("inventory_button", 0.55, ev)
-        return True
+
+
+
+        used_at = self._click_slot("use_button", 0.85, ev, commit_on_click=True)
+        if not ev.is_set():
+            try:
+                self._click_slot("inventory_button", 0.55, ev)
+            except Exception as e:
+                print(f"[Automation] Item was used, but Inventory cleanup failed: {e}")
+        return used_at
 
     def _use_simple_item(self, search_term, amount, ev):
         
@@ -756,9 +859,7 @@ class AutomationEngine:
         self._enter_search(search_term, ev)
         self._click_slot("first_item_slot", 0.55, ev)
         self._click_slot("amount_box", 0.55, ev)
-        win_input.select_all_and_clear()
-        time.sleep(0.20)
-        win_input.type_text(str(amount))
+        self._replace_active_text(str(amount))
         time.sleep(0.45)
         self._click_slot("use_button", 0.85, ev)
         self._click_slot("inventory_button", 0.55, ev)
@@ -858,9 +959,7 @@ class AutomationEngine:
 
         self._click_slot("first_item_slot", 0.55, ev)
         self._click_slot("amount_box", 0.55, ev)
-        win_input.select_all_and_clear()
-        time.sleep(0.20)
-        win_input.type_text(str(use_amount))
+        self._replace_active_text(str(use_amount))
         time.sleep(0.45)
         self._click_slot("use_button", 0.85, ev)
         return (True, use_amount, "")
@@ -879,7 +978,9 @@ class AutomationEngine:
 
         self._refresh_windows(force=True)
         with self._action_lock:
+            input_held = False
             try:
+                input_held = self._begin_input_transaction()
                 if not self._focus_account(acc_id):
                     print(f"[AutoPop] Skipped on '{self._account_name(acc_id)}': "
                           f"no verified Roblox window.")
@@ -931,6 +1032,8 @@ class AutomationEngine:
                 self.autopop.phase = "idle"
                 print(f"[AutoPop] Run failed: {e}")
                 return False
+            finally:
+                self._end_input_transaction(input_held)
 
 
     @staticmethod

@@ -127,7 +127,28 @@ if IS_WINDOWS:
         inp = INPUT()
         inp.type = INPUT_MOUSE
         inp.u.mi = MOUSEINPUT(dx, dy, 0, flags, 0, 0)
-        user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        return int(user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT)))
+
+    def _send_left_click_atomic():
+        
+        inputs = (INPUT * 2)()
+        inputs[0].type = INPUT_MOUSE
+        inputs[0].u.mi = MOUSEINPUT(0, 0, 0, MOUSEEVENTF_LEFTDOWN, 0, 0)
+        inputs[1].type = INPUT_MOUSE
+        inputs[1].u.mi = MOUSEINPUT(0, 0, 0, MOUSEEVENTF_LEFTUP, 0, 0)
+        sent = int(user32.SendInput(2, inputs, ctypes.sizeof(INPUT)))
+        if sent != 2:
+
+
+            _send_mouse(MOUSEEVENTF_LEFTUP)
+        return sent == 2
+
+    def release_mouse_buttons(settle=0.03):
+        
+        released = _send_mouse(MOUSEEVENTF_LEFTUP) == 1
+        if settle > 0:
+            time.sleep(settle)
+        return released
 
     def _abs_norm(x, y):
         vx = user32.GetSystemMetrics(SM_XVIRTUALSCREEN)
@@ -168,17 +189,15 @@ if IS_WINDOWS:
         _move_event(x, y)
         user32.SetCursorPos(x, y)
         time.sleep(0.05)
-        _send_mouse(MOUSEEVENTF_LEFTDOWN)
-        time.sleep(0.07)
-        _send_mouse(MOUSEEVENTF_LEFTUP)
+        clicked = _send_left_click_atomic()
         time.sleep(0.06)
+        return clicked
 
     def click_here(settle=0.02):
-        _send_mouse(MOUSEEVENTF_LEFTDOWN)
-        time.sleep(0.02)
-        _send_mouse(MOUSEEVENTF_LEFTUP)
+        clicked = _send_left_click_atomic()
         if settle > 0:
             time.sleep(settle)
+        return clicked
 
     def look(dx, dy, steps=20, step_delay=0.008):
         
@@ -306,10 +325,13 @@ else:
         return
 
     def click_at(x, y, settle=0.12):
-        return
+        return True
 
     def click_here(settle=0.02):
-        return
+        return True
+
+    def release_mouse_buttons(settle=0.03):
+        return True
 
     def scroll(notches, step_delay=0.02):
         return

@@ -69,6 +69,57 @@ interface PerfData {
   throttle?: ThrottleState;
 }
 
+interface BenchmarkMeasurement {
+  ramBytes: number;
+  ramMinBytes?: number;
+  ramMaxBytes?: number;
+  cpuPercent: number;
+  cpuMinPercent?: number;
+  cpuMaxPercent?: number;
+  samples?: number;
+  seconds?: number;
+  liveProcesses?: number;
+  windows?: Array<{
+    pid: number;
+    label: string;
+    ram: { min: number; max: number; average: number; estimate: number; samples: number };
+    cpu: { min: number; max: number; average: number; estimate: number; samples: number };
+  }>;
+}
+
+interface BenchmarkResult {
+  id: string;
+  createdAt: string;
+  accountCount: number;
+  durationSeconds: number;
+  settingsFingerprint: string;
+  settings: Record<string, unknown>;
+  unthrottled: BenchmarkMeasurement;
+  throttled: BenchmarkMeasurement;
+  savings: {
+    ramBytes: number;
+    ramPercent: number;
+    cpuPercent: number;
+    cpuReductionPercent: number;
+  };
+}
+
+interface BenchmarkStatus {
+  ok?: boolean;
+  supported?: boolean;
+  running?: boolean;
+  phase?: string;
+  progress?: number;
+  secondsRemaining?: number;
+  windowCount?: number;
+  durationSeconds?: number;
+  error?: string | null;
+  history?: BenchmarkResult[];
+  latest?: BenchmarkResult | null;
+  currentSettingsFingerprint?: string;
+  settingsChanged?: boolean;
+}
+
 const fmtCpu = (percent: number | undefined) => (Number(percent) || 0).toFixed(1);
 
 function fmtBytes(bytes: number): string {
@@ -210,6 +261,8 @@ export function Performance() {
         </div>
       </div>
 
+      <BenchmarkPanel supported={supported} />
+
       <div className="glass card panel" data-reveal>
         <div className="panel-head">
           <div className="panel-title">
@@ -334,6 +387,285 @@ export function Performance() {
 
 
 
+const BENCHMARK_PHASES: Record<string, string> = {
+  preparing: "Preparing all Roblox windows",
+  unthrottled: "Measuring at full speed",
+  throttled: "Measuring with throttling",
+  complete: "Benchmark complete",
+  cancelled: "Benchmark cancelled",
+  error: "Benchmark failed",
+};
+
+const BENCHMARK_ERRORS: Record<string, string> = {
+  not_windows: "Benchmarking is only available on Windows.",
+  no_roblox_windows: "No open Roblox windows were found.",
+  already_running: "A benchmark is already running.",
+  benchmark_unavailable: "The throttle engine is currently unavailable.",
+  throttle_start_failed: "The throttled measurement could not be started.",
+  benchmark_failed: "The benchmark failed unexpectedly. Please try again.",
+};
+
+function formatBenchmarkDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatBenchmarkDuration(seconds: number): string {
+  const safeSeconds = Math.max(1, Math.round(Number(seconds) || 0));
+  if (safeSeconds >= 60 && safeSeconds % 60 === 0) {
+    const minutes = safeSeconds / 60;
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  return `${safeSeconds} seconds`;
+}
+
+function BenchmarkPanel({ supported }: { supported?: boolean }) {
+  const [status, setStatus] = useState<BenchmarkStatus | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+  const [projectedAccounts, setProjectedAccounts] = useState(1);
+  const wasRunning = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    async function poll() {
+      try {
+        const next = await callPy<BenchmarkStatus>("get_performance_benchmark");
+        if (!alive || !next) return;
+        if (wasRunning.current && !next.running && next.phase === "complete") {
+          setSelectedId("");
+        }
+        wasRunning.current = !!next.running;
+        setStatus(next);
+      } catch {
+      }
+    }
+    void poll();
+    const intervalId = window.setInterval(poll, status?.running ? 350 : 1200);
+    return () => {
+      alive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [status?.running]);
+
+  const history = status?.history || [];
+  const result = (selectedId && history.find((entry) => entry.id === selectedId))
+    || history[history.length - 1]
+    || status?.latest
+    || null;
+
+  useEffect(() => {
+    if (!result) return;
+    setProjectedAccounts(Math.max(1, result.accountCount || 1));
+  }, [result?.id]);
+
+  async function startBenchmark() {
+    if (starting || status?.running) return;
+    setStarting(true);
+    setSelectedId("");
+    try {
+      const next = await callPy<BenchmarkStatus>("start_performance_benchmark");
+      if (next) setStatus(next);
+    } catch {
+      setStatus((previous) => ({ ...(previous || {}), error: "benchmark_failed" }));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const running = !!status?.running;
+  const benchmarkDuration = Number(status?.durationSeconds) || 120;
+  const phaseDuration = benchmarkDuration / 2;
+  const benchmarkDurationLabel = formatBenchmarkDuration(benchmarkDuration);
+  const progress = Math.max(0, Math.min(1, Number(status?.progress) || 0));
+  const phaseLabel = BENCHMARK_PHASES[status?.phase || ""] || "Ready to benchmark";
+  const selectedIsCurrent = !!result
+    && result.settingsFingerprint === status?.currentSettingsFingerprint;
+  const scale = result ? projectedAccounts / Math.max(1, result.accountCount) : 1;
+  const withoutRam = result ? result.unthrottled.ramBytes * scale : 0;
+  const withRam = result ? result.throttled.ramBytes * scale : 0;
+  const withoutCpu = result ? result.unthrottled.cpuPercent * scale : 0;
+  const withCpu = result ? result.throttled.cpuPercent * scale : 0;
+  const withoutRamMin = result ? (result.unthrottled.ramMinBytes ?? result.unthrottled.ramBytes) * scale : 0;
+  const withoutRamMax = result ? (result.unthrottled.ramMaxBytes ?? result.unthrottled.ramBytes) * scale : 0;
+  const withRamMin = result ? (result.throttled.ramMinBytes ?? result.throttled.ramBytes) * scale : 0;
+  const withRamMax = result ? (result.throttled.ramMaxBytes ?? result.throttled.ramBytes) * scale : 0;
+  const withoutCpuMin = result ? (result.unthrottled.cpuMinPercent ?? result.unthrottled.cpuPercent) * scale : 0;
+  const withoutCpuMax = result ? (result.unthrottled.cpuMaxPercent ?? result.unthrottled.cpuPercent) * scale : 0;
+  const withCpuMin = result ? (result.throttled.cpuMinPercent ?? result.throttled.cpuPercent) * scale : 0;
+  const withCpuMax = result ? (result.throttled.cpuMaxPercent ?? result.throttled.cpuPercent) * scale : 0;
+  const savedRam = withoutRam - withRam;
+  const savedCpu = withoutCpu - withCpu;
+
+  const method = String(result?.settings.throttleMethod || "efficiency");
+  const isCpuLimit = method === "cpuLimit";
+  const isLegacySuspend = method === "suspend";
+  const hasCpuBudget = isCpuLimit || isLegacySuspend;
+  const ramCap = result?.settings.throttleRamCap === true;
+
+  return (
+    <div className="glass card perf-bench" data-reveal>
+      <div className="perf-bench-head">
+        <div>
+          <div className="panel-title"><i className="fa-solid fa-flask-vial" /> Throttle Benchmark</div>
+          <p>Measures every open Roblox window for {formatBenchmarkDuration(phaseDuration)} at full speed, then {formatBenchmarkDuration(phaseDuration)} with your current throttle settings.</p>
+        </div>
+        {history.length > 0 && (
+          <span className="perf-bench-history-count"><i className="fa-solid fa-clock-rotate-left" /> {history.length} saved</span>
+        )}
+      </div>
+
+      <button
+        className={`perf-bench-start${running ? " running" : ""}`}
+        disabled={running || starting || supported === false}
+        onClick={() => void startBenchmark()}
+      >
+        <span className="perf-bench-start-icon">
+          <i className={`fa-solid ${running || starting ? "fa-spinner fa-spin" : "fa-gauge-high"}`} />
+        </span>
+        <span className="perf-bench-start-copy">
+          <strong>{running ? phaseLabel : result ? `Run a new ${benchmarkDurationLabel} benchmark` : `Start ${benchmarkDurationLabel} benchmark`}</strong>
+          <small>
+            {running
+              ? `${Math.ceil(Number(status?.secondsRemaining) || 0)} seconds remaining · ${status?.windowCount || 0} window${status?.windowCount === 1 ? "" : "s"}`
+              : "All windows are restored automatically when the test finishes."}
+          </small>
+        </span>
+        <span className="perf-bench-start-time">{running ? `${Math.round(progress * 100)}%` : benchmarkDurationLabel}</span>
+        {running && <span className="perf-bench-progress" style={{ width: `${progress * 100}%` }} />}
+      </button>
+
+      {status?.error && status.error !== "cancelled" && (
+        <div className="perf-bench-error"><i className="fa-solid fa-circle-exclamation" /> {BENCHMARK_ERRORS[status.error] || status.error}</div>
+      )}
+
+      {result && (
+        <div className="perf-bench-result">
+          <div className="perf-bench-result-head">
+            <div>
+              <span className="perf-bench-kicker">Saved benchmark</span>
+              <strong>{formatBenchmarkDate(result.createdAt)}</strong>
+            </div>
+            <div className="perf-bench-result-actions">
+              <span className={`perf-bench-validity ${selectedIsCurrent ? "current" : "stale"}`}>
+                <i className={`fa-solid ${selectedIsCurrent ? "fa-circle-check" : "fa-triangle-exclamation"}`} />
+                {selectedIsCurrent ? "Current settings" : "Settings changed"}
+              </span>
+              {history.length > 1 && (
+                <select value={selectedId || result.id} onChange={(event) => setSelectedId(event.target.value)} aria-label="Saved benchmark">
+                  {[...history].reverse().map((entry, index) => (
+                    <option key={entry.id} value={entry.id}>
+                      {index === 0 ? "Latest · " : ""}{formatBenchmarkDate(entry.createdAt)} · {entry.accountCount} acc
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {!selectedIsCurrent && (
+            <div className="perf-bench-stale-note">
+              <i className="fa-solid fa-rotate" /> These values remain saved, but run a new benchmark to measure your changed settings.
+            </div>
+          )}
+
+          <div className="perf-bench-projector">
+            <div>
+              <span>Projected setup</span>
+              <small>Use − or + to estimate total usage for another account count.</small>
+            </div>
+            <div className="perf-bench-stepper">
+              <button onClick={() => setProjectedAccounts((count) => Math.max(1, count - 1))} disabled={projectedAccounts <= 1} aria-label="Remove account"><i className="fa-solid fa-minus" /></button>
+              <strong>{projectedAccounts}</strong>
+              <span>account{projectedAccounts === 1 ? "" : "s"}</span>
+              <button onClick={() => setProjectedAccounts((count) => Math.min(99, count + 1))} disabled={projectedAccounts >= 99} aria-label="Add account"><i className="fa-solid fa-plus" /></button>
+            </div>
+          </div>
+
+          <div className="perf-bench-comparison">
+            <div className="perf-bench-metric-card ram">
+              <div className="perf-bench-metric-title"><i className="fa-solid fa-memory" /> Total RAM</div>
+              <div className="perf-bench-values">
+                <div>
+                  <span>Without</span><strong>{fmtBytes(withoutRam)}</strong>
+                  <small>{fmtBytes(withoutRamMin)}–{fmtBytes(withoutRamMax)} measured</small>
+                </div>
+                <i className="fa-solid fa-arrow-right" />
+                <div>
+                  <span>With throttle</span><strong>{fmtBytes(withRam)}</strong>
+                  <small>{fmtBytes(withRamMin)}–{fmtBytes(withRamMax)} measured</small>
+                </div>
+              </div>
+              <div className={`perf-bench-saved${savedRam < 0 ? " negative" : ""}`}>
+                {savedRam >= 0 ? "Saved" : "Used"} <b>{fmtBytes(Math.abs(savedRam))}</b> · {Math.abs(result.savings.ramPercent).toFixed(1)}%
+              </div>
+            </div>
+            <div className="perf-bench-metric-card cpu">
+              <div className="perf-bench-metric-title"><i className="fa-solid fa-microchip" /> Total CPU</div>
+              <div className="perf-bench-values">
+                <div>
+                  <span>Without</span><strong>{fmtCpu(withoutCpu)}%</strong>
+                  <small>{fmtCpu(withoutCpuMin)}–{fmtCpu(withoutCpuMax)}% measured</small>
+                </div>
+                <i className="fa-solid fa-arrow-right" />
+                <div>
+                  <span>With throttle</span><strong>{fmtCpu(withCpu)}%</strong>
+                  <small>{fmtCpu(withCpuMin)}–{fmtCpu(withCpuMax)}% measured</small>
+                </div>
+              </div>
+              <div className={`perf-bench-saved${savedCpu < 0 ? " negative" : ""}`}>
+                {savedCpu >= 0 ? "Saved" : "Used"} <b>{fmtCpu(Math.abs(savedCpu))}%</b> · {Math.abs(result.savings.cpuReductionPercent).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+
+          <div className="perf-bench-settings">
+            <span>
+              <i className={`fa-solid ${isCpuLimit ? "fa-gauge-high" : isLegacySuspend ? "fa-pause" : "fa-leaf"}`} />{" "}
+              {isCpuLimit ? "CPU Limit" : isLegacySuspend ? "Legacy Suspend" : "Efficiency"}
+            </span>
+            {hasCpuBudget && <span>{Number(result.settings.throttleQuota) || 12}% budget</span>}
+            {isLegacySuspend && <span>{Number(result.settings.throttleCycleMs) || 50} ms cycle</span>}
+            <span><i className="fa-solid fa-compress" /> RAM cap {ramCap ? `${Number(result.settings.throttleRamCapMb) || 400} MB` : "off"}</span>
+            <span>{result.accountCount} measured window{result.accountCount === 1 ? "" : "s"}</span>
+            <span><i className="fa-solid fa-filter" /> Per-window spike filtering</span>
+          </div>
+
+          {!!result.unthrottled.windows?.length && (
+            <details className="perf-bench-window-details">
+              <summary><i className="fa-solid fa-window-restore" /> Per-window measurements</summary>
+              <div className="perf-bench-window-table">
+                <div className="perf-bench-window-row head">
+                  <span>Window</span><span>Full speed</span><span>Throttled</span>
+                </div>
+                {result.unthrottled.windows.map((windowResult) => {
+                  const throttledWindow = result.throttled.windows?.find((entry) => entry.pid === windowResult.pid);
+                  return (
+                    <div className="perf-bench-window-row" key={windowResult.pid}>
+                      <strong>{windowResult.label}</strong>
+                      <span>
+                        <b>{fmtBytes(windowResult.ram.min)}–{fmtBytes(windowResult.ram.max)}</b>
+                        <small>{fmtCpu(windowResult.cpu.min)}–{fmtCpu(windowResult.cpu.max)}% CPU</small>
+                      </span>
+                      <span>
+                        <b>{fmtBytes(throttledWindow?.ram.min || 0)}–{fmtBytes(throttledWindow?.ram.max || 0)}</b>
+                        <small>{fmtCpu(throttledWindow?.cpu.min)}–{fmtCpu(throttledWindow?.cpu.max)}% CPU</small>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
 type Scope = "all" | "allExcept" | "onlyThese";
 
 const SCOPES: { id: Scope; label: string; icon: string }[] = [
@@ -388,12 +720,12 @@ function ThrottlePanel(props: {
   const accounts = useStore((s) => s.accounts) as Account[];
 
   const enabled = !!settings.throttleEnabled;
-  const method: "suspend" | "efficiency" = settings.throttleMethod === "suspend" ? "suspend" : "efficiency";
-  const cycleMs = Number(settings.throttleCycleMs ?? 50);
+  const method: "cpuLimit" | "efficiency" = ["cpuLimit", "suspend"].includes(String(settings.throttleMethod))
+    ? "cpuLimit"
+    : "efficiency";
   const quota = Number(settings.throttleQuota ?? 12);
   const focusAware = settings.throttleFocusAware !== false;
   const onlyWhenRunning = settings.throttleOnlyWhenRunning === true;
-  const breathe = settings.throttleBreathe !== false;
   const ramCap = settings.throttleRamCap === true;
   const ramCapMb = Number(settings.throttleRamCapMb ?? 400);
   const scope: Scope = (["all", "allExcept", "onlyThese"] as Scope[]).includes(
@@ -536,7 +868,7 @@ function ThrottlePanel(props: {
       {}
       <div className="calib-body">
         <p className="section-hint">
-          Throttles background Roblox windows to cut their CPU, GPU and memory load.
+          Throttles background Roblox windows to cut their CPU and power load.
           The window you <b>focus runs at full speed</b>, and re-throttles when you click away.
         </p>
 
@@ -550,20 +882,20 @@ function ThrottlePanel(props: {
               onClick={() => setSetting("throttleMethod", "efficiency")}
             ><i className="fa-solid fa-leaf" /> Efficiency</button>
             <button
-              role="tab" aria-selected={method === "suspend"}
-              className={`thr-scope-opt${method === "suspend" ? " on" : ""}`}
-              onClick={() => setSetting("throttleMethod", "suspend")}
-            ><i className="fa-solid fa-pause" /> Suspend</button>
+              role="tab" aria-selected={method === "cpuLimit"}
+              className={`thr-scope-opt${method === "cpuLimit" ? " on" : ""}`}
+              onClick={() => setSetting("throttleMethod", "cpuLimit")}
+            ><i className="fa-solid fa-gauge-high" /> CPU Limit</button>
           </div>
           <p className="thr-scope-hint">
             {method === "efficiency"
               ? "Background windows run at idle priority + Windows Efficiency mode (E-cores, lower clock). Stays smooth (no GPU stutter) with solid CPU/power savings. Best for active multi-boxing."
-              : "Background windows get rapidly paused and resumed. Maximum CPU/GPU/RAM savings, but the window you're playing in can stutter. Best for parked alts."}
+              : "Windows applies a real CPU budget to each background client without freezing its input or GUI threads. Strong savings and safe manual window switching."}
           </p>
         </div>
 
         {}
-        {method === "suspend" && (
+        {method === "cpuLimit" && (
           <div className="thr-section">
             <div className="thr-subhead"><i className="fa-solid fa-sliders" /> Tuning</div>
             <div className="thr-tune">
@@ -573,30 +905,8 @@ function ThrottlePanel(props: {
                 min={2} max={95} step={1} value={quota}
                 fmt={(x) => `${x}%`}
                 onCommit={(value) => setSetting("throttleQuota", value)}
-                recommended={12}
+                recommended={3}
               />
-              <div className="afk-setting afk-setting-col">
-                <div className="afk-setting-info">
-                  <span className="afk-setting-name">
-                    Cycle length
-                    <span className={`thr-rec-chip${cycleMs === 50 ? " on" : ""}`}>
-                      <i className="fa-solid fa-wand-magic-sparkles" /> Recommended 50 ms
-                    </span>
-                  </span>
-                  <span className="afk-setting-desc">Shorter cycles feel smoother; longer cycles cut a touch more CPU.</span>
-                </div>
-                <div className="thr-scope">
-                  {[20, 30, 50, 100].map((ms) => (
-                    <button
-                      key={ms}
-                      className={`thr-scope-opt${cycleMs === ms ? " on" : ""}${ms === 50 ? " thr-rec-opt" : ""}`}
-                      onClick={() => setSetting("throttleCycleMs", ms)}
-                    >
-                      {ms} ms
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -617,18 +927,10 @@ function ThrottlePanel(props: {
                 desc="The window you click into runs full speed; the rest stay throttled."
                 onToggle={() => setSetting("throttleFocusAware", !focusAware)}
               />
-              {method === "suspend" && (
-                <ThrToggle
-                  on={breathe} icon="fa-heart-pulse"
-                  title="Disconnect protection (breathe)"
-                  desc="Lets throttled windows run full speed for a moment every few seconds so Roblox's heartbeat survives. Prevents kicks at aggressive settings."
-                  onToggle={() => setSetting("throttleBreathe", !breathe)}
-                />
-              )}
               <ThrToggle
                 on={ramCap} icon="fa-compress"
                 title="Hard RAM cap"
-                desc="Forces each throttled window under a fixed RAM ceiling instead of growing back. Strongest memory saving, but causes more paging. The focused window is uncapped."
+                desc="Advanced: forces a fixed RAM ceiling and can cause heavy paging or long stalls when you switch accounts. Leave this off for active multi-boxing."
                 onToggle={() => setSetting("throttleRamCap", !ramCap)}
               >
                 {ramCap && (

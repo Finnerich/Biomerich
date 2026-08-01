@@ -41,7 +41,7 @@ export const OCR_FAILSAFE_DESC: Record<string, string> = {
   biomeRandomizer: "Reads the first item slot and confirms it matches before using.",
   merchantTeleporter: "Confirms the Merchant Teleporter is in the slot before using it.",
   fishingFailed: 'Before clicking Close / Collect, reads the result text (red "Fishing Failed" vs white "Fish Caught"). Needs the Fishing Failed region.',
-  sellFishShop: 'After opening the fish shop dialog, checks for "Captain Flarg". If missing, retries the route up to 3×, then skips the shop. Needs the Shop Name region.',
+  sellFishShop: 'After opening the fish shop dialog, checks for "Captain Flarg". If missing, retries the complete route until the shop is verified or the macro is stopped. The shop is never skipped. Needs the Shop Name region.',
   noBite: "If no bite is detected for 45 seconds after casting, runs the sell route without opening the shop. No OCR / region needed.",
 };
 

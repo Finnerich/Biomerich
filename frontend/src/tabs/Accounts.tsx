@@ -43,6 +43,9 @@ function tokenErrorText(err: unknown): string {
   if (code === "no_browser") return "no Chrome or Edge found";
   if (code === "not_windows") return "launching only works on Windows";
   if (code === "bad_link") return "couldn't read the private server link";
+  if (code === "multi_instance_guard_late") {
+    return "Multi-Roblox started too late. Close every Roblox window once, then press Launch again. SolRich will keep all following windows open.";
+  }
   if (code.startsWith("no_ticket")) {
     const reason = code.split(":").slice(1).join(":");
     if (reason.startsWith("http_401")) return "auth ticket rejected: token may be expired";

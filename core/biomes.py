@@ -5,7 +5,7 @@ import requests
 ALL_KEYS = [
     "windy", "rainy", "snowy", "sandstorm", "hell",
     "starfall", "corruption", "null", "heaven",
-    "graveyard", "singularity", "aurora",
+    "graveyard", "singularity", "aurora", "blazing_sun",
     "glitched", "dreamspace", "cyberspace",
     "the_citadel_of_orders",
 ]
@@ -22,6 +22,7 @@ DISPLAY_NAMES = {
     "sandstorm": "Sand Storm", "hell": "Hell", "starfall": "Starfall",
     "corruption": "Corruption", "null": "Null", "heaven": "Heaven",
     "graveyard": "Graveyard", "singularity": "Singularity", "aurora": "Aurora",
+    "blazing_sun": "BLAZING SUN",
     "glitched": "Glitched", "dreamspace": "Dreamspace", "cyberspace": "Cyberspace",
     "the_citadel_of_orders": "THE CITADEL OF ORDERS",
 }
@@ -57,6 +58,7 @@ BIOME_COLORS = {
     "graveyard": 0x2F4F4F,
     "singularity": 0x4B0082,
     "aurora": 0x00FA9A,
+    "blazing_sun": 0xFF8C00,
     "glitched": 0xFF1493,
     "dreamspace": 0xFF69B4,
     "cyberspace": 0x00FFFF,
@@ -133,6 +135,7 @@ _HOVER_TO_KEY = {
     "graveyard": "graveyard",
     "singularity": "singularity",
     "aurora": "aurora",
+    "blazing sun": "blazing_sun",
     "glitched": "glitched",
     "glitch": "glitched",
     "dreamspace": "dreamspace",

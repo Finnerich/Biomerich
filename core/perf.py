@@ -269,6 +269,32 @@ else:
     def trim_system_ram():
         return {"ok": False, "error": "not_windows"}
 
+
+def process_counters(pids):
+    
+    if not IS_WINDOWS:
+        return {}
+    counters = {}
+    for raw_pid in pids or []:
+        try:
+            pid = int(raw_pid)
+        except (TypeError, ValueError):
+            continue
+        handle = _open(pid)
+        if not handle:
+            continue
+        try:
+            cpu_time = _proc_time(handle)
+            if cpu_time is None:
+                continue
+            counters[pid] = {
+                "ramBytes": _proc_mem(handle),
+                "cpuTime100ns": int(cpu_time),
+            }
+        finally:
+            kernel32.CloseHandle(handle)
+    return counters
+
 def snapshot(accounts):
     ncores = os.cpu_count() or 1
     now = time.perf_counter()

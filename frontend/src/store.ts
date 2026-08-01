@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Account, ActivityEntry, AppSettings, Automation, BackendState, CycleStatus, EdenStats, StatusPayload, TimeTracking, Webhook } from "./types";
+import type { Account, ActivityEntry, AppSettings, Automation, BackendState, CyberspaceProgress, CycleStatus, EdenStats, StatusPayload, TimeTracking, Webhook } from "./types";
 
 export interface EngineSignal {
   module?: { key?: string; label?: string; phase?: string; account?: string };
@@ -56,6 +56,7 @@ interface Store {
   unknownBiomes: Record<string, number>;
   merchantCounts: Record<string, number>;
   moduleCounts: Record<string, number>;
+  cyberspaceProgress: CyberspaceProgress | null;
   edenStats: EdenStats;
   cycleStatus: CycleStatus;
   timeTracking: TimeTracking | null;
@@ -149,6 +150,7 @@ export const useStore = create<Store>((set) => ({
   unknownBiomes: {},
   merchantCounts: {},
   moduleCounts: {},
+  cyberspaceProgress: null,
   edenStats: { count: 0, lastFound: "", log: [] },
   cycleStatus: { type: null, accId: null, remaining: 0, index: -1, total: 0, enabled: false },
   timeTracking: null,
@@ -247,7 +249,8 @@ export const useStore = create<Store>((set) => ({
       biomeCounts: s.biomeCounts ?? st.biomeCounts,
       unknownBiomes: s.unknownBiomes ?? st.unknownBiomes,
       merchantCounts: s.merchantCounts ?? st.merchantCounts,
-      moduleCounts: (s as Record<string, unknown>).moduleCounts as Record<string, number> ?? st.moduleCounts,
+      moduleCounts: s.moduleCounts ?? st.moduleCounts,
+      cyberspaceProgress: s.cyberspaceProgress ?? st.cyberspaceProgress,
       edenStats: (s as BackendState).edenStats ?? st.edenStats,
     }));
   },
@@ -266,7 +269,8 @@ export const useStore = create<Store>((set) => ({
       biomeCounts: keepIfEqual(st.biomeCounts, s.biomeCounts),
       unknownBiomes: keepIfEqual(st.unknownBiomes, s.unknownBiomes),
       merchantCounts: keepIfEqual(st.merchantCounts, s.merchantCounts),
-      moduleCounts: keepIfEqual(st.moduleCounts, (s as Record<string, unknown>).moduleCounts as Record<string, number> | undefined),
+      moduleCounts: keepIfEqual(st.moduleCounts, s.moduleCounts),
+      cyberspaceProgress: keepIfEqual(st.cyberspaceProgress, s.cyberspaceProgress),
       timeTracking: s.timeTracking ?? st.timeTracking,
       fishingStatus: keepIfEqual(st.fishingStatus, s.fishing as Store["fishingStatus"] | undefined),
       edenStats: keepIfEqual(st.edenStats, s.edenStats),

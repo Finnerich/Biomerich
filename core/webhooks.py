@@ -443,7 +443,6 @@ def merchant_autobuy(urls, account, merchant_name, mid, item, purchased, wanted,
 
 def autopop_used(urls, account, biome_key, used_items, session_time, version):
     
-    name = biomes.display_name(biome_key)
     link = (account or {}).get("link", "")
     if used_items:
         item_lines = "\n".join(f"• **{nm}** ×{amt}" for nm, amt in used_items)
@@ -451,14 +450,14 @@ def autopop_used(urls, account, biome_key, used_items, session_time, version):
         item_lines = "• _No items used_"
     embed = _base_embed(
         description=(
-            f"## Auto Pop - {name}\n"
+            f"## Auto Pop\n"
             f"> ### **[Join Server]({link})**\n"
             f"**Account: **{(account or {}).get('name','?')}\n"
             f"**Items Used:**\n{item_lines}\n"
             f"**Session Time: ** {session_time}"
         ),
-        color=biomes.color_of(biome_key),
-        thumbnail=biomes.thumbnail(biome_key) or FOOTER_ICON,
+        color=COLOR_GREEN,
+        thumbnail=FOOTER_ICON,
         author=_author_for(account),
         version=version,
     )
@@ -468,21 +467,20 @@ def autopop_used(urls, account, biome_key, used_items, session_time, version):
 
 def autopop_failsafe(urls, account, biome_key, missing_items, session_time, version):
     
-    name = biomes.display_name(biome_key)
     if missing_items:
         miss_lines = "\n".join(f"• **{nm}**" for nm in missing_items)
     else:
         miss_lines = "• _Unknown_"
     embed = _base_embed(
         description=(
-            f"## Auto Pop Failsafe - {name}\n"
+            f"## Auto Pop Failsafe\n"
             f"> ### **[Support Server]({DISCORD_INVITE})**\n"
             f"**Account: **{(account or {}).get('name','?')}\n"
             f"**Item(s) not found:**\n{miss_lines}\n"
             f"**Session Time: ** {session_time}"
         ),
         color=COLOR_RED,
-        thumbnail=biomes.thumbnail(biome_key) or FOOTER_ICON,
+        thumbnail=FOOTER_ICON,
         author=_author_for(account),
         version=version,
     )

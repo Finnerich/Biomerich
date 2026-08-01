@@ -33,6 +33,7 @@ export const BIOMES: Biome[] = [
   { key: "graveyard", name: "Graveyard", tier: "event", rarity: null, grad: "linear-gradient(135deg,#b2b2b2,#565656)", shadow: "#b2b2b2" },
   { key: "singularity", name: "Singularity", tier: "semi-rare", rarity: null, grad: "linear-gradient(135deg,#fde047,#fb7c1e 52%,#1c0d03)", shadow: "#fb923c" },
   { key: "aurora", name: "Aurora", tier: "event", rarity: null, grad: "linear-gradient(135deg,#bf60ff,#84ffda)", shadow: "#bf60ff" },
+  { key: "blazing_sun", name: "BLAZING SUN", tier: "event", rarity: null, grad: "linear-gradient(135deg,#fde047,#f97316 58%,#991b1b)", shadow: "#fb923c" },
   { key: "glitched", name: "Glitched", tier: "rare", rarity: null, grad: "linear-gradient(135deg,#86efac,#22c55e 50%,#052e16)", shadow: "#22c55e" },
   { key: "dreamspace", name: "Dreamspace", tier: "rare", rarity: null, grad: "linear-gradient(135deg,#ff9ed8,#f368d4 52%,#b15cff)", shadow: "#f368d4" },
   { key: "cyberspace", name: "Cyberspace", tier: "rare", rarity: null, grad: "linear-gradient(135deg,#22d3ee,#2563eb 52%,#0b1b54)", shadow: "#38bdf8" },

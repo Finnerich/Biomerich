@@ -10,6 +10,7 @@ import { useStore } from "../store";
 import { TimeTrackingPanel } from "../components/TimeTrackingPanel";
 import { Collapse } from "../components/Collapse";
 import { CountUp } from "../components/CountUp";
+import { CyberspaceStatsPanel } from "../components/CyberspaceProgress";
 import { getMacroAccounts } from "../data/macroMode";
 import {
   BIOMES,
@@ -66,7 +67,6 @@ export function Stats() {
   const biomeCounts = useStore((s) => s.biomeCounts);
   const unknownBiomes = useStore((s) => s.unknownBiomes);
   const merchantCounts = useStore((s) => s.merchantCounts);
-  const moduleCounts = useStore((s) => s.moduleCounts);
   const timeTracking = useStore((s) => s.timeTracking);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -158,10 +158,11 @@ export function Stats() {
         <StatCard ico="fa-brands fa-discord" icoClass="ico-blurple" value={String(activeWebhooks)} cap="Active Webhooks" />
         <StatCard ico="fa-solid fa-stopwatch" icoClass="ico-accent" value={formatTime(uptime)} cap="Tracking Time" small />
         <StatCard ico="fa-solid fa-fish" icoClass="ico-accent" value={<CountUp value={fishCaught} />} cap="Fish Caught" small />
-        <StatCard ico="fa-solid fa-gamepad" icoClass="ico-accent" value={<CountUp value={moduleCounts.strangeController || 0} />} cap="Strange Controller" small />
       </div>
 
       <TimeTrackingPanel />
+
+      <CyberspaceStatsPanel />
 
       {}
       <div className="glass card panel" data-reveal>

@@ -131,9 +131,13 @@ class MacroEngine:
         webhook_list = self.config.webhooks
         if not accounts or not webhook_list:
             return False
-        if not any((w.get("url") or "").strip() for w in webhook_list):
+        if not any(
+            w.get("active", True) and (w.get("url") or "").strip()
+            for w in webhook_list
+        ):
             return False
-        return any(w.get("active", True) and w.get("routedAccounts") for w in webhook_list)
+        enabled_ids = {account.get("id") for account in accounts}
+        return enabled_ids.issubset(self._routed_account_ids())
 
     def active_modules(self) -> list:
         auto = self.config.automation
@@ -177,15 +181,19 @@ class MacroEngine:
                 if not (w.get("url") or "").strip():
                     errors.append(f"Webhook '{w.get('name') or '?'}' has no valid URL.")
 
-        enabled_ids = {a.get("id") for a in accounts}
-        has_route = any(
-            w.get("active", True)
-            and (w.get("url") or "").strip()
-            and any(rid in enabled_ids for rid in (w.get("routedAccounts") or []))
-            for w in webhook_list
-        )
-        if webhook_list and not has_route:
-            errors.append("Connect an enabled account to an active webhook before you start (Webhooks tab).")
+        routed_ids = self._routed_account_ids()
+        missing_routes = [
+            account.get("name") or "?"
+            for account in accounts
+            if account.get("id") not in routed_ids
+        ]
+        if webhook_list and missing_routes:
+            names = ", ".join(f"'{name}'" for name in missing_routes)
+            errors.append(
+                "Biome Logging needs an active webhook route for every enabled "
+                f"account. Missing: {names}. Open Webhooks and select each missing "
+                "account under 'Route to accounts'."
+            )
 
         for a in accounts:
             link = (a.get("link") or "").strip()
@@ -270,6 +278,7 @@ class MacroEngine:
             self._running = True
             self._start_ts = time.time()
             self._logging_active = self.logging_enabled()
+            self.config.reset_module_session_stats()
 
             if self._logging_active:
                 self._build_states()
@@ -321,7 +330,8 @@ class MacroEngine:
     def _routed_account_ids(self):
         return {
             aid
-            for w in self.config.webhooks if w.get("active", True)
+            for w in self.config.webhooks
+            if w.get("active", True) and (w.get("url") or "").strip()
             for aid in w.get("routedAccounts", [])
         }
 
@@ -488,7 +498,7 @@ class MacroEngine:
                 print(f"[Engine] Auto Pop queue failed: {e}")
             return
 
-        self.config.increment_biome(biome_key)
+        self.config.increment_biome(biome_key, st.acc_id)
         webhooks.biome_started(urls, acc, biome_key, report, self._current_version(),
                                ping_content=self.config.biome_ping_content(biome_key))
         try:

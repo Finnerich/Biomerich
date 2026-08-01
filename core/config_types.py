@@ -162,6 +162,52 @@ class EdenStats(TypedDict, total=False):
     accountSeconds: Dict[str, float]
 
 
+class ModuleUseCounts(TypedDict, total=False):
+    strangeController: int
+    biomeRandomizer: int
+    combined: int
+
+
+class CyberspaceAccountProgress(TypedDict, total=False):
+    id: int
+    name: str
+    avatar: str
+    enabled: bool
+    active: bool
+    modules: Dict[str, bool]
+    lifetime: ModuleUseCounts
+    session: ModuleUseCounts
+    combinedLifetime: int
+    combinedSession: int
+    usesPerHour: float
+
+
+class CyberspaceProgress(TypedDict, total=False):
+    odds: int
+    cyberspaceCount: int
+    lifetime: ModuleUseCounts
+    unattributed: ModuleUseCounts
+    session: ModuleUseCounts
+    sinceLast: ModuleUseCounts
+    estimatedRemaining: int
+    averageCycleOverdue: int
+    progressPercent: float
+    chanceSinceLastPercent: float
+    etaSeconds: Optional[int]
+    etaMode: str
+    usesPerHour: float
+    activeAccounts: int
+    activeSources: int
+    intervals: Dict[str, int]
+    accounts: List[CyberspaceAccountProgress]
+    lastCyberspace: str
+    lastCyberspaceAccount: Optional[int]
+    trackingSince: str
+    anchorReason: str
+    sessionCyberspaces: int
+    accurateSinceLastCyberspace: bool
+
+
 class BackendState(TypedDict, total=False):
     running: bool
     uptime: float
@@ -171,6 +217,8 @@ class BackendState(TypedDict, total=False):
     accounts: List[Account]
     webhooks: List[Webhook]
     biomeCounts: Dict[str, int]
+    moduleCounts: Dict[str, int]
+    cyberspaceProgress: CyberspaceProgress
     unknownBiomes: Dict[str, int]
     merchantCounts: Dict[str, int]
     edenStats: EdenStats

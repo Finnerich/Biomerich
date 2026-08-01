@@ -22,7 +22,6 @@ FAILED_TEXT = "Fishing Failed"
 CAUGHT_TEXT = "Fish Caught"
 SHOP_NAME_TARGET = "Captain Flarg"
 SHOP_WAIT = 0.6
-SHOP_MAX_ATTEMPTS = 3
 OCR_TEXT_THRESHOLD = 0.6
 
 
@@ -983,18 +982,20 @@ class FishingEngine:
                 route_steps, stop_event, sell_cycles, skip_shop=False
             )
 
-        for attempt in range(1, SHOP_MAX_ATTEMPTS + 1):
+        attempt = 0
+        while not stop_event.is_set() and self.enabled():
+            attempt += 1
             if stop_event.is_set() or not self.enabled():
                 self._release_all()
                 return False
 
             print(
                 f"[Fishing] Running sell route '{route_name}' "
-                f"(attempt {attempt}/{SHOP_MAX_ATTEMPTS}, "
+                f"(shop attempt {attempt}, "
                 f"sell cycle x{sell_cycles})."
             )
             status_events.set_detail(
-                f"Selling — shop attempt {attempt}/{SHOP_MAX_ATTEMPTS}"
+                f"Selling — shop attempt {attempt} — retrying until verified"
             )
             route_result = self._run_route_steps(
                 route_steps,
@@ -1009,38 +1010,28 @@ class FishingEngine:
                     f"{attempt} — retrying route."
                 )
                 status_events.push_event(
-                    "Sell Fish Shop failsafe failed — shop route try "
-                    f"{attempt}/{SHOP_MAX_ATTEMPTS}",
+                    "Sell Fish Shop failsafe failed — retrying shop route "
+                    f"(try {attempt})",
                     kind="warn",
                     ttl=2.5,
                 )
                 self._release_all()
                 continue
 
+            if route_result != "shop_verified":
+
+                self._release_all()
+                return False
+
             self._send_failsafe_webhook(
                 "Sell Fish Shop Failsafe",
                 True,
                 detail="Captain Flarg verified",
             )
-            return bool(route_result)
+            return True
 
-        print(
-            f"[Fishing] Captain Flarg not found after {SHOP_MAX_ATTEMPTS} "
-            "attempts — running route with shop skipped."
-        )
-        status_events.push_event(
-            "Sell Fish Shop failsafe gave up — running route, shop skipped",
-            kind="bad",
-            ttl=3.0,
-        )
-        self._send_failsafe_webhook(
-            "Sell Fish Shop Failsafe",
-            False,
-            detail=f"Captain Flarg not found after {SHOP_MAX_ATTEMPTS} tries",
-        )
-        return self._run_route_steps(
-            route_steps, stop_event, sell_cycles, skip_shop=True
-        )
+        self._release_all()
+        return False
 
     def _run_route_steps(
         self,
@@ -1050,6 +1041,7 @@ class FishingEngine:
         skip_shop=False,
         verify_shop=False,
     ):
+        shop_verified = False
         for route_step in route_steps:
             if stop_event.is_set() or not self.enabled():
                 self._release_all()
@@ -1057,9 +1049,12 @@ class FishingEngine:
 
             if isinstance(route_step, dict) and route_step.get("shop_name_check"):
                 if verify_shop:
-                    stop_event.wait(SHOP_WAIT)
+                    if stop_event.wait(SHOP_WAIT):
+                        self._release_all()
+                        return False
                     if not self._shop_name_ok():
                         return "shop_missing"
+                    shop_verified = True
                 continue
 
             if (
@@ -1084,6 +1079,14 @@ class FishingEngine:
             self._run_step(route_step, stop_event)
         self._release_all()
         print("[Fishing] Sell route done.")
+        if verify_shop:
+            if not shop_verified:
+                print(
+                    "[Fishing] Sell route has no shop_name_check step — "
+                    "refusing to report a verified sale."
+                )
+                return False
+            return "shop_verified"
         return True
 
     def _release_all(self):

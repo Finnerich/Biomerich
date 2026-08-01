@@ -1,0 +1,253 @@
+.cyber-panel {
+    --cyber-accent: #7c8cff;
+}
+
+.cyber-panel-head {
+    margin-bottom: 18px;
+}
+.cyber-panel-actions { display: flex; align-items: center; gap: 12px; }
+
+.cyber-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+    gap: 22px;
+    align-items: stretch;
+}
+
+.cyber-progress-block {
+    padding: 18px;
+    border: 1px solid var(--stroke-soft);
+    border-radius: var(--r-md);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.035);
+}
+
+.cyber-progress-copy {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.cyber-progress-copy > span { min-width: 0; }
+.cyber-progress-copy > span b {
+    font-family: var(--mono);
+    font-size: clamp(22px, 2.2vw, 30px);
+    font-weight: 600;
+}
+.cyber-progress-copy small { color: var(--text-dim); font-size: var(--fs-caption); }
+.cyber-progress-copy > strong {
+    color: var(--accent);
+    font-size: var(--fs-caption);
+    white-space: nowrap;
+}
+
+.cyber-track,
+.mon-cyber-track {
+    position: relative;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.065);
+}
+.cyber-track > span,
+.mon-cyber-track > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #12345f, #2f7de1);
+    transition: width 500ms var(--ease-out);
+}
+.cyber-split {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    color: var(--text-faint);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.cyber-split b { color: var(--text-dim); font-family: var(--mono); }
+
+.cyber-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.cyber-metric {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--stroke-soft);
+    border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, 0.018);
+}
+.cyber-metric > i {
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 7px;
+    color: var(--accent);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.09);
+    font-size: 11px;
+}
+.cyber-metric > span { display: flex; flex-direction: column; min-width: 0; }
+.cyber-metric b { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+.cyber-metric small {
+    overflow: hidden;
+    color: var(--text-faint);
+    font-size: 10px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.cyber-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 9px 11px;
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    border-radius: var(--r-sm);
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.055);
+    font-size: var(--fs-caption);
+}
+
+.cyber-account-table {
+    margin-top: 18px;
+    overflow: hidden;
+    border: 1px solid var(--stroke-soft);
+    border-radius: var(--r-md);
+}
+.cyber-account-header,
+.cyber-account-row {
+    display: grid;
+    grid-template-columns: minmax(190px, 1.25fr) repeat(3, minmax(130px, 1fr));
+    align-items: center;
+    column-gap: 14px;
+}
+.cyber-account-header {
+    padding: 9px 14px;
+    color: var(--text-faint);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+.cyber-account-row {
+    min-height: 58px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--stroke-soft);
+}
+.cyber-account-row.active { background: rgba(var(--ar), var(--ag), var(--ab), 0.018); }
+.cyber-account-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.cyber-account-name > span:last-child,
+.cyber-use-value {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.cyber-account-name b { overflow: hidden; font-size: var(--fs-body); text-overflow: ellipsis; white-space: nowrap; }
+.cyber-account-name small,
+.cyber-use-value small { color: var(--text-faint); font-size: 10px; }
+.cyber-account-dot {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--text-faint);
+}
+.cyber-account-dot.active { background: var(--success); }
+.cyber-use-value b { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.cyber-account-row.legacy { color: var(--text-dim); }
+.cyber-account-row.legacy .cyber-account-name > i { width: 7px; color: var(--text-faint); font-size: 10px; }
+.cyber-account-empty { padding: 20px; color: var(--text-faint); font-size: var(--fs-caption); text-align: center; }
+
+.cyber-disclaimer {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 12px 0 0;
+    color: var(--text-faint);
+    font-size: 10px;
+}
+
+
+.mon-cyber {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 11px;
+    border-top: 1px solid var(--stroke-soft);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.022);
+}
+.mon-cyber-top,
+.mon-cyber-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mon-cyber-top > span {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.mon-cyber-top i { margin-right: 5px; color: var(--accent); }
+.mon-cyber-top b { font-family: var(--mono); font-size: 11px; font-weight: 500; }
+.mon-cyber-track { height: 4px; }
+.mon-cyber-meta { color: var(--text-faint); font-size: 9px; white-space: nowrap; }
+.mon-cyber-meta span:nth-child(2) { color: var(--text-dim); font-family: var(--mono); }
+
+.mon-card-uses {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: clamp(7px, 11cqh, 9px);
+    white-space: nowrap;
+}
+.mon-card-uses b { color: var(--text-dim); font-weight: 500; }
+.mon-card-uses i { color: var(--text-faint); font-family: var(--font); font-style: normal; }
+.mon-card-uses em { margin-inline: 2px; color: var(--stroke-strong); font-style: normal; }
+
+@container (max-height: 82px) {
+    .mon-card-uses { display: none; }
+}
+
+@media (max-width: 900px) {
+    .cyber-hero { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+    .cyber-account-header { display: none; }
+    .cyber-account-row {
+        grid-template-columns: repeat(3, 1fr);
+        row-gap: 10px;
+    }
+    .cyber-account-name { grid-column: 1 / -1; }
+    .cyber-use-value::before {
+        color: var(--text-faint);
+        font-size: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .cyber-use-value:nth-child(2)::before { content: "Strange Controller"; }
+    .cyber-use-value:nth-child(3)::before { content: "Biome Randomizer"; }
+    .cyber-use-value:nth-child(4)::before { content: "Combined"; }
+}
+
+@media (max-width: 520px) {
+    .cyber-panel-actions .badge { display: none; }
+    .cyber-progress-copy { align-items: flex-start; flex-direction: column; gap: 5px; }
+    .cyber-metrics { grid-template-columns: 1fr; }
+}

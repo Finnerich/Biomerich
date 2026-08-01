@@ -41,6 +41,7 @@ from core import roblox_auth
 from core import perf as perfmon
 from core import ram_trim
 from core import throttle as throttle_mod
+from core import performance_benchmark as performance_benchmark_mod
 from core import browser_login as browser_login_mod
 from core import presets as _auto_presets
 from core import fishing_presets as _fish_presets
@@ -81,18 +82,41 @@ try:
     _applog.setup(config.dir)
 except Exception:
     pass
+
+
+
+
+try:
+    _restored_windows = win_windows.resolve_accounts(config.accounts)
+    if any(info.get("hwnd") for info in _restored_windows.values()):
+        config.save()
+except Exception as _restore_error:
+    print(f"[Windows] Startup binding restore failed: {_restore_error}")
+
 engine = MacroEngine(config)
 
 
 activity_log.account_provider = lambda: engine.automation.current_account
 ram_trimmer = ram_trim.RamTrimmer(config, is_engine_running=lambda: engine.running)
 throttler = throttle_mod.ThrottleEngine(config, is_engine_running=lambda: engine.running)
+engine.anti_afk.set_throttler(throttler)
+engine.automation.set_throttler(throttler)
+performance_benchmark = performance_benchmark_mod.PerformanceBenchmark(config, throttler)
+
+if "pytest" not in sys.modules:
+    try:
+        roblox_auth.ensure_multi_instance()
+    except Exception as _multi_instance_error:
+        print(f"[Roblox] Multi-instance guard failed: {_multi_instance_error}")
 
 browser_login = browser_login_mod.BrowserLogin()
 
 import atexit as _atexit
 from core import webhooks as _webhooks
 _atexit.register(throttler.stop)
+_atexit.register(performance_benchmark.stop)
+_atexit.register(roblox_auth.stop_account_launch_cleanup)
+_atexit.register(roblox_auth.release_multi_instance)
 _atexit.register(browser_login.cancel)
 _atexit.register(lambda: _webhooks.flush(8.0))
 _atexit.register(config.save_now)
@@ -199,6 +223,7 @@ def get_status():
         "unknownBiomes": dict(config.unknown_biomes),
         "merchantCounts": dict(config.merchant_counts),
         "moduleCounts": dict(config.module_counts),
+        "cyberspaceProgress": config.cyberspace_progress(),
         "edenStats": dict(config.eden_stats),
         "accountStates": engine.account_runtime(),
         "fishing": {**engine.automation.fishing.status(),
@@ -495,6 +520,14 @@ def get_throttle_state():
     return throttler.status()
 
 @eel.expose
+def get_performance_benchmark():
+    return performance_benchmark.status()
+
+@eel.expose
+def start_performance_benchmark():
+    return performance_benchmark.start()
+
+@eel.expose
 def trim_system_ram():
     return perfmon.trim_system_ram()
 
@@ -586,6 +619,7 @@ def teleport_in_bound_window(acc_id, link):
             pass
         if roblox_auth.teleport_in_place(place_info):
             acc["launchTime"] = time.time()
+            config.save()
             return {"ok": True, "method": "in_place", "rebound": True}
         return {"ok": False, "error": "deeplink_failed"}
 
@@ -596,6 +630,7 @@ def teleport_in_bound_window(acc_id, link):
     if not res.get("ok"):
         return {"ok": False, "error": res.get("error", "launch_failed")}
     acc["launchTime"] = time.time()
+    config.save()
     return {"ok": True, "method": "new_window", "rebound": False}
 
 @eel.expose
@@ -614,6 +649,7 @@ def launch_link_as_account(acc_id, link):
     res = roblox_auth.launch_account(tmp, mode="private")
     if res.get("ok"):
         acc["launchTime"] = time.time()
+        config.save()
     return res
 
 @eel.expose
@@ -630,17 +666,32 @@ def launch_account(acc_id, mode="home"):
     _apply_token_refresh(acc_id, res.pop("refreshed", ""))
     if res.get("ok"):
         acc["launchTime"] = time.time()
+        config.save()
     return res
 
 @eel.expose
 def get_account_windows():
     
     from core import win_windows
+    bindings_before = {
+        a.get("id"): dict(a.get("windowBinding"))
+        for a in config.accounts
+        if isinstance(a.get("windowBinding"), dict)
+    }
     try:
-        resolved = win_windows.resolve_accounts(config.enabled_accounts())
+
+
+        resolved = win_windows.resolve_accounts(config.accounts)
     except Exception as e:
         print(f"[Windows] Idle resolve failed: {e}")
         resolved = {}
+    bindings_after = {
+        a.get("id"): dict(a.get("windowBinding"))
+        for a in config.accounts
+        if isinstance(a.get("windowBinding"), dict)
+    }
+    if bindings_after != bindings_before:
+        config.save()
     out = []
     for a in config.accounts:
         aid = a.get("id")
@@ -677,6 +728,7 @@ def launch_all_accounts(mode="home"):
         results.append(res)
         if res.get("ok"):
             acc["launchTime"] = time.time()
+            config.save()
             launched += 1
             time.sleep(2.5)
     return {"ok": launched > 0, "launched": launched, "results": results}

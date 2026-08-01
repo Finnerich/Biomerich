@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import shutil
 import sys
@@ -22,12 +23,36 @@ from .time_tracking import default_tracking as _default_time_tracking, TIME_MODU
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"
 
+CYBERSPACE_ODDS = 5000
+MODULE_USE_TASKS = ("strangeController", "biomeRandomizer")
+
 _LEGACY_FOLDERS = {STABLE_FOLDER: "Biomerich", DEV_FOLDER: "Biomerich-dev"}
+
+
+def _default_module_use_stats() -> dict:
+    
+    return {
+        "accounts": {},
+        "cyberspaceBaseline": {task: 0 for task in MODULE_USE_TASKS},
+        "lastCyberspace": "",
+        "lastCyberspaceUnix": 0.0,
+        "lastCyberspaceAccount": None,
+        "trackingSince": "",
+        "anchorReason": "trackingStart",
+        "accurateSinceLastCyberspace": True,
+    }
+
+
+def _nonnegative_int(value, default: int = 0) -> int:
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError, OverflowError):
+        return max(0, int(default))
 
 def is_dev_build() -> bool:
     if "--dev" in sys.argv:
@@ -162,6 +187,7 @@ def _default_config() -> dict:
         "unknownBiomes": {},
         "merchantCounts": {"mari": 0, "jester": 0, "rin": 0},
         "moduleCounts": {"strangeController": 0, "biomeRandomizer": 0},
+        "moduleUseStats": _default_module_use_stats(),
         "edenStats": {"count": 0, "lastFound": "", "log": [], "accountSeconds": {}},
         "settings": {
             "accentIndex": 0,
@@ -194,8 +220,10 @@ def _default_config() -> dict:
             "throttleBreathe": True,
             "throttleRamCap": False,
             "throttleRamCapMb": 400,
+            "safeCpuLimiterV2": True,
             "throttleCollapsed": False,
             "throttleAccounts": [],
+            "performanceBenchmarks": [],
             "slowReset": False,
             "fakePingGuard": True,
             "monitorDimEnabled": False,
@@ -218,15 +246,22 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         self._save_stop = threading.Event()
         self._save_thread = None
         self.data = self._load()
+        self.reset_module_session_stats()
         if self._needs_save:
             self.save_now()
 
     def _load(self) -> dict:
         cfg = _default_config()
+        migrate_legacy_cpu_limiter = False
         if self.path.exists():
             try:
                 with open(self.path, "r", encoding="utf-8") as f:
                     saved = json.load(f)
+                saved_settings = saved.get("settings")
+                migrate_legacy_cpu_limiter = (
+                    isinstance(saved_settings, dict)
+                    and saved_settings.get("safeCpuLimiterV2") is not True
+                )
                 for key in ("accounts", "webhooks", "settings"):
                     if key in saved:
                         if isinstance(cfg[key], dict):
@@ -254,6 +289,57 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 for k, v in (saved.get("moduleCounts") or {}).items():
                     if k in cfg["moduleCounts"] and isinstance(v, (int, float)):
                         cfg["moduleCounts"][k] = int(v)
+
+                saved_module_stats = saved.get("moduleUseStats")
+                if isinstance(saved_module_stats, dict):
+                    stats = _default_module_use_stats()
+                    saved_accounts = saved_module_stats.get("accounts")
+                    if isinstance(saved_accounts, dict):
+                        for acc_id, values in saved_accounts.items():
+                            if not isinstance(values, dict):
+                                continue
+                            stats["accounts"][str(acc_id)] = {
+                                task: _nonnegative_int(values.get(task, 0))
+                                for task in MODULE_USE_TASKS
+                            }
+                    saved_baseline = saved_module_stats.get("cyberspaceBaseline")
+                    if isinstance(saved_baseline, dict):
+                        stats["cyberspaceBaseline"] = {
+                            task: _nonnegative_int(saved_baseline.get(task, 0))
+                            for task in MODULE_USE_TASKS
+                        }
+                    for key in ("lastCyberspace", "trackingSince"):
+                        if isinstance(saved_module_stats.get(key), str):
+                            stats[key] = saved_module_stats[key]
+                    try:
+                        stats["lastCyberspaceUnix"] = max(
+                            0.0, float(saved_module_stats.get("lastCyberspaceUnix", 0) or 0))
+                    except (TypeError, ValueError, OverflowError):
+                        stats["lastCyberspaceUnix"] = 0.0
+                    stats["lastCyberspaceAccount"] = saved_module_stats.get(
+                        "lastCyberspaceAccount")
+                    anchor_reason = saved_module_stats.get("anchorReason")
+                    if anchor_reason in ("trackingStart", "cyberspace", "statsReset", "migration"):
+                        stats["anchorReason"] = anchor_reason
+                    elif stats["lastCyberspace"]:
+                        stats["anchorReason"] = "cyberspace"
+                    stats["accurateSinceLastCyberspace"] = bool(
+                        saved_module_stats.get("accurateSinceLastCyberspace", True))
+                    cfg["moduleUseStats"] = stats
+                elif int(cfg["biomeCounts"].get("cyberspace", 0) or 0) > 0:
+
+
+
+                    cfg["moduleUseStats"]["cyberspaceBaseline"] = {
+                        task: _nonnegative_int(cfg["moduleCounts"].get(task, 0))
+                        for task in MODULE_USE_TASKS
+                    }
+                    from datetime import datetime, timezone
+                    cfg["moduleUseStats"]["trackingSince"] = datetime.now(
+                        timezone.utc).isoformat()
+                    cfg["moduleUseStats"]["accurateSinceLastCyberspace"] = False
+                    cfg["moduleUseStats"]["anchorReason"] = "migration"
+                    self._needs_save = True
 
                 saved_eden = saved.get("edenStats")
                 if isinstance(saved_eden, dict):
@@ -283,6 +369,21 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                             tt[k] = v
             except (json.JSONDecodeError, OSError) as e:
                 print(f"[Config] Could not read config.json ({e}) - using defaults.")
+
+        settings = cfg["settings"]
+        if migrate_legacy_cpu_limiter:
+
+
+
+
+            was_legacy_suspend = settings.get("throttleMethod") == "suspend"
+            if was_legacy_suspend and settings.get("throttleRamCap"):
+                print("[Config] Disabled legacy hard RAM cap for the safe CPU limiter migration.")
+            if was_legacy_suspend:
+                settings["throttleMethod"] = "cpuLimit"
+                settings["throttleRamCap"] = False
+            settings["safeCpuLimiterV2"] = True
+            self._needs_save = True
 
         for acc in cfg["accounts"]:
             acc["enabled"] = bool(acc.get("enabled", True))
@@ -452,9 +553,30 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
     @property
     def module_counts(self) -> dict:
         mc = self.data.setdefault("moduleCounts", {"strangeController": 0, "biomeRandomizer": 0})
-        for k in ("strangeController", "biomeRandomizer"):
+        for k in MODULE_USE_TASKS:
             mc.setdefault(k, 0)
         return mc
+
+    @property
+    def module_use_stats(self) -> dict:
+        stats = self.data.setdefault("moduleUseStats", _default_module_use_stats())
+        accounts = stats.setdefault("accounts", {})
+        if not isinstance(accounts, dict):
+            accounts = {}
+            stats["accounts"] = accounts
+        baseline = stats.setdefault("cyberspaceBaseline", {})
+        if not isinstance(baseline, dict):
+            baseline = {}
+            stats["cyberspaceBaseline"] = baseline
+        for task in MODULE_USE_TASKS:
+            baseline.setdefault(task, 0)
+        stats.setdefault("lastCyberspace", "")
+        stats.setdefault("lastCyberspaceUnix", 0.0)
+        stats.setdefault("lastCyberspaceAccount", None)
+        stats.setdefault("trackingSince", "")
+        stats.setdefault("anchorReason", "trackingStart")
+        stats.setdefault("accurateSinceLastCyberspace", True)
+        return stats
 
     @property
     def eden_stats(self) -> dict:
@@ -504,6 +626,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
     def _safe_account(self, a: dict) -> dict:
         out = dict(a)
         out.pop("token", None)
+
+
+        out.pop("windowBinding", None)
         out["hasToken"] = self.tokens.has(a.get("id"))
         out["tokenUser"] = a.get("tokenUser", "")
         out["tokenValid"] = bool(a.get("tokenValid", False))
@@ -517,6 +642,7 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 "webhooks": [dict(w) for w in self.webhooks],
                 "biomeCounts": dict(self.biome_counts),
                 "moduleCounts": dict(self.module_counts),
+                "cyberspaceProgress": self.cyberspace_progress(),
                 "unknownBiomes": dict(self.unknown_biomes),
                 "merchantCounts": dict(self.merchant_counts),
                 "edenStats": dict(self.eden_stats),
@@ -999,15 +1125,49 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             for k in list(self.biome_counts.keys()):
                 self.biome_counts[k] = 0
             self.data["unknownBiomes"] = {}
+
+
+
+            stats = self.module_use_stats
+            stats["cyberspaceBaseline"] = {
+                task: _nonnegative_int(self.module_counts.get(task, 0))
+                for task in MODULE_USE_TASKS
+            }
+            stats["lastCyberspace"] = ""
+            stats["lastCyberspaceUnix"] = 0.0
+            stats["lastCyberspaceAccount"] = None
+            stats["accurateSinceLastCyberspace"] = True
+            stats["anchorReason"] = "statsReset"
             self.save()
 
-    def increment_biome(self, key: str) -> None:
+    def increment_biome(self, key: str, acc_id=None, *, track_progress: bool = True) -> None:
         with self._lock:
             if key in self.biome_counts:
                 self.biome_counts[key] += 1
-                self.save()
+                if key == "cyberspace" and track_progress:
+                    from datetime import datetime, timezone
+                    import time
 
-    def increment_module_use(self, task: str) -> int:
+                    stats = self.module_use_stats
+                    stats["cyberspaceBaseline"] = {
+                        task: _nonnegative_int(self.module_counts.get(task, 0))
+                        for task in MODULE_USE_TASKS
+                    }
+                    stats["lastCyberspace"] = datetime.now(timezone.utc).isoformat()
+                    stats["lastCyberspaceUnix"] = time.time()
+                    stats["lastCyberspaceAccount"] = acc_id
+                    stats["accurateSinceLastCyberspace"] = True
+                    stats["anchorReason"] = "cyberspace"
+                    self._session_cyberspaces = int(
+                        getattr(self, "_session_cyberspaces", 0)) + 1
+
+
+
+                    self.save_now()
+                else:
+                    self.save()
+
+    def increment_module_use(self, task: str, acc_id=None, used_at=None) -> int:
         
         with self._lock:
             mc = self.module_counts
@@ -1015,8 +1175,178 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 return 0
             mc[task] = int(mc.get(task, 0)) + 1
             total = mc[task]
+
+
+
+
+
+            try:
+                clicked_before_last_cyberspace = (
+                    used_at is not None
+                    and float(self.module_use_stats.get("lastCyberspaceUnix", 0) or 0)
+                    >= float(used_at)
+                )
+            except (TypeError, ValueError, OverflowError):
+                clicked_before_last_cyberspace = False
+            if clicked_before_last_cyberspace:
+                baseline = self.module_use_stats["cyberspaceBaseline"]
+                baseline[task] = min(
+                    total, _nonnegative_int(baseline.get(task, 0)) + 1)
+
+            if acc_id is not None:
+                account_key = str(acc_id)
+                account_stats = self.module_use_stats["accounts"].setdefault(
+                    account_key, {name: 0 for name in MODULE_USE_TASKS})
+                account_stats[task] = int(account_stats.get(task, 0) or 0) + 1
+
+                session_stats = self._session_module_counts.setdefault(
+                    account_key, {name: 0 for name in MODULE_USE_TASKS})
+                session_stats[task] = int(session_stats.get(task, 0) or 0) + 1
+            if not self.module_use_stats.get("trackingSince"):
+                from datetime import datetime, timezone
+                self.module_use_stats["trackingSince"] = datetime.now(
+                    timezone.utc).isoformat()
             self.save()
             return total
+
+    def reset_module_session_stats(self) -> None:
+        
+        with self._lock:
+            self._session_module_counts = {}
+            self._session_cyberspaces = 0
+
+    @staticmethod
+    def _positive_interval(value, fallback: int) -> float:
+        try:
+            return max(1.0, float(value))
+        except (TypeError, ValueError):
+            return float(fallback)
+
+    def cyberspace_progress(self) -> dict:
+        
+        with self._lock:
+            stats = self.module_use_stats
+            totals = {
+                task: _nonnegative_int(self.module_counts.get(task, 0))
+                for task in MODULE_USE_TASKS
+            }
+            baseline = stats.get("cyberspaceBaseline", {})
+            since_last = {
+                task: max(0, totals[task] - _nonnegative_int(baseline.get(task, 0)))
+                for task in MODULE_USE_TASKS
+            }
+            attempts = sum(since_last.values())
+            remaining = max(0, CYBERSPACE_ODDS - attempts)
+            overdue = max(0, attempts - CYBERSPACE_ODDS)
+
+            session_accounts = getattr(self, "_session_module_counts", {})
+            session_totals = {
+                task: sum(_nonnegative_int(values.get(task, 0))
+                          for values in session_accounts.values()
+                          if isinstance(values, dict))
+                for task in MODULE_USE_TASKS
+            }
+
+            intervals_cfg = self.automation.get("intervals", {}) or {}
+            intervals = {
+                "strangeController": self._positive_interval(
+                    intervals_cfg.get("strangeController"), 21 * 60),
+                "biomeRandomizer": self._positive_interval(
+                    intervals_cfg.get("biomeRandomizer"), 36 * 60),
+            }
+            enabled_ids = {str(account.get("id")) for account in self.enabled_accounts()}
+            account_rows = []
+            total_uses_per_hour = 0.0
+            active_accounts = 0
+            active_sources = 0
+
+            for account in self.accounts:
+                account_key = str(account.get("id"))
+                lifetime = stats["accounts"].get(account_key, {})
+                session = session_accounts.get(account_key, {})
+                modules = account.get("modules") or {}
+                participates = account_key in enabled_ids
+                uses_per_hour = 0.0
+                enabled_modules = {}
+                for task in MODULE_USE_TASKS:
+                    is_enabled = participates and bool(modules.get(task, False))
+                    enabled_modules[task] = is_enabled
+                    if is_enabled:
+                        uses_per_hour += 3600.0 / intervals[task]
+                        active_sources += 1
+                if uses_per_hour > 0:
+                    active_accounts += 1
+                    total_uses_per_hour += uses_per_hour
+
+                lifetime_values = {
+                    task: _nonnegative_int(lifetime.get(task, 0))
+                    for task in MODULE_USE_TASKS
+                }
+                session_values = {
+                    task: _nonnegative_int(session.get(task, 0))
+                    for task in MODULE_USE_TASKS
+                }
+                account_rows.append({
+                    "id": account.get("id"),
+                    "name": account.get("name") or f"Account {account.get('id')}",
+                    "avatar": account.get("avatar", ""),
+                    "enabled": participates,
+                    "active": uses_per_hour > 0,
+                    "modules": enabled_modules,
+                    "lifetime": lifetime_values,
+                    "session": session_values,
+                    "combinedLifetime": sum(lifetime_values.values()),
+                    "combinedSession": sum(session_values.values()),
+                    "usesPerHour": round(uses_per_hour, 4),
+                })
+
+            attributed = {
+                task: sum(row["lifetime"][task] for row in account_rows)
+                for task in MODULE_USE_TASKS
+            }
+            unattributed = {
+                task: max(0, totals[task] - attributed[task])
+                for task in MODULE_USE_TASKS
+            }
+
+            chance = 0.0
+            if attempts > 0:
+                chance = -math.expm1(attempts * math.log1p(-1.0 / CYBERSPACE_ODDS)) * 100.0
+
+
+
+
+            eta_uses = remaining if remaining > 0 else CYBERSPACE_ODDS
+            eta_seconds = None
+            if total_uses_per_hour > 0:
+                eta_seconds = eta_uses / (total_uses_per_hour / 3600.0)
+
+            return {
+                "odds": CYBERSPACE_ODDS,
+                "cyberspaceCount": int(self.biome_counts.get("cyberspace", 0) or 0),
+                "lifetime": {**totals, "combined": sum(totals.values())},
+                "unattributed": {**unattributed, "combined": sum(unattributed.values())},
+                "session": {**session_totals, "combined": sum(session_totals.values())},
+                "sinceLast": {**since_last, "combined": attempts},
+                "estimatedRemaining": remaining,
+                "averageCycleOverdue": overdue,
+                "progressPercent": min(100.0, attempts / CYBERSPACE_ODDS * 100.0),
+                "chanceSinceLastPercent": round(chance, 4),
+                "etaSeconds": round(eta_seconds) if eta_seconds is not None else None,
+                "etaMode": "averageCycle" if remaining > 0 else "fromNow",
+                "usesPerHour": round(total_uses_per_hour, 4),
+                "activeAccounts": active_accounts,
+                "activeSources": active_sources,
+                "intervals": {task: round(value) for task, value in intervals.items()},
+                "accounts": account_rows,
+                "lastCyberspace": stats.get("lastCyberspace", ""),
+                "lastCyberspaceAccount": stats.get("lastCyberspaceAccount"),
+                "trackingSince": stats.get("trackingSince", ""),
+                "anchorReason": stats.get("anchorReason", "trackingStart"),
+                "sessionCyberspaces": int(getattr(self, "_session_cyberspaces", 0)),
+                "accurateSinceLastCyberspace": bool(
+                    stats.get("accurateSinceLastCyberspace", True)),
+            }
 
     def increment_merchant(self, mid: str) -> int:
         

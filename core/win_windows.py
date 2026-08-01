@@ -97,6 +97,23 @@ if IS_WINDOWS:
     user32.SetWindowPos.restype = wintypes.BOOL
     user32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.c_void_p)
     user32.GetWindowRect.restype = wintypes.BOOL
+    user32.PostMessageW.argtypes = (
+        wintypes.HWND,
+        wintypes.UINT,
+        wintypes.WPARAM,
+        wintypes.LPARAM,
+    )
+    user32.PostMessageW.restype = wintypes.BOOL
+    user32.EnumChildWindows.argtypes = (
+        wintypes.HWND,
+        EnumWindowsProc,
+        wintypes.LPARAM,
+    )
+    user32.EnumChildWindows.restype = wintypes.BOOL
+    user32.FindWindowW.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR)
+    user32.FindWindowW.restype = wintypes.HWND
+    user32.IsWindowVisible.argtypes = (wintypes.HWND,)
+    user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
 
     GA_ROOT = 2
     user32.WindowFromPoint.restype = wintypes.HWND
@@ -161,6 +178,81 @@ if IS_WINDOWS:
                 return True
             _time.sleep(0.1)
         return _process_name(pid) != ROBLOX_EXE
+
+    def close_pid_gracefully(pid, timeout=3.0):
+        
+        import time as _time
+
+        if not pid:
+            return True
+        pid = int(pid)
+        wm_close = 0x0010
+        hwnd_message = wintypes.HWND(-3)
+        posted = set()
+
+        def _post_if_owned(hwnd, _lparam):
+            owner_pid = wintypes.DWORD(0)
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner_pid))
+            numeric_hwnd = int(hwnd or 0)
+            if owner_pid.value == pid and numeric_hwnd not in posted:
+                posted.add(numeric_hwnd)
+                user32.PostMessageW(hwnd, wm_close, 0, 0)
+            return True
+
+        callback = EnumWindowsProc(_post_if_owned)
+        user32.EnumWindows(callback, 0)
+
+
+        user32.EnumChildWindows(hwnd_message, callback, 0)
+
+        deadline = _time.time() + max(0.0, float(timeout))
+        while _time.time() < deadline:
+            if not pid_alive(pid):
+                return True
+            _time.sleep(0.1)
+        return terminate_pid(pid, timeout=1.0)
+
+    def refresh_notification_area():
+        
+        import time as _time
+
+        hwnd = user32.FindWindowW("TopLevelWindowForOverflowXamlIsland", None)
+        if not hwnd:
+            return False
+
+        rect = _RECT()
+        if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return False
+
+        if not user32.IsWindowVisible(hwnd):
+            user32.ShowWindow(hwnd, 4)
+            _time.sleep(0.12)
+            user32.GetWindowRect(hwnd, ctypes.byref(rect))
+
+        try:
+            wm_mousemove = 0x0200
+            width = max(0, rect.right - rect.left)
+            height = max(0, rect.bottom - rect.top)
+            targets = [int(hwnd)]
+
+            def _remember_child(child, _lparam):
+                targets.append(int(child))
+                return True
+
+            child_callback = EnumWindowsProc(_remember_child)
+            user32.EnumChildWindows(hwnd, child_callback, 0)
+
+            for target in targets:
+                for y in range(8, height, 12):
+                    for x in range(8, width, 12):
+                        lparam = (y << 16) | (x & 0xFFFF)
+                        user32.PostMessageW(target, wm_mousemove, 0, lparam)
+                _time.sleep(0.02)
+        finally:
+
+
+            user32.ShowWindow(hwnd, 0)
+        return True
 
     def _process_start_time(pid):
 
@@ -362,7 +454,6 @@ if IS_WINDOWS:
         if not hwnd:
             return None
         r = _RECT()
-        user32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.POINTER(_RECT))
         if user32.GetWindowRect(hwnd, ctypes.byref(r)):
             return (r.left, r.top, r.right - r.left, r.bottom - r.top)
         return None
@@ -388,6 +479,12 @@ else:
 
     def terminate_pid(pid, timeout=4.0):
         return True
+
+    def close_pid_gracefully(pid, timeout=3.0):
+        return True
+
+    def refresh_notification_area():
+        return False
 
     def foreground_hwnd():
         return 0
@@ -486,6 +583,35 @@ def resolve_accounts(accounts):
         e["online"] = True
         used_pids.add(mpid)
 
+
+
+
+    for acc in accounts:
+        aid = acc.get("id")
+        e = result[aid]
+        if e["pid"] is not None:
+            continue
+        saved = acc.get("windowBinding")
+        if not isinstance(saved, dict):
+            continue
+        try:
+            saved_pid = int(saved.get("pid"))
+            saved_start = float(saved.get("startTime"))
+        except (TypeError, ValueError):
+            acc.pop("windowBinding", None)
+            continue
+        current_start = proc_start.get(saved_pid)
+        if (
+            saved_pid in valid_pids
+            and saved_pid not in used_pids
+            and current_start is not None
+            and abs(current_start - saved_start) <= 1.0
+        ):
+            _bind(e, saved_pid, "persisted")
+            e["online"] = True
+        else:
+            acc.pop("windowBinding", None)
+
     for acc in accounts:
         aid = acc.get("id")
         e = result[aid]
@@ -574,8 +700,20 @@ def resolve_accounts(accounts):
         if info["hwnd"] is not None:
             info["label"] = "Window " + str(hwnd_order.get(info["hwnd"], 0) + 1)
             _BIND_CACHE[aid] = {"pid": info["pid"], "log": info["logFile"]}
+            start_time = proc_start.get(info["pid"])
+            account = acc_by_id.get(aid)
+            if account is not None and start_time is not None:
+                binding = {
+                    "pid": int(info["pid"]),
+                    "startTime": float(start_time),
+                }
+                if account.get("windowBinding") != binding:
+                    account["windowBinding"] = binding
         else:
             _BIND_CACHE.pop(aid, None)
+            account = acc_by_id.get(aid)
+            if account is not None:
+                account.pop("windowBinding", None)
 
     still = []
     for acc in accounts:

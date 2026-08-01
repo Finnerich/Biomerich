@@ -9,13 +9,14 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
+import { CyberspaceMonitorStrip } from "../components/CyberspaceProgress";
 import { callPy } from "../bridge";
 import { setMode, toggleMacro } from "../engine";
 import { MacroModeToggle } from "../components/MacroModeToggle";
 import { biomeMeta, RARE_KEYS, SEMI_RARE_KEYS } from "../data/biomes";
 import { getMacroAccounts } from "../data/macroMode";
 import { getEnabledMonitorModules } from "../monitorModules";
-import type { Account } from "../types";
+import type { Account, CyberspaceAccountProgress } from "../types";
 
 
 
@@ -69,6 +70,7 @@ function fmtTime(unixSeconds: number): string {
 export function Monitor() {
   const accounts = useStore((s) => s.accounts);
   const settings = useStore((s) => s.settings);
+  const cyberspace = useStore((s) => s.cyberspaceProgress);
   const [biomeDurations, setBiomeDurations] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -90,7 +92,13 @@ export function Monitor() {
       </div>
       <div className="mon-cards">
         {trackedAccounts.map((account, index) => (
-          <BiomeCard key={account.id} account={account} durations={biomeDurations} index={index} />
+          <BiomeCard
+            key={account.id}
+            account={account}
+            usage={cyberspace?.accounts.find((row) => row.id === account.id)}
+            durations={biomeDurations}
+            index={index}
+          />
         ))}
         {!trackedAccounts.length && (
           <div className="mon-empty glass">
@@ -351,8 +359,9 @@ function BiomeTimer({ since, duration }: { since: number | null | undefined; dur
   );
 }
 
-function BiomeCard({ account, durations, index }: {
+function BiomeCard({ account, usage, durations, index }: {
   account: Account;
+  usage?: CyberspaceAccountProgress;
   durations: Record<string, number>;
   index: number;
 }) {
@@ -387,6 +396,15 @@ function BiomeCard({ account, durations, index }: {
             <span className={`dot ${account.online ? "running" : "stopped"}`}></span>
             {account.name}
           </span>
+          {usage && (
+            <span className="mon-card-uses" title="Lifetime uses, with current-session uses in parentheses">
+              SC <b>{usage.lifetime.strangeController.toLocaleString("en-US")}</b>
+              <i>({usage.session.strangeController} session)</i>
+              <em>·</em>
+              BR <b>{usage.lifetime.biomeRandomizer.toLocaleString("en-US")}</b>
+              <i>({usage.session.biomeRandomizer} session)</i>
+            </span>
+          )}
         </div>
         <BiomeTimer since={biomeKey ? account.biomeSince : null} duration={duration} />
       </div>
@@ -447,6 +465,7 @@ function SummaryPanel() {
           </div>
         ))}
       </div>
+      <CyberspaceMonitorStrip />
     </div>
   );
 }
