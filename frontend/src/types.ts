@@ -11,6 +11,7 @@ export interface AppSettings {
   ramTrimInterval?: number;
   slowReset?: boolean;
   fakePingGuard?: boolean;
+  fakePingPrompt?: boolean;
   monitorDimEnabled?: boolean;
   monitorDimLevel?: number;
   tesseractPromptDismissed?: boolean;
@@ -226,6 +227,10 @@ export interface BackendState {
   unknownBiomes?: Record<string, number>;
   merchantCounts?: Record<string, number>;
   edenStats?: EdenStats;
+  configRecovery?: {
+    status?: "backup" | "unrecoverable";
+    preservedFile?: string | null;
+  } | null;
   [key: string]: unknown;
 }
 

@@ -197,3 +197,47 @@
 #settings .glass.card.setting-row .swatches     { flex-shrink: 0; align-self: center; }
 #settings .glass.card.setting-row .cs-wrap,
 #settings .glass.card.setting-row select        { flex-shrink: 0; align-self: center; min-width: 90px; }
+
+.settings-section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 26px 4px 10px;
+    color: var(--text-faint);
+    font-size: var(--fs-micro);
+    font-weight: 700;
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+}
+.settings-section-label i { color: var(--danger); }
+
+.roblox-log-cleanup-row {
+    border-color: rgba(242, 109, 120, 0.18) !important;
+}
+.roblox-log-clear-btn {
+    flex-shrink: 0;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 116px;
+    padding: 9px 15px;
+    border: 1px solid rgba(242, 109, 120, 0.38);
+    border-radius: var(--r-sm);
+    background: rgba(242, 109, 120, 0.08);
+    color: var(--danger);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.roblox-log-clear-btn:hover:not(:disabled) {
+    background: rgba(242, 109, 120, 0.14);
+    border-color: rgba(242, 109, 120, 0.58);
+}
+.roblox-log-clear-btn:active:not(:disabled) { filter: brightness(0.9); }
+.roblox-log-clear-btn:disabled { cursor: not-allowed; opacity: 0.42; }
+
+.btn-save.dialog-danger { background: var(--danger); }

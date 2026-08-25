@@ -17,6 +17,8 @@ import type { UpdProgress, UpdDone } from "./updateInstall";
 import { loadReleases } from "./update";
 import { showStartErrors } from "./engine";
 import type { BackendState } from "./types";
+import type { RarePingWarning } from "./store";
+import { alertDialog } from "./dialog";
 
 applyAccent(getAccentIndex());
 applyTheme(getCurrentThemeId(), false);
@@ -26,6 +28,8 @@ interface HotkeyResult {
   errors?: string[];
   uptime?: number;
 }
+
+let startupConfigRecovery: BackendState["configRecovery"] = null;
 
 expose((result) => {
   const hotkeyResult = result as HotkeyResult | undefined;
@@ -53,6 +57,18 @@ expose((payload) => {
 expose((settings) => {
   useStore.getState().patchSettings((settings || {}) as Record<string, unknown>);
 }, "js_on_settings_sync");
+
+expose((payload) => {
+  const warning = (payload || {}) as RarePingWarning;
+  if (!warning.id) return;
+  const store = useStore.getState();
+  store.pushRarePingWarning({ ...warning, id: String(warning.id) });
+  store.setCurrentTab("modules");
+}, "js_on_rare_ping_blocked");
+
+expose((pendingId) => {
+  useStore.getState().dismissRarePingWarning(String(pendingId));
+}, "js_on_rare_ping_resolved");
 
 expose((accId, success) => {
   useStore.getState().handleBindResult(Number(accId), !!success);
@@ -101,6 +117,14 @@ expose((result) => {
     const state = await callPy<BackendState>("get_state").catch(() => null);
     if (state) {
       useStore.getState().applyState(state);
+      startupConfigRecovery = state.configRecovery;
+      if (state.configRecovery?.status === "backup") {
+        useStore.getState().pushToast({
+          icon: "fa-shield-heart",
+          title: "Your SolRich data was recovered",
+          detail: "The main config was damaged or missing, so the automatic backup was restored.",
+        });
+      }
       applyAccent(getAccentIndex(state.settings?.accentIndex));
       applyTheme(getCurrentThemeId(state.settings?.themeId), false);
     }
@@ -118,6 +142,17 @@ expose((result) => {
     setTimeout(async () => {
       const store = useStore.getState();
       const settings = store.settings as Record<string, unknown>;
+      if (startupConfigRecovery?.status === "unrecoverable") {
+        const preserved = startupConfigRecovery.preservedFile
+          ? ` A recoverable copy was preserved as ${startupConfigRecovery.preservedFile}.`
+          : "";
+        await alertDialog(
+          "SolRich could not read your config and no valid automatic backup was available. " +
+          "The damaged file was not silently deleted or overwritten." + preserved,
+          { title: "Config recovery needed" },
+        );
+        return;
+      }
       if (!agreementAccepted(settings)) {
         await useAgreement.getState().show();
       }

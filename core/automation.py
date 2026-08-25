@@ -627,10 +627,9 @@ class AutomationEngine:
                 break
 
             if eden_mode:
-                eden_cfg = self.config.automation.get("eden", {}) or {}
-                main_acc = eden_cfg.get("account")
-                runnable = main_acc is not None and any(
-                    a.get("id") == main_acc and a.get("enabled", True) for a in self.config.accounts)
+                main_acc = self.config.effective_eden_account_id()
+                runnable_ids = {a.get("id") for a in self.config.enabled_accounts()}
+                runnable = main_acc is not None and main_acc in runnable_ids
                 if ev.is_set():
                     break
                 if runnable:
@@ -653,7 +652,7 @@ class AutomationEngine:
                             print(f"[Eden] pause failed: {e}")
                         self._prev_eden_acc = None
                     if not self._fishing_warned:
-                        print("[Eden] No main Eden account selected.")
+                        print("[Eden] No runnable Eden account available.")
                         self._fishing_warned = True
                     ev.wait(1.0)
                 continue

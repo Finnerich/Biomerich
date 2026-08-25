@@ -37,4 +37,5 @@ import "./css/normal_mode.css";
 import "./css/home.css";
 import "./css/responsive.css";
 import "./css/agreement.css";
+import "./css/rare_ping_warning.css";
 

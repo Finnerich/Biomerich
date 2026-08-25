@@ -5,7 +5,7 @@ import shutil
 import sys
 import tempfile
 import threading
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,15 +18,19 @@ from .config_autopop import AutopopConfigMixin
 from .config_fishing import FishingConfigMixin
 from .config_cycle import CycleConfigMixin
 from .secure_store import SecureStore
-from .time_tracking import default_tracking as _default_time_tracking, TIME_MODULES as _TIME_MODULES
+from .time_tracking import (
+    default_tracking as _default_time_tracking,
+    TIME_MODULES as _TIME_MODULES,
+)
 
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"
+CONFIG_BACKUP_FILENAME = "config.json.bak"
 
 CYBERSPACE_ODDS = 5000
 MODULE_USE_TASKS = ("strangeController", "biomeRandomizer")
@@ -54,6 +58,7 @@ def _nonnegative_int(value, default: int = 0) -> int:
     except (TypeError, ValueError, OverflowError):
         return max(0, int(default))
 
+
 def is_dev_build() -> bool:
     if "--dev" in sys.argv:
         return True
@@ -66,7 +71,9 @@ def is_dev_build() -> bool:
             return True
     return False
 
+
 APP_FOLDER = DEV_FOLDER if is_dev_build() else STABLE_FOLDER
+
 
 def _base_dir() -> Path:
     base = os.getenv("LOCALAPPDATA")
@@ -77,20 +84,35 @@ def _base_dir() -> Path:
             base = os.getenv("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
     return Path(base)
 
+
 def get_config_dir(folder: str = None) -> Path:
     resolved = folder or (DEV_FOLDER if is_dev_build() else STABLE_FOLDER)
     path = _base_dir() / resolved
-    if not path.exists():
-        legacy = _LEGACY_FOLDERS.get(resolved)
-        if legacy:
-            legacy_path = _base_dir() / legacy
-            if legacy_path.is_dir():
-                try:
+    legacy = _LEGACY_FOLDERS.get(resolved)
+    if legacy:
+        legacy_path = _base_dir() / legacy
+        if legacy_path.is_dir():
+            try:
+                if not path.exists():
                     shutil.copytree(legacy_path, path)
-                except Exception:
-                    pass
+                elif not (path / CONFIG_FILENAME).exists() and (
+                    legacy_path / CONFIG_FILENAME
+                ).is_file():
+
+
+
+                    path.mkdir(parents=True, exist_ok=True)
+                    for filename in (CONFIG_FILENAME, CONFIG_BACKUP_FILENAME, "tokens.dat"):
+                        source = legacy_path / filename
+                        target = path / filename
+                        if source.is_file() and not target.exists():
+                            shutil.copy2(source, target)
+                    print(f"[Config] Recovered user data from legacy folder '{legacy}'.")
+            except Exception as exc:
+                print(f"[Config] Legacy migration failed: {exc}")
     path.mkdir(parents=True, exist_ok=True)
     return path
+
 
 def _default_automation() -> "Automation":
     return {
@@ -123,7 +145,6 @@ def _default_automation() -> "Automation":
             "use_button": None,
         },
         "firstItemRegion": None,
-
         "biomePings": {},
         "autopop": {
             "biomes": {},
@@ -178,6 +199,7 @@ def _default_automation() -> "Automation":
         },
     }
 
+
 def _default_config() -> dict:
     return {
         "version": APP_VERSION,
@@ -226,6 +248,7 @@ def _default_config() -> dict:
             "performanceBenchmarks": [],
             "slowReset": False,
             "fakePingGuard": True,
+            "fakePingPrompt": True,
             "monitorDimEnabled": False,
             "monitorDimLevel": 40,
             "hotkey": "F5",
@@ -234,29 +257,143 @@ def _default_config() -> dict:
         "timeTracking": _default_time_tracking(),
     }
 
-class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
-                    FishingConfigMixin, CycleConfigMixin):
+
+class ConfigManager(
+    MerchantConfigMixin,
+    CalibConfigMixin,
+    AutopopConfigMixin,
+    FishingConfigMixin,
+    CycleConfigMixin,
+):
     def __init__(self):
         self.dir = get_config_dir()
         self.path = self.dir / CONFIG_FILENAME
+        self.backup_path = self.dir / CONFIG_BACKUP_FILENAME
         self._lock = threading.RLock()
         self.tokens = SecureStore(self.dir)
         self._needs_save = False
         self._dirty = False
         self._save_stop = threading.Event()
         self._save_thread = None
+        self.recovery_notice = None
+        self.recovery_file = None
+        self._unrecoverable_load_error = False
         self.data = self._load()
         self.reset_module_session_stats()
-        if self._needs_save:
+        if self._needs_save and not self._unrecoverable_load_error:
             self.save_now()
+
+    @staticmethod
+    def _validate_saved_config(saved) -> dict:
+        if not isinstance(saved, dict) or not saved:
+            raise ValueError("config root is empty or not an object")
+        if not any(key in saved for key in ("accounts", "webhooks", "settings", "automation")):
+            raise ValueError("config has no recognized data sections")
+
+        expected_dicts = (
+            "settings", "automation", "biomeCounts", "unknownBiomes",
+            "merchantCounts", "moduleCounts", "moduleUseStats", "edenStats",
+            "timeTracking",
+        )
+        for key in expected_dicts:
+            if key in saved and not isinstance(saved[key], dict):
+                raise ValueError(f"config section '{key}' is not an object")
+        for key in ("accounts", "webhooks"):
+            if key in saved and not isinstance(saved[key], list):
+                raise ValueError(f"config section '{key}' is not a list")
+            if key in saved and any(not isinstance(item, dict) for item in saved[key]):
+                raise ValueError(f"config section '{key}' contains an invalid entry")
+        return saved
+
+    @classmethod
+    def _read_config_file(cls, path: Path) -> dict:
+        with open(path, "r", encoding="utf-8") as stream:
+            return cls._validate_saved_config(json.load(stream))
+
+    @staticmethod
+    def _atomic_replace_bytes(path: Path, payload: bytes) -> None:
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(tmp, path)
+        finally:
+            try:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+            except OSError:
+                pass
+
+    def _refresh_backup_from(self, source: Path) -> None:
+        saved = self._read_config_file(source)
+        payload = json.dumps(saved, indent=2, ensure_ascii=False).encode("utf-8")
+        self._atomic_replace_bytes(self.backup_path, payload)
+
+    def _quarantine_bad_config(self) -> None:
+        if not self.path.exists():
+            return
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        target = self.dir / f"config.corrupt.{stamp}.json"
+        suffix = 1
+        while target.exists():
+            target = self.dir / f"config.corrupt.{stamp}.{suffix}.json"
+            suffix += 1
+        try:
+            shutil.copy2(self.path, target)
+            self.recovery_file = target.name
+            copies = sorted(
+                self.dir.glob("config.corrupt.*.json"),
+                key=lambda item: item.stat().st_mtime,
+                reverse=True,
+            )
+            for old in copies[3:]:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
+            print(f"[Config] Preserved unreadable config as '{target.name}'.")
+        except OSError as exc:
+            print(f"[Config] Could not preserve unreadable config: {exc}")
+
+    def _load_saved_config(self):
+        primary_error = None
+        if self.path.exists():
+            try:
+                saved = self._read_config_file(self.path)
+                try:
+                    self._refresh_backup_from(self.path)
+                except OSError as exc:
+                    print(f"[Config] Could not refresh backup: {exc}")
+                return saved
+            except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
+                primary_error = exc
+                print(f"[Config] Primary config is unreadable ({exc}).")
+                self._quarantine_bad_config()
+
+        if self.backup_path.exists():
+            try:
+                saved = self._read_config_file(self.backup_path)
+                self.recovery_notice = "backup"
+                self._needs_save = True
+                print("[Config] Restored user data from config.json.bak.")
+                return saved
+            except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
+                print(f"[Config] Backup config is unreadable ({exc}).")
+
+        if primary_error is not None:
+            self.recovery_notice = "unrecoverable"
+            self._unrecoverable_load_error = True
+            print("[Config] No valid backup found; using defaults without deleting the quarantined file.")
+        return None
 
     def _load(self) -> dict:
         cfg = _default_config()
         migrate_legacy_cpu_limiter = False
-        if self.path.exists():
+        saved = self._load_saved_config()
+        if saved is not None:
             try:
-                with open(self.path, "r", encoding="utf-8") as f:
-                    saved = json.load(f)
                 saved_settings = saved.get("settings")
                 migrate_legacy_cpu_limiter = (
                     isinstance(saved_settings, dict)
@@ -313,18 +450,27 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                             stats[key] = saved_module_stats[key]
                     try:
                         stats["lastCyberspaceUnix"] = max(
-                            0.0, float(saved_module_stats.get("lastCyberspaceUnix", 0) or 0))
+                            0.0,
+                            float(saved_module_stats.get("lastCyberspaceUnix", 0) or 0),
+                        )
                     except (TypeError, ValueError, OverflowError):
                         stats["lastCyberspaceUnix"] = 0.0
                     stats["lastCyberspaceAccount"] = saved_module_stats.get(
-                        "lastCyberspaceAccount")
+                        "lastCyberspaceAccount"
+                    )
                     anchor_reason = saved_module_stats.get("anchorReason")
-                    if anchor_reason in ("trackingStart", "cyberspace", "statsReset", "migration"):
+                    if anchor_reason in (
+                        "trackingStart",
+                        "cyberspace",
+                        "statsReset",
+                        "migration",
+                    ):
                         stats["anchorReason"] = anchor_reason
                     elif stats["lastCyberspace"]:
                         stats["anchorReason"] = "cyberspace"
                     stats["accurateSinceLastCyberspace"] = bool(
-                        saved_module_stats.get("accurateSinceLastCyberspace", True))
+                        saved_module_stats.get("accurateSinceLastCyberspace", True)
+                    )
                     cfg["moduleUseStats"] = stats
                 elif int(cfg["biomeCounts"].get("cyberspace", 0) or 0) > 0:
 
@@ -335,8 +481,10 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                         for task in MODULE_USE_TASKS
                     }
                     from datetime import datetime, timezone
+
                     cfg["moduleUseStats"]["trackingSince"] = datetime.now(
-                        timezone.utc).isoformat()
+                        timezone.utc
+                    ).isoformat()
                     cfg["moduleUseStats"]["accurateSinceLastCyberspace"] = False
                     cfg["moduleUseStats"]["anchorReason"] = "migration"
                     self._needs_save = True
@@ -367,8 +515,11 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                             tt["modules"].update({mk: mv for mk, mv in v.items()})
                         else:
                             tt[k] = v
-            except (json.JSONDecodeError, OSError) as e:
-                print(f"[Config] Could not read config.json ({e}) - using defaults.")
+            except (AttributeError, TypeError, ValueError) as e:
+                print(f"[Config] Could not merge config data ({e}) - using defaults.")
+                cfg = _default_config()
+                self.recovery_notice = "unrecoverable"
+                self._unrecoverable_load_error = True
 
         settings = cfg["settings"]
         if migrate_legacy_cpu_limiter:
@@ -378,7 +529,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
             was_legacy_suspend = settings.get("throttleMethod") == "suspend"
             if was_legacy_suspend and settings.get("throttleRamCap"):
-                print("[Config] Disabled legacy hard RAM cap for the safe CPU limiter migration.")
+                print(
+                    "[Config] Disabled legacy hard RAM cap for the safe CPU limiter migration."
+                )
             if was_legacy_suspend:
                 settings["throttleMethod"] = "cpuLimit"
                 settings["throttleRamCap"] = False
@@ -410,13 +563,25 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         if config_migrations.migrate_cycle(cfg):
             self._needs_save = True
         notif = cfg["automation"].setdefault("notifications", {})
-        for _k in ("strangeController", "biomeRandomizer", "merchantTeleporter",
-                   "merchantScreenshot", "merchantAutoBuy", "failsafes"):
+        for _k in (
+            "strangeController",
+            "biomeRandomizer",
+            "merchantTeleporter",
+            "merchantScreenshot",
+            "merchantAutoBuy",
+            "failsafes",
+        ):
             notif.setdefault(_k, False)
         ap = cfg["automation"].setdefault("autopop", {})
-        for _k, _v in (("accounts", {}), ("ocrFailsafe", False),
-                       ("amountRegion", None), ("notifyUse", False),
-                       ("notifyFail", False), ("presets", {}), ("activePreset", "")):
+        for _k, _v in (
+            ("accounts", {}),
+            ("ocrFailsafe", False),
+            ("amountRegion", None),
+            ("notifyUse", False),
+            ("notifyFail", False),
+            ("presets", {}),
+            ("activePreset", ""),
+        ):
             ap.setdefault(_k, _v)
         if config_migrations.migrate_autopop(cfg, ap):
             self._needs_save = True
@@ -439,13 +604,16 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         for task in ("strangeController", "biomeRandomizer", "merchantTeleporter"):
             auto[task] = any((a.get("modules") or {}).get(task) for a in active)
         fishing = auto.setdefault("fishing", {})
-        fishing["moduleEnabled"] = any((a.get("modules") or {}).get("fishing") for a in active)
+        fishing["moduleEnabled"] = any(
+            (a.get("modules") or {}).get("fishing") for a in active
+        )
         all_ids = {a.get("id") for a in accs}
         active_ids = {a.get("id") for a in active}
         sched = fishing.get("schedule")
         if isinstance(sched, list):
-            sched[:] = [e for e in sched
-                        if isinstance(e, dict) and e.get("accId") in all_ids]
+            sched[:] = [
+                e for e in sched if isinstance(e, dict) and e.get("accId") in all_ids
+            ]
             fishing["enabled"] = any(e.get("accId") in active_ids for e in sched)
         else:
             fishing["schedule"] = []
@@ -453,14 +621,21 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         if fishing.get("account") is not None and fishing["account"] not in all_ids:
             fishing["account"] = None
         eden = auto.get("eden")
-        if isinstance(eden, dict) and eden.get("account") is not None and eden["account"] not in active_ids:
+        if (
+            isinstance(eden, dict)
+            and eden.get("account") is not None
+            and eden["account"] not in active_ids
+        ):
             eden["account"] = None
         cycle = auto.get("cycle")
         if isinstance(cycle, dict):
             steps = cycle.get("steps")
             if isinstance(steps, list):
-                steps[:] = [s for s in steps
-                            if isinstance(s, dict) and s.get("accId") in all_ids]
+                steps[:] = [
+                    s
+                    for s in steps
+                    if isinstance(s, dict) and s.get("accId") in all_ids
+                ]
             limbo = cycle.get("limbo")
             if isinstance(limbo, dict) and isinstance(limbo.get("accounts"), dict):
                 lacc = limbo["accounts"]
@@ -482,15 +657,32 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         
         self._write_now()
 
+    def save_on_shutdown(self) -> None:
+        
+        if self._unrecoverable_load_error and not self._dirty:
+            print("[Config] Skipped shutdown save after unrecoverable load error.")
+            return
+        self._write_now()
+
     def _write_now(self) -> None:
         with self._lock:
             try:
-                fd, tmp = tempfile.mkstemp(dir=str(self.dir), suffix=".tmp")
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(self.data, f, indent=2, ensure_ascii=False)
-                os.replace(tmp, self.path)
+                payload = json.dumps(
+                    self.data, indent=2, ensure_ascii=False
+                ).encode("utf-8")
+                if self.path.exists():
+                    try:
+                        self._refresh_backup_from(self.path)
+                    except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
+                        print(f"[Config] Kept existing backup; current file was not valid ({exc}).")
+                self._atomic_replace_bytes(self.path, payload)
+
+
+
+                self._atomic_replace_bytes(self.backup_path, payload)
                 self._dirty = False
-            except OSError as e:
+                self._unrecoverable_load_error = False
+            except (OSError, TypeError, ValueError) as e:
                 print(f"[Config] Saving failed: {e}")
 
     def _ensure_flusher(self) -> None:
@@ -502,7 +694,8 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 return
             self._save_stop.clear()
             self._save_thread = threading.Thread(
-                target=self._flush_loop, name="config-flusher", daemon=True)
+                target=self._flush_loop, name="config-flusher", daemon=True
+            )
             self._save_thread.start()
 
     def _flush_loop(self) -> None:
@@ -526,6 +719,15 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 return only
             return accs[:1]
         return [a for a in accs if a.get("enabled", True)]
+
+    def effective_eden_account_id(self):
+        
+        settings = self.data.get("settings", {}) or {}
+        if settings.get("macroMode") == "normal":
+            accounts = self.enabled_accounts()
+            return accounts[0].get("id") if accounts else None
+        eden = self.data.get("automation", {}).get("eden", {}) or {}
+        return eden.get("account")
 
     def is_account_enabled(self, acc_id) -> bool:
         acc = self._find(self.data["accounts"], acc_id)
@@ -552,7 +754,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     @property
     def module_counts(self) -> dict:
-        mc = self.data.setdefault("moduleCounts", {"strangeController": 0, "biomeRandomizer": 0})
+        mc = self.data.setdefault(
+            "moduleCounts", {"strangeController": 0, "biomeRandomizer": 0}
+        )
         for k in MODULE_USE_TASKS:
             mc.setdefault(k, 0)
         return mc
@@ -580,7 +784,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     @property
     def eden_stats(self) -> dict:
-        es = self.data.setdefault("edenStats", {"count": 0, "lastFound": "", "log": [], "accountSeconds": {}})
+        es = self.data.setdefault(
+            "edenStats", {"count": 0, "lastFound": "", "log": [], "accountSeconds": {}}
+        )
         es.setdefault("count", 0)
         es.setdefault("lastFound", "")
         es.setdefault("log", [])
@@ -648,6 +854,10 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 "edenStats": dict(self.eden_stats),
                 "settings": dict(self.settings),
                 "automation": json.loads(json.dumps(self.automation)),
+                "configRecovery": {
+                    "status": self.recovery_notice,
+                    "preservedFile": self.recovery_file,
+                } if self.recovery_notice else None,
             }
 
     def _find(self, items, item_id):
@@ -663,9 +873,15 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         if not key:
             return None
         with self._lock:
-            return next((acc for acc in self.accounts
-                         if acc.get("id") != exclude_id
-                         and self._account_name_key(acc.get("name")) == key), None)
+            return next(
+                (
+                    acc
+                    for acc in self.accounts
+                    if acc.get("id") != exclude_id
+                    and self._account_name_key(acc.get("name")) == key
+                ),
+                None,
+            )
 
     def token_owner(self, token, exclude_id=None):
         
@@ -673,9 +889,15 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         if not wanted:
             return None
         with self._lock:
-            return next((acc for acc in self.accounts
-                         if acc.get("id") != exclude_id
-                         and self.tokens.get(acc.get("id")) == wanted), None)
+            return next(
+                (
+                    acc
+                    for acc in self.accounts
+                    if acc.get("id") != exclude_id
+                    and self.tokens.get(acc.get("id")) == wanted
+                ),
+                None,
+            )
 
     def linked_user_owner(self, username, exclude_id=None):
         
@@ -683,12 +905,21 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         if not key:
             return None
         with self._lock:
-            return next((acc for acc in self.accounts
-                         if acc.get("id") != exclude_id
-                         and self.tokens.has(acc.get("id"))
-                         and self._account_name_key(acc.get("tokenUser")) == key), None)
+            return next(
+                (
+                    acc
+                    for acc in self.accounts
+                    if acc.get("id") != exclude_id
+                    and self.tokens.has(acc.get("id"))
+                    and self._account_name_key(acc.get("tokenUser")) == key
+                ),
+                None,
+            )
 
-    def add_account(self, name: str, link: str = "", avatar: str = "", acc_id=None) -> dict:
+    def add_account(
+        self, name: str, link: str = "", avatar: str = "", acc_id=None,
+        roblox_user_id=None, roblox_username: str = "",
+    ) -> dict:
         with self._lock:
             if self.account_name_owner(name):
                 raise ValueError("duplicate_account")
@@ -697,6 +928,8 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 "name": name.strip(),
                 "link": (link or "").strip(),
                 "avatar": avatar or "",
+                "robloxUserId": roblox_user_id,
+                "robloxUsername": roblox_username or "",
                 "enabled": True,
                 "modules": {"strangeController": False, "biomeRandomizer": False},
             }
@@ -740,7 +973,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             self.tokens.delete(acc_id)
             self.data["accounts"] = [a for a in self.accounts if a.get("id") != acc_id]
             for w in self.webhooks:
-                w["routedAccounts"] = [i for i in w.get("routedAccounts", []) if i != acc_id]
+                w["routedAccounts"] = [
+                    i for i in w.get("routedAccounts", []) if i != acc_id
+                ]
             self._sync_automation_flags()
             self.save()
             return len(self.accounts) != before
@@ -753,19 +988,28 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             acc["enabled"] = bool(enabled)
             if not enabled:
                 from . import win_windows
+
                 win_windows.clear_manual_bind(acc_id)
             self._sync_automation_flags()
             self.save()
             return True
 
     def set_account_module(self, acc_id, task: str, enabled: bool) -> bool:
-        if task not in ("strangeController", "biomeRandomizer", "merchantTeleporter", "auraDetection", "fishing"):
+        if task not in (
+            "strangeController",
+            "biomeRandomizer",
+            "merchantTeleporter",
+            "auraDetection",
+            "fishing",
+        ):
             return False
         with self._lock:
             acc = self._find(self.accounts, acc_id)
             if not acc:
                 return False
-            mods = acc.setdefault("modules", {"strangeController": False, "biomeRandomizer": False})
+            mods = acc.setdefault(
+                "modules", {"strangeController": False, "biomeRandomizer": False}
+            )
             mods[task] = bool(enabled)
             if task == "fishing" and enabled:
                 for other in self.accounts:
@@ -794,7 +1038,7 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         with self._lock:
             valid = {a.get("id") for a in self.accounts}
             clean, seen = [], set()
-            for e in (schedule or []):
+            for e in schedule or []:
                 if not isinstance(e, dict):
                     continue
                 aid = e.get("accId")
@@ -823,13 +1067,30 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             self.save()
             return True
 
-    def set_account_token_status(self, acc_id, user: str, valid: bool) -> bool:
+    def set_account_token_status(
+        self, acc_id, user: str, valid: bool, roblox_user_id=None
+    ) -> bool:
         with self._lock:
             acc = self._find(self.accounts, acc_id)
             if not acc:
                 return False
             acc["tokenUser"] = user or ""
             acc["tokenValid"] = bool(valid)
+            if roblox_user_id is not None:
+                acc["robloxUserId"] = roblox_user_id
+                acc["robloxUsername"] = user or acc.get("robloxUsername", "")
+            self.save()
+            return True
+
+    def set_account_profile(self, acc_id, user_id=None, username="", avatar=None) -> bool:
+        with self._lock:
+            acc = self._find(self.accounts, acc_id)
+            if not acc:
+                return False
+            acc["robloxUserId"] = user_id
+            acc["robloxUsername"] = username or ""
+            if avatar is not None:
+                acc["avatar"] = avatar or ""
             self.save()
             return True
 
@@ -934,17 +1195,25 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     def _restore_calibration(self, snap: dict) -> None:
         auto = self.automation
-        if snap.get("pixels") is not None: auto["pixels"] = snap["pixels"]
-        if snap.get("firstItemRegion") is not None: auto["firstItemRegion"] = snap["firstItemRegion"]
-        if snap.get("calib") is not None: auto["calib"] = snap["calib"]
+        if snap.get("pixels") is not None:
+            auto["pixels"] = snap["pixels"]
+        if snap.get("firstItemRegion") is not None:
+            auto["firstItemRegion"] = snap["firstItemRegion"]
+        if snap.get("calib") is not None:
+            auto["calib"] = snap["calib"]
         if snap.get("merchants_calib") is not None:
             auto.setdefault("merchants", {})["calib"] = snap["merchants_calib"]
         fishing = auto.setdefault("fishing", {})
-        if snap.get("fishing_pixels") is not None: fishing["pixels"] = snap["fishing_pixels"]
-        if snap.get("fishing_regions") is not None: fishing["regions"] = snap["fishing_regions"]
-        if snap.get("fishing_firstItemRegion") is not None: fishing["firstItemRegion"] = snap["fishing_firstItemRegion"]
+        if snap.get("fishing_pixels") is not None:
+            fishing["pixels"] = snap["fishing_pixels"]
+        if snap.get("fishing_regions") is not None:
+            fishing["regions"] = snap["fishing_regions"]
+        if snap.get("fishing_firstItemRegion") is not None:
+            fishing["firstItemRegion"] = snap["fishing_firstItemRegion"]
         if snap.get("autopop_amountRegion") is not None:
-            auto.setdefault("autopop", {})["amountRegion"] = snap["autopop_amountRegion"]
+            auto.setdefault("autopop", {})["amountRegion"] = snap[
+                "autopop_amountRegion"
+            ]
 
     def force_reset_once(self, token: str) -> bool:
         
@@ -1000,6 +1269,7 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     def load_preset_pixels(self, name: str) -> bool:
         from . import presets
+
         coords = presets.get_preset(name)
         if not coords:
             return False
@@ -1022,8 +1292,15 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             return True
 
     def set_ocr_failsafe(self, task: str, enabled: bool) -> None:
-        allowed = ("strangeController", "biomeRandomizer", "merchantTeleporter", "fishing",
-                   "fishingFailed", "sellFishShop", "noBite")
+        allowed = (
+            "strangeController",
+            "biomeRandomizer",
+            "merchantTeleporter",
+            "fishing",
+            "fishingFailed",
+            "sellFishShop",
+            "noBite",
+        )
         if task not in allowed:
             return
         with self._lock:
@@ -1035,8 +1312,14 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             self.save()
 
     def set_notification(self, key: str, enabled: bool) -> None:
-        allowed = ("strangeController", "biomeRandomizer", "merchantTeleporter",
-                   "merchantScreenshot", "merchantAutoBuy", "failsafes")
+        allowed = (
+            "strangeController",
+            "biomeRandomizer",
+            "merchantTeleporter",
+            "merchantScreenshot",
+            "merchantAutoBuy",
+            "failsafes",
+        )
         if key not in allowed:
             return
         with self._lock:
@@ -1046,7 +1329,6 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 self.automation["notifications"] = v
             v[key] = bool(enabled)
             self.save()
-
 
     def _biome_pings(self) -> dict:
         bp = self.automation.get("biomePings")
@@ -1087,6 +1369,7 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
         with self._lock:
             settings = self.data.setdefault("settings", {})
             from datetime import date
+
             count = max(0, int(value))
             settings["streakCount"] = count
             settings["streakLastDate"] = date.today().isoformat()
@@ -1140,7 +1423,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             stats["anchorReason"] = "statsReset"
             self.save()
 
-    def increment_biome(self, key: str, acc_id=None, *, track_progress: bool = True) -> None:
+    def increment_biome(
+        self, key: str, acc_id=None, *, track_progress: bool = True
+    ) -> None:
         with self._lock:
             if key in self.biome_counts:
                 self.biome_counts[key] += 1
@@ -1158,8 +1443,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                     stats["lastCyberspaceAccount"] = acc_id
                     stats["accurateSinceLastCyberspace"] = True
                     stats["anchorReason"] = "cyberspace"
-                    self._session_cyberspaces = int(
-                        getattr(self, "_session_cyberspaces", 0)) + 1
+                    self._session_cyberspaces = (
+                        int(getattr(self, "_session_cyberspaces", 0)) + 1
+                    )
 
 
 
@@ -1181,31 +1467,32 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
 
             try:
-                clicked_before_last_cyberspace = (
-                    used_at is not None
-                    and float(self.module_use_stats.get("lastCyberspaceUnix", 0) or 0)
-                    >= float(used_at)
-                )
+                clicked_before_last_cyberspace = used_at is not None and float(
+                    self.module_use_stats.get("lastCyberspaceUnix", 0) or 0
+                ) >= float(used_at)
             except (TypeError, ValueError, OverflowError):
                 clicked_before_last_cyberspace = False
             if clicked_before_last_cyberspace:
                 baseline = self.module_use_stats["cyberspaceBaseline"]
-                baseline[task] = min(
-                    total, _nonnegative_int(baseline.get(task, 0)) + 1)
+                baseline[task] = min(total, _nonnegative_int(baseline.get(task, 0)) + 1)
 
             if acc_id is not None:
                 account_key = str(acc_id)
                 account_stats = self.module_use_stats["accounts"].setdefault(
-                    account_key, {name: 0 for name in MODULE_USE_TASKS})
+                    account_key, {name: 0 for name in MODULE_USE_TASKS}
+                )
                 account_stats[task] = int(account_stats.get(task, 0) or 0) + 1
 
                 session_stats = self._session_module_counts.setdefault(
-                    account_key, {name: 0 for name in MODULE_USE_TASKS})
+                    account_key, {name: 0 for name in MODULE_USE_TASKS}
+                )
                 session_stats[task] = int(session_stats.get(task, 0) or 0) + 1
             if not self.module_use_stats.get("trackingSince"):
                 from datetime import datetime, timezone
+
                 self.module_use_stats["trackingSince"] = datetime.now(
-                    timezone.utc).isoformat()
+                    timezone.utc
+                ).isoformat()
             self.save()
             return total
 
@@ -1241,20 +1528,26 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
             session_accounts = getattr(self, "_session_module_counts", {})
             session_totals = {
-                task: sum(_nonnegative_int(values.get(task, 0))
-                          for values in session_accounts.values()
-                          if isinstance(values, dict))
+                task: sum(
+                    _nonnegative_int(values.get(task, 0))
+                    for values in session_accounts.values()
+                    if isinstance(values, dict)
+                )
                 for task in MODULE_USE_TASKS
             }
 
             intervals_cfg = self.automation.get("intervals", {}) or {}
             intervals = {
                 "strangeController": self._positive_interval(
-                    intervals_cfg.get("strangeController"), 21 * 60),
+                    intervals_cfg.get("strangeController"), 21 * 60
+                ),
                 "biomeRandomizer": self._positive_interval(
-                    intervals_cfg.get("biomeRandomizer"), 36 * 60),
+                    intervals_cfg.get("biomeRandomizer"), 36 * 60
+                ),
             }
-            enabled_ids = {str(account.get("id")) for account in self.enabled_accounts()}
+            enabled_ids = {
+                str(account.get("id")) for account in self.enabled_accounts()
+            }
             account_rows = []
             total_uses_per_hour = 0.0
             active_accounts = 0
@@ -1286,19 +1579,21 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                     task: _nonnegative_int(session.get(task, 0))
                     for task in MODULE_USE_TASKS
                 }
-                account_rows.append({
-                    "id": account.get("id"),
-                    "name": account.get("name") or f"Account {account.get('id')}",
-                    "avatar": account.get("avatar", ""),
-                    "enabled": participates,
-                    "active": uses_per_hour > 0,
-                    "modules": enabled_modules,
-                    "lifetime": lifetime_values,
-                    "session": session_values,
-                    "combinedLifetime": sum(lifetime_values.values()),
-                    "combinedSession": sum(session_values.values()),
-                    "usesPerHour": round(uses_per_hour, 4),
-                })
+                account_rows.append(
+                    {
+                        "id": account.get("id"),
+                        "name": account.get("name") or f"Account {account.get('id')}",
+                        "avatar": account.get("avatar", ""),
+                        "enabled": participates,
+                        "active": uses_per_hour > 0,
+                        "modules": enabled_modules,
+                        "lifetime": lifetime_values,
+                        "session": session_values,
+                        "combinedLifetime": sum(lifetime_values.values()),
+                        "combinedSession": sum(session_values.values()),
+                        "usesPerHour": round(uses_per_hour, 4),
+                    }
+                )
 
             attributed = {
                 task: sum(row["lifetime"][task] for row in account_rows)
@@ -1311,7 +1606,9 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
             chance = 0.0
             if attempts > 0:
-                chance = -math.expm1(attempts * math.log1p(-1.0 / CYBERSPACE_ODDS)) * 100.0
+                chance = (
+                    -math.expm1(attempts * math.log1p(-1.0 / CYBERSPACE_ODDS)) * 100.0
+                )
 
 
 
@@ -1325,7 +1622,10 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 "odds": CYBERSPACE_ODDS,
                 "cyberspaceCount": int(self.biome_counts.get("cyberspace", 0) or 0),
                 "lifetime": {**totals, "combined": sum(totals.values())},
-                "unattributed": {**unattributed, "combined": sum(unattributed.values())},
+                "unattributed": {
+                    **unattributed,
+                    "combined": sum(unattributed.values()),
+                },
                 "session": {**session_totals, "combined": sum(session_totals.values())},
                 "sinceLast": {**since_last, "combined": attempts},
                 "estimatedRemaining": remaining,
@@ -1345,7 +1645,8 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
                 "anchorReason": stats.get("anchorReason", "trackingStart"),
                 "sessionCyberspaces": int(getattr(self, "_session_cyberspaces", 0)),
                 "accurateSinceLastCyberspace": bool(
-                    stats.get("accurateSinceLastCyberspace", True)),
+                    stats.get("accurateSinceLastCyberspace", True)
+                ),
             }
 
     def increment_merchant(self, mid: str) -> int:
@@ -1369,6 +1670,7 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
     def increment_eden(self) -> dict:
         
         from datetime import datetime, timezone
+
         with self._lock:
             es = self.eden_stats
             es["count"] = int(es.get("count", 0)) + 1
@@ -1378,7 +1680,11 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
             log.append(ts)
             del log[:-50]
             self.save()
-            return {"count": es["count"], "lastFound": es["lastFound"], "log": list(es["log"])}
+            return {
+                "count": es["count"],
+                "lastFound": es["lastFound"],
+                "log": list(es["log"]),
+            }
 
     def add_eden_time(self, acc_id, seconds: float) -> None:
         
@@ -1396,7 +1702,12 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     def reset_eden_stats(self) -> None:
         with self._lock:
-            self.data["edenStats"] = {"count": 0, "lastFound": "", "log": [], "accountSeconds": {}}
+            self.data["edenStats"] = {
+                "count": 0,
+                "lastFound": "",
+                "log": [],
+                "accountSeconds": {},
+            }
             self.save()
 
     def increment_unknown(self, name: str) -> None:
@@ -1411,12 +1722,17 @@ class ConfigManager(MerchantConfigMixin, CalibConfigMixin, AutopopConfigMixin,
 
     def _new_id(self) -> int:
         import time
+
         with self._lock:
             candidate = int(time.time() * 1000)
             existing = {x.get("id", 0) for x in self.accounts} | {
                 x.get("id", 0) for x in self.webhooks
             }
-            base = max(candidate, ConfigManager._last_id, *existing) if existing else max(candidate, ConfigManager._last_id)
+            base = (
+                max(candidate, ConfigManager._last_id, *existing)
+                if existing
+                else max(candidate, ConfigManager._last_id)
+            )
             new_id = base + 1
             ConfigManager._last_id = new_id
             return new_id

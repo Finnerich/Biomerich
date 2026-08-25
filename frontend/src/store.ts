@@ -21,6 +21,11 @@ export interface Toast {
   title: string;
   detail?: string;
 }
+export interface RarePingWarning {
+  id: string;
+  account?: string;
+  test?: boolean;
+}
 export interface Release {
   tag: string;
   name: string;
@@ -117,6 +122,9 @@ interface Store {
 
   currentTab: string;
   setCurrentTab: (tab: string) => void;
+  rarePingWarnings: RarePingWarning[];
+  pushRarePingWarning: (warning: RarePingWarning) => void;
+  dismissRarePingWarning: (id: string) => void;
   
   
   tutorialDrawer: { kind: string; accId?: number } | null;
@@ -233,6 +241,13 @@ export const useStore = create<Store>((set) => ({
 
   currentTab: "home",
   setCurrentTab: (tab) => set({ currentTab: tab }),
+  rarePingWarnings: [],
+  pushRarePingWarning: (warning) =>
+    set((st) => st.rarePingWarnings.some((item) => item.id === warning.id)
+      ? {}
+      : { rarePingWarnings: [...st.rarePingWarnings, warning] }),
+  dismissRarePingWarning: (id) =>
+    set((st) => ({ rarePingWarnings: st.rarePingWarnings.filter((item) => item.id !== id) })),
   tutorialDrawer: null,
   setTutorialDrawer: (d) => set({ tutorialDrawer: d }),
 

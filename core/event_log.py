@@ -53,30 +53,68 @@ def _downscale(raw: bytes):
         return None
 
 
-def maybe_log(embed, image_bytes=None) -> None:
+def _component_text(message: dict) -> list:
+    texts = []
+
+    def walk(component):
+        if not isinstance(component, dict):
+            return
+        if component.get("type") == 10 and component.get("content"):
+            texts.append(component["content"])
+        for child in component.get("components", []) or []:
+            walk(child)
+
+    for component in message.get("components", []) or []:
+        walk(component)
+    return texts
+
+
+def _component_color(message: dict):
+    for component in message.get("components", []) or []:
+        if component.get("type") == 17:
+            return component.get("accent_color")
+    return None
+
+
+def maybe_log(message, image_bytes=None, account=None) -> None:
     
     global _seq, _last_desc, _last_ts
-    if not isinstance(embed, dict):
+    if not isinstance(message, dict):
         return
-    desc = embed.get("description", "") or ""
+    desc = message.get("description", "") or "\n".join(_component_text(message))
     now = time.time()
     with _lock:
         if desc and desc == _last_desc and (now - _last_ts) < 2.5:
             return
         _last_desc, _last_ts = desc, now
-        lines = [l for l in _clean(desc).splitlines() if l.strip()]
-        lines = [l for l in lines if "support server" not in l.lower() and "join server" not in l.lower()]
+        raw_lines = [line for line in desc.splitlines() if line.strip()]
+        title_index = next(
+            (i for i, line in enumerate(raw_lines) if line.lstrip().startswith("#")),
+            0,
+        )
+        lines = [_clean(line) for line in raw_lines[title_index:]]
+        lines = [
+            line for line in lines
+            if line
+            and "support server" not in line.lower()
+            and "join server" not in line.lower()
+            and not line.lower().startswith("solrich v")
+            and not line.startswith("<t:")
+        ]
         title = lines[0] if lines else "Event"
         detail = " · ".join(lines[1:5])
-        account = ((embed.get("author") or {}).get("name")) or ""
+        if isinstance(account, dict):
+            account_name = account.get("name") or ""
+        else:
+            account_name = account or ((message.get("author") or {}).get("name")) or ""
         _seq += 1
         _log.append({
             "id": _seq,
             "kind": _kind_from(title),
-            "account": account,
+            "account": account_name,
             "title": title,
             "detail": detail,
-            "color": embed.get("color"),
+            "color": message.get("color", _component_color(message)),
             "image": _downscale(image_bytes) if image_bytes else None,
             "ts": now,
         })

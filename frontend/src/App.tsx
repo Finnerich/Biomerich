@@ -17,6 +17,7 @@ import { UserAgreement } from "./components/UserAgreement";
 import { Dialog } from "./components/Dialog";
 import { TooltipLayer } from "./components/Tooltip";
 import { ToastLayer } from "./components/Toast";
+import { RarePingWarning } from "./components/RarePingWarning";
 
 export function App() {
   const currentTab = useStore((s) => s.currentTab);
@@ -57,6 +58,7 @@ export function App() {
           </main>
         </div>
       </div>
+      <RarePingWarning />
     </>
   );
 }

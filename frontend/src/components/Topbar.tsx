@@ -1,8 +1,20 @@
 import { useStore } from "../store";
 import { setMode, toggleMacro } from "../engine";
+import { getMacroMode, setMacroMode } from "../data/macroMode";
+import { CustomSelect } from "./CustomSelect";
 import { EngineModule } from "./EngineModule";
-import { MacroModeToggle } from "./MacroModeToggle";
 import { StreakPill } from "./StreakPill";
+
+const RUN_MODE_OPTIONS = [
+  { value: "idle", label: "Idle", icon: "fa-moon", iconClassName: "mode-icon-idle" },
+  { value: "automation", label: "Auto", icon: "fa-robot", iconClassName: "mode-icon-auto" },
+  { value: "eden", label: "Eden", icon: "fa-circle-dot", iconClassName: "mode-icon-eden" },
+];
+
+const MACRO_MODE_OPTIONS = [
+  { value: "normal", label: "Normal", icon: "fa-user", iconClassName: "mode-icon-normal" },
+  { value: "multi", label: "Multi-Macro", icon: "fa-users", iconClassName: "mode-icon-multi" },
+];
 
 function formatTime(sec: number): string {
   const hours = Math.floor(sec / 3600);
@@ -37,6 +49,7 @@ export function Topbar() {
   const hotkey = (settings.hotkey as string) || "F5";
   const modeHotkey = (settings.modeHotkey as string) || "none";
   const mode = (automation.mode as string) || "idle";
+  const macroMode = getMacroMode(settings);
 
   return (
     <div className={`topbar glass tb4${running ? " live" : ""}`}>
@@ -52,34 +65,28 @@ export function Topbar() {
           <span className="pb-key">{hotkey}</span>
         </button>
 
-        <div id="modeSeg" className={`mode-seg mode-seg-3 ${mode === "automation" ? "auto" : mode}`} role="group" title="Switch run mode">
-          <span className="mode-seg-glider"></span>
-          <button
-            className={`mode-seg-opt${mode === "idle" ? " active" : ""}`}
-            data-mode="idle"
-            onClick={() => void setMode("idle")}
-          >
-            <i className="fa-solid fa-moon"></i>
-            <span>Idle</span>
-          </button>
-          <button
-            className={`mode-seg-opt${mode === "automation" ? " active" : ""}`}
-            data-mode="automation"
-            onClick={() => void setMode("automation")}
-          >
-            <i className="fa-solid fa-robot"></i>
-            <span>Auto</span>
-          </button>
-          <button
-            className={`mode-seg-opt${mode === "eden" ? " active" : ""}`}
-            data-mode="eden"
-            onClick={() => void setMode("eden")}
-          >
-            <i className="fa-solid fa-circle-dot"></i>
-            <span>Eden</span>
-          </button>
+        <div id="modeSeg" className="topbar-mode-dropdown-wrap">
+          <CustomSelect
+            className="topbar-mode-select topbar-run-mode-select"
+            options={RUN_MODE_OPTIONS}
+            value={mode}
+            onChange={(value) => void setMode(value)}
+            aria-label="Run mode"
+          />
         </div>
-        <MacroModeToggle id="macroModeToggle" className="topbar-macro-mode" />
+        <div
+          id="macroModeToggle"
+          className="topbar-mode-dropdown-wrap"
+        >
+          <CustomSelect
+            className="topbar-mode-select topbar-macro-select"
+            options={MACRO_MODE_OPTIONS}
+            value={macroMode}
+            disabled={running}
+            onChange={(value) => void setMacroMode(value === "normal" ? "normal" : "multi")}
+            aria-label="Macro mode"
+          />
+        </div>
         {modeHotkey !== "none" && <span className="mode-hotkey-badge visible">{modeHotkey}</span>}
       </div>
 

@@ -23,6 +23,7 @@ import { PIXEL_SLOTS } from "../data/slots";
 import { DEFAULT_AVATAR } from "../data/biomes";
 import { getNormalAccountId, setNormalAccount } from "../data/macroMode";
 import type { Account, BackendState } from "../types";
+import { BindButton, useWindowBindPoll } from "../windowBind";
 import {
   AntiAfkSettings,
   ApModal,
@@ -73,6 +74,8 @@ export function NormalMode() {
   const cycleStatus = useStore((s) => s.cycleStatus);
   const applyState = useStore((s) => s.applyState);
   const patchSettings = useStore((s) => s.patchSettings);
+
+  useWindowBindPoll();
 
   const [drawer, setDrawer] = useState<DrawerKind>(null);
   const [autobuyModal, setAutobuyModal] = useState<AutobuyModalState>(null);
@@ -195,7 +198,9 @@ export function NormalMode() {
           <div className="glass card panel nm-account" data-reveal>
             <div className="panel-head">
               <div className="panel-title"><i className="fa-solid fa-user"></i> Account</div>
-              <span className="badge badge-soft">runs only this account</span>
+              <span className="badge badge-soft">
+                {automation.mode === "eden" ? "Eden uses this account automatically" : "runs only this account"}
+              </span>
             </div>
             <div className="nm-account-row">
               <img src={account?.avatar || DEFAULT_AVATAR} className="nm-avatar" alt="" />
@@ -207,9 +212,16 @@ export function NormalMode() {
                   onChange={(value) => void setNormalAccount(Number(value))}
                 />
                 <span className="nm-account-hint">
-                  {account?.window ? <><i className="fa-solid fa-circle-check" /> Window bound</> : "Launch this account from the Accounts tab, then press Start."}
+                  {account?.window ? <><i className="fa-solid fa-circle-check" /> {account.window}</> : "Launch Roblox, or bind its window manually."}
                 </span>
               </div>
+              {account && (
+                <BindButton
+                  acc={account}
+                  disabled={running}
+                  baseClass="prio-chip prio-chip-bind nm-bind-window"
+                />
+              )}
             </div>
           </div>
 

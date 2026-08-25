@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from "react";
 export interface SelectOption {
   value: string;
   label: string;
+  icon?: string;
+  iconClassName?: string;
 }
 
 interface Props {
@@ -113,6 +115,7 @@ export function CustomSelect({
     <div
       ref={wrapRef}
       className={`cs-wrap${open ? " open" : ""}${disabled ? " disabled" : ""}${className ? " " + className : ""}`}
+      data-value={value}
     >
       <div
         ref={triggerRef}
@@ -128,6 +131,12 @@ export function CustomSelect({
         onMouseDown={(e) => { e.preventDefault(); open ? closeMenu(false) : openMenu(); }}
         onKeyDown={onKeyDown}
       >
+        {selected?.icon && (
+          <i
+            className={`fa-solid ${selected.icon} cs-option-icon${selected.iconClassName ? ` ${selected.iconClassName}` : ""}`}
+            aria-hidden="true"
+          ></i>
+        )}
         <span className={`cs-label${selected ? "" : " placeholder"}`}>{label}</span>
         <i className="fa-solid fa-chevron-down cs-arrow" aria-hidden="true"></i>
       </div>
@@ -145,6 +154,12 @@ export function CustomSelect({
               choose(i);
             }}
           >
+            {option.icon && (
+              <i
+                className={`fa-solid ${option.icon} cs-option-icon${option.iconClassName ? ` ${option.iconClassName}` : ""}`}
+                aria-hidden="true"
+              ></i>
+            )}
             {option.label}
           </div>
         ))}

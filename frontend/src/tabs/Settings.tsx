@@ -5,17 +5,27 @@
 
 
 
-import { useRef } from "react";
-import { useStore } from "../store";
+import { useRef, useState } from "react";
+
 import { callPy } from "../bridge";
-import { alertDialog } from "../dialog";
-import { ACCENTS, applyAccent, getAccentIndex } from "../data/accents";
 import { CustomSelect } from "../components/CustomSelect";
-import { THEME_ANIMS, NAV_ANIMS, applyNavAnim } from "../components/ThemeCanvas";
+import { NAV_ANIMS, THEME_ANIMS, applyNavAnim } from "../components/ThemeCanvas";
 import { ThemePicker } from "../components/ThemePicker";
+import { ACCENTS, applyAccent, getAccentIndex } from "../data/accents";
+import { alertDialog, confirmDialog } from "../dialog";
+import { useStore } from "../store";
 import { withColorTransition } from "../themeFlash";
 
 const F_KEYS = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9"];
+
+interface RobloxLogCleanupResult {
+  ok?: boolean;
+  error?: string | null;
+  closedInstances?: number;
+  deletedItems?: number;
+  remainingItems?: number;
+  failedFiles?: string[];
+}
 
 
 
@@ -32,9 +42,12 @@ function LockPill({ name }: { name: string }) {
 export function Settings() {
   const settings = useStore((s) => s.settings);
   const patchSettings = useStore((s) => s.patchSettings);
+  const running = useStore((s) => s.running);
+  const pushToast = useStore((s) => s.pushToast);
   const themeLock = useStore((s) => s.themeLock);
   const locked = !!themeLock;
   const dimDebounce = useRef<number | null>(null);
+  const [clearingLogs, setClearingLogs] = useState(false);
 
   const accentIndex = getAccentIndex(settings.accentIndex);
   const hotkey = (settings.hotkey as string) || "F5";
@@ -59,7 +72,6 @@ export function Settings() {
     localStorage.setItem("navAnim", key);
     void callPy("set_setting", "navAnim", key);
   }
-
 
   function onHotkeyChange(key: string) {
     if (key === modeHotkey) {
@@ -90,6 +102,52 @@ export function Settings() {
     dimDebounce.current = window.setTimeout(() => {
       void callPy("set_setting", "monitorDimLevel", value);
     }, 300);
+  }
+
+  async function clearRobloxLogs() {
+    if (running || clearingLogs) return;
+    const confirmed = await confirmDialog(
+      "This closes every open Roblox instance, including background/tray instances, and permanently deletes everything inside %LOCALAPPDATA%\\Roblox\\logs. Continue?",
+      {
+        title: "Clear Roblox logs",
+        confirmLabel: "Close Roblox & clear logs",
+        cancelLabel: "Cancel",
+        danger: true,
+      },
+    );
+    if (!confirmed) return;
+
+    setClearingLogs(true);
+    let result: RobloxLogCleanupResult | null = null;
+    try {
+      result = await callPy<RobloxLogCleanupResult>("clear_roblox_logs");
+    } catch {
+      result = { ok: false, error: "backend_unavailable" };
+    } finally {
+      setClearingLogs(false);
+    }
+
+    const closed = Number(result?.closedInstances) || 0;
+    const deleted = Number(result?.deletedItems) || 0;
+    if (result?.ok) {
+      const detail = closed || deleted
+        ? `Closed ${closed} Roblox instance${closed === 1 ? "" : "s"} and deleted ${deleted} log item${deleted === 1 ? "" : "s"}.`
+        : "The Roblox logs folder is already clean.";
+      pushToast({ icon: "fa-circle-check", title: "Roblox logs cleared", detail });
+      return;
+    }
+
+    const remaining = Number(result?.remainingItems) || 0;
+    let detail = "The log files could not be deleted. Try again.";
+    if (result?.error === "running") detail = "Stop the macro before clearing Roblox logs.";
+    else if (result?.error === "busy") detail = "A Roblox log cleanup is already running.";
+    else if (result?.error === "roblox_still_running") detail = "One or more Roblox instances could not be closed.";
+    else if (result?.error === "delete_failed") detail = `${deleted} items were deleted, but ${remaining} could not be removed.`;
+    else if (result?.error === "invalid_log_path") detail = "The Roblox logs folder path looks invalid or unsafe.";
+    else if (result?.error === "localappdata_unavailable") detail = "The Local AppData folder could not be found.";
+    else if (result?.error === "unsupported_platform") detail = "Roblox log cleanup is only available on Windows.";
+    else if (result?.error === "backend_unavailable") detail = "The SolRich backend did not respond.";
+    pushToast({ icon: "fa-triangle-exclamation", title: "Failed to delete Roblox log files", detail });
   }
 
   const startOptions = F_KEYS.filter((key) => key === hotkey || key !== modeHotkey).map((key) => ({ value: key, label: key }));
@@ -198,6 +256,29 @@ export function Settings() {
             <span className="slider"></span>
           </label>
         </div>
+      </div>
+
+      <div className="settings-section-label" data-reveal>
+        <i className="fa-solid fa-screwdriver-wrench"></i>
+        <span>Troubleshooting</span>
+      </div>
+
+      <div className="glass card setting-row roblox-log-cleanup-row" data-reveal>
+        <div className="setting-info">
+          <span className="setting-name">Clear Roblox logs</span>
+          <span className="setting-desc">
+            Fixes biome detection problems caused by broken logs. This closes every Roblox instance first.
+          </span>
+        </div>
+        <button
+          className="roblox-log-clear-btn"
+          disabled={running || clearingLogs}
+          title={running ? "Stop the macro first" : "Close Roblox and clear its logs"}
+          onClick={() => void clearRobloxLogs()}
+        >
+          <i className={`fa-solid ${clearingLogs ? "fa-spinner fa-spin" : "fa-trash-can"}`}></i>
+          <span>{clearingLogs ? "Clearing…" : "Clear logs"}</span>
+        </button>
       </div>
 
     </section>

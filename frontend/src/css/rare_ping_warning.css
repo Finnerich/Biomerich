@@ -1,0 +1,247 @@
+body.rare-ping-lock-active {
+  overflow: hidden !important;
+}
+
+.rare-ping-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 5vw, 64px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(106, 9, 23, 0.24), transparent 52%),
+    rgba(6, 4, 6, 0.78);
+  backdrop-filter: blur(15px) saturate(0.44) brightness(0.58);
+  -webkit-backdrop-filter: blur(15px) saturate(0.44) brightness(0.58);
+  animation: rarePingLockIn 180ms ease-out both;
+  cursor: default;
+  isolation: isolate;
+}
+
+.rare-ping-lock::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.rare-ping-lock::after {
+  inset: 0;
+  z-index: -1;
+  border: clamp(6px, 1vw, 14px) solid rgba(226, 46, 68, 0.22);
+  box-shadow: inset 0 0 45px rgba(177, 12, 35, 0.08);
+}
+
+.rare-ping-lock__alarm {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 30%, rgba(69, 9, 18, 0.16) 100%);
+}
+
+.rare-ping-warning {
+  position: relative;
+  display: flex;
+  width: min(780px, 100%);
+  gap: clamp(18px, 3vw, 28px);
+  padding: clamp(26px, 4.5vw, 46px);
+  overflow: hidden;
+  border: 2px solid rgba(233, 79, 98, 0.78);
+  border-radius: 24px;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 0 0, rgba(210, 49, 70, 0.2), transparent 44%),
+    linear-gradient(145deg, rgba(66, 12, 21, 0.98), rgba(20, 8, 11, 0.99));
+  box-shadow:
+    0 0 0 1px rgba(235, 79, 97, 0.1),
+    0 20px 55px rgba(0, 0, 0, 0.58);
+}
+
+.rare-ping-warning::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 9px;
+  background: #e9364c;
+  box-shadow: 0 0 10px rgba(222, 44, 68, 0.28);
+}
+
+.rare-ping-warning__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 clamp(62px, 8vw, 82px);
+  width: clamp(62px, 8vw, 82px);
+  height: clamp(62px, 8vw, 82px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 22px;
+  color: #fff;
+  background: linear-gradient(145deg, #e83c51, #991527);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24), inset 0 1px rgba(255, 255, 255, 0.18);
+  font-size: clamp(26px, 4vw, 38px);
+}
+
+.rare-ping-warning__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.rare-ping-warning__eyebrow {
+  margin-bottom: 9px;
+  color: #ff9daa;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.rare-ping-warning h2 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: clamp(25px, 4vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.rare-ping-warning p {
+  max-width: 650px;
+  margin: 0;
+  color: rgba(255, 235, 239, 0.86);
+  font-size: clamp(13px, 1.8vw, 15px);
+  line-height: 1.65;
+}
+
+.rare-ping-warning__error {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  color: #ffd5da;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.rare-ping-warning__error {
+  border-color: rgba(255, 99, 116, 0.45);
+}
+
+.rare-ping-warning__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  margin-top: 24px;
+}
+
+.rare-ping-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.rare-ping-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.rare-ping-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.rare-ping-btn:disabled { opacity: 0.58; cursor: wait; }
+
+.rare-ping-btn--safe {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.rare-ping-btn--safe:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+
+.rare-ping-btn--danger {
+  border-color: #ff7b8a;
+  background: linear-gradient(180deg, #f42b43, #c90e25);
+  box-shadow: 0 6px 16px rgba(140, 13, 31, 0.2);
+}
+
+.rare-ping-btn--danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ff3850, #dc1029);
+  box-shadow: 0 8px 20px rgba(155, 15, 35, 0.27);
+}
+
+
+.rare-ping-lock.is-confirming {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(187, 14, 39, 0.3), transparent 55%),
+    rgba(22, 3, 7, 0.86);
+  backdrop-filter: blur(17px) saturate(0.4) brightness(0.48);
+  -webkit-backdrop-filter: blur(17px) saturate(0.4) brightness(0.48);
+  animation: rarePingConfirmIn 220ms ease-out both;
+}
+
+.rare-ping-lock.is-confirming::after {
+  border-color: rgba(235, 42, 66, 0.58);
+  box-shadow: inset 0 0 55px rgba(190, 17, 40, 0.12);
+}
+
+.rare-ping-lock.is-confirming .rare-ping-warning {
+  border: 2px solid #ed3c54;
+  background:
+    radial-gradient(circle at 50% -15%, rgba(218, 57, 78, 0.3), transparent 52%),
+    linear-gradient(145deg, rgba(94, 10, 24, 0.99), rgba(31, 5, 10, 1));
+  box-shadow:
+    0 0 0 1px rgba(235, 59, 81, 0.12),
+    0 22px 62px rgba(0, 0, 0, 0.68);
+}
+
+.rare-ping-lock.is-confirming .rare-ping-warning__icon {
+  background: #d91f39;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26);
+}
+
+.rare-ping-lock.is-confirming .rare-ping-warning__eyebrow {
+  color: #fff;
+}
+
+.rare-ping-lock.is-confirming .rare-ping-btn--danger {
+  border-color: #fff;
+  background: #e51f3c;
+  box-shadow: 0 6px 18px rgba(135, 13, 31, 0.24);
+}
+
+.rare-ping-lock.is-dispatching {
+  filter: saturate(1.15);
+}
+
+@keyframes rarePingLockIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rarePingConfirmIn {
+  from { opacity: 0.86; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 700px) {
+  .rare-ping-lock { padding: 14px; }
+  .rare-ping-warning { flex-direction: column; padding: 25px 22px; border-radius: 19px; }
+  .rare-ping-warning__icon { flex-basis: 58px; width: 58px; height: 58px; border-radius: 17px; font-size: 25px; }
+  .rare-ping-warning__actions { flex-direction: column; }
+  .rare-ping-btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rare-ping-lock,
+  .rare-ping-lock::after,
+  .rare-ping-warning,
+  .rare-ping-warning__icon,
+  .rare-ping-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}

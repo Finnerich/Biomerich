@@ -551,6 +551,10 @@ def resolve_accounts(accounts):
         entry["pid"] = pid
         entry["hwnd"] = pid_to_hwnd.get(pid)
         entry["via"] = via
+
+
+
+        entry["online"] = True
         used_pids.add(pid)
 
     for acc in accounts:
@@ -637,16 +641,20 @@ def resolve_accounts(accounts):
         lt = acc.get("launchTime")
         if lt:
             return float(lt)
-        return _log_ctime(log_file)
+        return _log_ctime(log_file) if log_file else None
 
     remaining = []
     for acc in accounts:
         aid = acc.get("id")
         e = result[aid]
-        if e["pid"] is not None or not e["online"]:
+        if e["pid"] is not None:
             continue
         ct = _anchor(acc, e["logFile"])
-        if ct is not None:
+
+
+
+
+        if ct is not None and (e["online"] or acc.get("launchTime") is not None):
             remaining.append((aid, ct))
 
     acc_by_id = {a.get("id"): a for a in accounts}
@@ -695,6 +703,14 @@ def resolve_accounts(accounts):
         unmatched.sort(key=lambda aid: _anchor(acc_by_id[aid], result[aid]["logFile"]) or 0)
         for aid, pid in zip(unmatched, leftover_pids):
             _bind(result[aid], pid, "count")
+
+
+
+
+    unbound_ids = [aid for aid, info in result.items() if info["pid"] is None]
+    free_pids = [pid for pid in proc_start if pid not in used_pids]
+    if len(accounts) == 1 and len(unbound_ids) == 1 and len(free_pids) == 1:
+        _bind(result[unbound_ids[0]], free_pids[0], "single-window")
 
     for aid, info in result.items():
         if info["hwnd"] is not None:

@@ -1,3 +1,4 @@
+import os
 import time
 import threading
 from urllib.parse import urlparse
@@ -23,7 +24,8 @@ FAKE_PING_WINDOW = 12.0
 
 class _AccountState:
     __slots__ = ("acc_id", "username", "reader", "current_biome", "biome_since",
-                 "online", "last_line_ts", "disconnect_ts", "was_disconnected")
+                 "online", "last_line_ts", "disconnect_ts", "was_disconnected",
+                 "blocked_biome", "blocked_ping_id")
 
     def __init__(self, acc_id, username):
         self.acc_id = acc_id
@@ -35,6 +37,8 @@ class _AccountState:
         self.last_line_ts = 0.0
         self.disconnect_ts = 0.0
         self.was_disconnected = False
+        self.blocked_biome = None
+        self.blocked_ping_id = None
 
 class MacroEngine:
     def __init__(self, config):
@@ -51,6 +55,10 @@ class MacroEngine:
         self.time = TimeTracker(config)
         self._runtime_cache = []
         self._runtime_ts = 0.0
+        self._pending_rare_pings = {}
+        self._rare_ping_seq = 0
+        self.rare_ping_notifier = None
+        self.rare_ping_resolver = None
 
     @property
     def running(self) -> bool:
@@ -229,7 +237,10 @@ class MacroEngine:
                             "Window for each account, then click its matching Roblox window."
                         )
                 elif not any((info or {}).get("hwnd") is not None for info in resolved.values()):
-                    errors.append("No Roblox window found. Launch your account first. The macro detects its window automatically.")
+                    errors.append(
+                        "No Roblox window found. Launch your account first, or press "
+                        "Bind Window in the Macro tab and click its Roblox window."
+                    )
             except Exception:
                 if len(enabled_accounts) > 1:
                     errors.append(
@@ -248,7 +259,12 @@ class MacroEngine:
                               "Set the 7 core click points in the Calibration tab.")
         if auto.get("mode") == "eden":
             eden = auto.get("eden") or {}
-            if eden.get("account") is None:
+            effective_eden_account = (
+                self.config.effective_eden_account_id()
+                if hasattr(self.config, "effective_eden_account_id")
+                else eden.get("account")
+            )
+            if effective_eden_account is None:
                 errors.append("Eden mode is on but you haven't picked a main Eden account.")
             if self.automation._eden_click_point() is None:
                 errors.append("Eden mode needs the Eden Click Point — set it under "
@@ -282,8 +298,6 @@ class MacroEngine:
 
             if self._logging_active:
                 self._build_states()
-                self._thread = threading.Thread(target=self._tracker_loop, daemon=True)
-                self._thread.start()
 
             self._sync_subsystems()
             self.time.start(self.config.automation.get("mode"))
@@ -297,6 +311,14 @@ class MacroEngine:
 
         if self._logging_active:
             webhooks.macro_started(self._all_active_urls(), self._tracked_account_names(), self._current_version())
+            self._bootstrap_current_biomes()
+
+
+
+            with self._lock:
+                if self._running and self._logging_active:
+                    self._thread = threading.Thread(target=self._tracker_loop, daemon=True)
+                    self._thread.start()
         return {"ok": True, "errors": [], "running": True, "uptime": 0}
 
     def stop(self) -> dict:
@@ -317,6 +339,11 @@ class MacroEngine:
             self._logging_active = False
             self._thread = None
             self._states.clear()
+            pending_ids = list(self._pending_rare_pings)
+            self._pending_rare_pings.clear()
+
+        for pending_id in pending_ids:
+            self._notify_rare_ping_resolved(pending_id)
 
         if was_running and was_logging:
             webhooks.macro_stopped(self._all_active_urls(), report, self._current_version())
@@ -373,7 +400,9 @@ class MacroEngine:
         self._states.clear()
         tracked = self._tracked_accounts()
         usernames = [a.get("name", "") for a in tracked]
-        log_map = roblox_logs.match_logs_to_usernames(usernames)
+        log_map = roblox_logs.match_logs_to_usernames(
+            usernames, include_inactive=False
+        )
 
         for acc in tracked:
             uname = (acc.get("name") or "").strip().lower()
@@ -384,6 +413,72 @@ class MacroEngine:
                 st.online = True
             self._states[acc.get("id")] = st
 
+    def _bootstrap_current_biomes(self):
+        
+        with self._lock:
+            states = list(self._states.values())
+        for st in states:
+            self._bootstrap_current_biome(st)
+
+    def _bootstrap_current_biome(self, st, respect_fake_guard=False):
+        if not st.reader:
+            return
+        biome_key = roblox_logs.latest_biome(st.reader.path)
+        if not biome_key:
+            return
+        if st.blocked_biome:
+            if biome_key == st.blocked_biome:
+                return
+            self._expire_blocked_ping(st)
+        if biome_key == st.current_biome:
+            return
+
+        acc = self._account_by_id(st.acc_id)
+        urls = self._urls_for_account(st.acc_id)
+        if (
+            respect_fake_guard
+            and self._fake_ping_guard_on()
+            and biomes.is_rare_ping(biome_key)
+            and st.disconnect_ts
+            and (time.time() - st.disconnect_ts) <= FAKE_PING_WINDOW
+        ):
+            self._block_rare_ping(st, acc, biome_key, urls)
+            return
+
+        st.current_biome = biome_key
+        st.biome_since = time.time()
+        st.online = True
+        if biome_key == "normal":
+            return
+
+        report = self._session_report() if self._running else "00:00:00"
+        if biomes.is_unknown(biome_key):
+            self.config.increment_unknown(biomes.unknown_name(biome_key))
+            webhooks.biome_started(
+                urls, acc, biome_key, report, self._current_version(), unknown=True
+            )
+        else:
+            self.config.increment_biome(biome_key, st.acc_id)
+            webhooks.biome_started(
+                urls,
+                acc,
+                biome_key,
+                report,
+                self._current_version(),
+                ping_content=self.config.biome_ping_content(biome_key),
+            )
+        acc_name = (acc or {}).get("name") or st.username
+        activity_log.push(
+            f"{acc_name} started in {biomes.display_name(biome_key)}",
+            account=acc_name,
+            kind="biome",
+            biome=biome_key,
+        )
+        print(
+            f"[Engine] '{st.username}' was already in "
+            f"'{biome_key}' at macro start; sent biome_started."
+        )
+
     def _tracker_loop(self):
         rescan_counter = 0
         while self._running:
@@ -391,9 +486,9 @@ class MacroEngine:
 
             try:
                 rescan_counter += 1
-                if rescan_counter >= 15:
+                if rescan_counter >= 3:
                     rescan_counter = 0
-                    self._rescan_missing_logs()
+                    self._rescan_logs()
 
                 with self._lock:
                     states = list(self._states.values())
@@ -414,21 +509,110 @@ class MacroEngine:
                 print(f"[Engine] Tracker loop error (recovering): {e}")
             time.sleep(1)
 
-    def _rescan_missing_logs(self):
-        missing = [s for s in self._states.values() if not s.reader]
-        if not missing:
+    def _rescan_logs(self):
+        
+        states = list(self._states.values())
+        if not states:
             return
-        usernames = [s.username for s in missing]
-        log_map = roblox_logs.match_logs_to_usernames(usernames)
-        for st in missing:
+        usernames = [s.username for s in states]
+        log_map = roblox_logs.match_logs_to_usernames(
+            usernames, include_inactive=False
+        )
+        for st in states:
             log_file = log_map.get(st.username)
-            if log_file:
-                st.reader = roblox_logs.LogReader(log_file)
-                st.online = True
-                print(f"[Engine] Log for '{st.username}' found: {log_file}")
+            if not log_file:
+                continue
+            old_path = st.reader.path if st.reader else None
+            if old_path and os.path.normcase(old_path) == os.path.normcase(log_file):
+                continue
+            st.reader = roblox_logs.LogReader(log_file)
+            st.online = True
+            action = "switched" if old_path else "found"
+            print(f"[Engine] Log for '{st.username}' {action}: {log_file}")
+            self._bootstrap_current_biome(st, respect_fake_guard=True)
 
     def _fake_ping_guard_on(self) -> bool:
         return bool(self.config.settings.get("fakePingGuard", True))
+
+    def _notify_rare_ping_resolved(self, pending_id):
+        callback = self.rare_ping_resolver
+        if callable(callback):
+            try:
+                callback(pending_id)
+            except Exception as e:
+                print(f"[Engine] Rare-ping resolve callback failed: {e}")
+
+    def _expire_blocked_ping(self, st):
+        pending_id = st.blocked_ping_id
+        if pending_id:
+            with self._lock:
+                self._pending_rare_pings.pop(pending_id, None)
+            self._notify_rare_ping_resolved(pending_id)
+        st.blocked_biome = None
+        st.blocked_ping_id = None
+
+    def _block_rare_ping(self, st, acc, biome_key, urls):
+        st.blocked_biome = biome_key
+        webhooks.fake_rare_ping(urls, acc, self._current_version())
+        if self.config.settings.get("fakePingPrompt", True):
+            with self._lock:
+                self._rare_ping_seq += 1
+                pending_id = f"rare-{self._rare_ping_seq}-{time.time_ns()}"
+                self._pending_rare_pings[pending_id] = {
+                    "accountId": st.acc_id,
+                    "biome": biome_key,
+                }
+            st.blocked_ping_id = pending_id
+            callback = self.rare_ping_notifier
+            if callable(callback):
+                try:
+                    callback({
+                        "id": pending_id,
+                        "account": (acc or {}).get("name") or st.username,
+                    })
+                except Exception as e:
+                    print(f"[Engine] Rare-ping warning callback failed: {e}")
+        print(
+            f"[Engine] Suppressed fake '{biome_key}' ping for "
+            f"'{st.username}' (just after disconnect)."
+        )
+
+    def confirm_blocked_rare_ping(self, pending_id):
+        with self._lock:
+            pending = self._pending_rare_pings.pop(str(pending_id), None)
+            st = self._states.get(pending.get("accountId")) if pending else None
+        if not pending or not st or st.blocked_ping_id != str(pending_id):
+            return {"ok": False, "error": "expired"}
+
+        biome_key = pending["biome"]
+        acc = self._account_by_id(st.acc_id)
+        webhooks.biome_started(
+            self._urls_for_account(st.acc_id),
+            acc,
+            biome_key,
+            self._session_report(),
+            self._current_version(),
+            ping_content="@everyone",
+        )
+        st.current_biome = biome_key
+        st.biome_since = time.time()
+        st.online = True
+        st.was_disconnected = False
+        st.disconnect_ts = 0.0
+        st.blocked_biome = None
+        st.blocked_ping_id = None
+        self._notify_rare_ping_resolved(str(pending_id))
+        print(f"[Engine] User manually approved blocked '{biome_key}' ping.")
+        return {"ok": True}
+
+    def dismiss_blocked_rare_ping(self, pending_id):
+        with self._lock:
+            pending = self._pending_rare_pings.pop(str(pending_id), None)
+            st = self._states.get(pending.get("accountId")) if pending else None
+        if st and st.blocked_ping_id == str(pending_id):
+            st.blocked_ping_id = None
+        self._notify_rare_ping_resolved(str(pending_id))
+        return {"ok": bool(pending)}
 
     def _process_line(self, st, line):
         if roblox_logs.line_is_disconnect(line):
@@ -445,6 +629,11 @@ class MacroEngine:
         if not biome_key:
             return
 
+        if st.blocked_biome:
+            if biome_key == st.blocked_biome:
+                return
+            self._expire_blocked_ping(st)
+
         acc = self._account_by_id(st.acc_id)
         urls = self._urls_for_account(st.acc_id)
 
@@ -452,8 +641,7 @@ class MacroEngine:
                 and biomes.is_rare_ping(biome_key)
                 and st.disconnect_ts
                 and (time.time() - st.disconnect_ts) <= FAKE_PING_WINDOW):
-            webhooks.fake_rare_ping(urls, acc, self._current_version())
-            print(f"[Engine] Suppressed fake '{biome_key}' ping for '{st.username}' (just after disconnect).")
+            self._block_rare_ping(st, acc, biome_key, urls)
             return
 
         if st.was_disconnected:
@@ -572,20 +760,45 @@ class MacroEngine:
         return {"key": "idle", "label": "Idle", "phase": ""}
 
     @staticmethod
-    def get_roblox_avatar(username: str) -> str:
-        username = (username or "").strip()
-        if not username:
-            return ""
+    def get_roblox_profiles(usernames) -> dict:
+        
+        requested = [str(name or "").strip() for name in usernames]
+        requested = list(dict.fromkeys(name for name in requested if name))
+        if not requested:
+            return {}
         try:
             r = requests.post(
                 "https://users.roblox.com/v1/usernames/users",
-                json={"usernames": [username], "excludeBannedUsers": True},
+                json={"usernames": requested, "excludeBannedUsers": True},
                 timeout=10,
             )
+            r.raise_for_status()
             data = r.json().get("data", [])
-            if not data:
-                return ""
-            user_id = data[0]["id"]
+            profiles = {}
+            for entry in data:
+                lookup_name = entry.get("requestedUsername") or entry.get("name") or ""
+                if lookup_name:
+                    profiles[lookup_name.casefold()] = {
+                        "id": entry.get("id"),
+                        "name": entry.get("name", ""),
+                        "displayName": entry.get("displayName", ""),
+                    }
+            return profiles
+        except (requests.RequestException, KeyError, ValueError) as e:
+            print(f"[Profile] Could not resolve Roblox users: {e}")
+            return {}
+
+    @staticmethod
+    def get_roblox_profile(username: str) -> dict:
+        username = (username or "").strip()
+        profiles = MacroEngine.get_roblox_profiles([username])
+        profile = profiles.get(username.casefold())
+        if not profile or not profile.get("id"):
+            return {}
+        profile = dict(profile)
+        profile["avatar"] = ""
+        try:
+            user_id = profile["id"]
             t = requests.get(
                 "https://thumbnails.roblox.com/v1/users/avatar-headshot",
                 params={"userIds": user_id, "size": "150x150",
@@ -594,7 +807,11 @@ class MacroEngine:
             )
             tdata = t.json().get("data", [])
             if tdata and tdata[0].get("imageUrl"):
-                return tdata[0]["imageUrl"]
+                profile["avatar"] = tdata[0]["imageUrl"]
         except (requests.RequestException, KeyError, ValueError) as e:
             print(f"[Avatar] Could not load avatar for '{username}': {e}")
-        return ""
+        return profile
+
+    @staticmethod
+    def get_roblox_avatar(username: str) -> str:
+        return MacroEngine.get_roblox_profile(username).get("avatar", "")

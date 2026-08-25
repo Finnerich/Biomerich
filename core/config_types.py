@@ -126,6 +126,7 @@ class AppSettings(TypedDict, total=False):
     perfMode: str
     slowReset: bool
     fakePingGuard: bool
+    fakePingPrompt: bool
     tesseractPromptDismissed: bool
 
 
@@ -208,6 +209,11 @@ class CyberspaceProgress(TypedDict, total=False):
     accurateSinceLastCyberspace: bool
 
 
+class ConfigRecovery(TypedDict, total=False):
+    status: str
+    preservedFile: Optional[str]
+
+
 class BackendState(TypedDict, total=False):
     running: bool
     uptime: float
@@ -222,3 +228,4 @@ class BackendState(TypedDict, total=False):
     unknownBiomes: Dict[str, int]
     merchantCounts: Dict[str, int]
     edenStats: EdenStats
+    configRecovery: Optional[ConfigRecovery]

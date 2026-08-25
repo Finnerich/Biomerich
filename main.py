@@ -5,6 +5,7 @@ from core import bridge as eel
 import os
 import sys
 import time
+
 import threading
 
 
@@ -13,16 +14,20 @@ import threading
 
 if sys.platform == "win32":
     import subprocess as _subprocess
+
     _CREATE_NO_WINDOW = 0x08000000
     _orig_popen_init = _subprocess.Popen.__init__
+
     def _quiet_popen_init(self, *args, **kwargs):
         if not kwargs.get("creationflags"):
             kwargs["creationflags"] = _CREATE_NO_WINDOW
         _orig_popen_init(self, *args, **kwargs)
+
     _subprocess.Popen.__init__ = _quiet_popen_init
 
 try:
     import keyboard
+
     _KEYBOARD_AVAILABLE = True
 except ImportError:
     _KEYBOARD_AVAILABLE = False
@@ -36,17 +41,22 @@ from core import win_windows
 from core import status_events
 from core import activity_log
 from core import monitor_dim
+
 from core import creator
 from core import roblox_auth
+
 from core import perf as perfmon
 from core import ram_trim
 from core import throttle as throttle_mod
 from core import performance_benchmark as performance_benchmark_mod
 from core import browser_login as browser_login_mod
+from core import roblox_cleanup as roblox_cleanup_mod
+
 from core import presets as _auto_presets
 from core import fishing_presets as _fish_presets
 from core import ocr
 from core.anti_afk import focus_roblox
+
 
 def _maybe_relaunch_deelevated():
     
@@ -56,32 +66,71 @@ def _maybe_relaunch_deelevated():
         return
     try:
         import ctypes
+
         if not ctypes.windll.shell32.IsUserAnAdmin():
             return
     except Exception:
         return
     try:
         import ctypes
+
         exe = sys.executable
-        print("[SolRich] Started as administrator — relaunching without elevation "
-              "so the window renders (admin isn't needed).")
-        ctypes.windll.shell32.ShellExecuteW(None, "open", "explorer.exe", f'"{exe}"', None, 1)
+        print(
+            "[SolRich] Started as administrator — relaunching without elevation "
+            "so the window renders (admin isn't needed)."
+        )
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "open", "explorer.exe", f'"{exe}"', None, 1
+        )
         sys.exit(0)
     except SystemExit:
         raise
     except Exception as e:
         print(f"[SolRich] Could not de-elevate ({e}); continuing as administrator.")
 
+
 _maybe_relaunch_deelevated()
 
-eel.init(os.environ.get("SOLRICH_WEB") or os.environ.get("BIOMERICH_WEB", "web-react-dist"))
+eel.init(
+    os.environ.get("SOLRICH_WEB") or os.environ.get("BIOMERICH_WEB", "web-react-dist")
+)
 
 config = ConfigManager()
 try:
     from core import applog as _applog
+
     _applog.setup(config.dir)
 except Exception:
     pass
+
+
+def _refresh_missing_account_profiles():
+    
+    missing = [
+        account for account in config.accounts
+        if not account.get("robloxUserId") and account.get("name")
+    ]
+    if not missing:
+        return
+    profiles = MacroEngine.get_roblox_profiles(account.get("name") for account in missing)
+    changed = False
+    for account in missing:
+        profile = profiles.get(str(account.get("name") or "").casefold())
+        if not profile or not profile.get("id"):
+            continue
+        account["robloxUserId"] = profile["id"]
+        account["robloxUsername"] = profile.get("name", "")
+        changed = True
+    if changed:
+        config.save()
+
+
+if "pytest" not in sys.modules:
+    threading.Thread(
+        target=_refresh_missing_account_profiles,
+        name="roblox-profile-backfill",
+        daemon=True,
+    ).start()
 
 
 
@@ -96,12 +145,35 @@ except Exception as _restore_error:
 engine = MacroEngine(config)
 
 
+def _show_blocked_rare_ping(payload):
+    
+    try:
+        eel.js_on_rare_ping_blocked(payload)()
+    except Exception as exc:
+        print(f"[Engine] Could not show blocked rare-ping warning: {exc}")
+
+
+def _close_blocked_rare_ping(pending_id):
+    try:
+        eel.js_on_rare_ping_resolved(str(pending_id))()
+    except Exception:
+        pass
+
+
+engine.rare_ping_notifier = _show_blocked_rare_ping
+engine.rare_ping_resolver = _close_blocked_rare_ping
+
+
 activity_log.account_provider = lambda: engine.automation.current_account
 ram_trimmer = ram_trim.RamTrimmer(config, is_engine_running=lambda: engine.running)
-throttler = throttle_mod.ThrottleEngine(config, is_engine_running=lambda: engine.running)
+throttler = throttle_mod.ThrottleEngine(
+    config, is_engine_running=lambda: engine.running
+)
 engine.anti_afk.set_throttler(throttler)
 engine.automation.set_throttler(throttler)
-performance_benchmark = performance_benchmark_mod.PerformanceBenchmark(config, throttler)
+performance_benchmark = performance_benchmark_mod.PerformanceBenchmark(
+    config, throttler
+)
 
 if "pytest" not in sys.modules:
     try:
@@ -113,13 +185,14 @@ browser_login = browser_login_mod.BrowserLogin()
 
 import atexit as _atexit
 from core import webhooks as _webhooks
+
 _atexit.register(throttler.stop)
 _atexit.register(performance_benchmark.stop)
 _atexit.register(roblox_auth.stop_account_launch_cleanup)
 _atexit.register(roblox_auth.release_multi_instance)
 _atexit.register(browser_login.cancel)
 _atexit.register(lambda: _webhooks.flush(8.0))
-_atexit.register(config.save_now)
+_atexit.register(config.save_on_shutdown)
 
 
 _hotkey_handle = None
@@ -127,6 +200,40 @@ _hotkey_lock = threading.Lock()
 
 _mode_hotkey_handle = None
 _mode_hotkey_lock = threading.Lock()
+
+_maintenance_lock = threading.Lock()
+_maintenance_active = False
+
+
+def _start_engine_if_available():
+    with _maintenance_lock:
+        if _maintenance_active:
+            return {
+                "ok": False,
+                "errors": [
+                    "Roblox log cleanup is currently running. Wait for it to finish."
+                ],
+                "running": False,
+            }
+        return engine.start()
+
+
+def _begin_maintenance():
+    global _maintenance_active
+    with _maintenance_lock:
+        if _maintenance_active:
+            return "busy"
+        if engine.running:
+            return "running"
+        _maintenance_active = True
+        return None
+
+
+def _end_maintenance():
+    global _maintenance_active
+    with _maintenance_lock:
+        _maintenance_active = False
+
 
 def _on_mode_hotkey_triggered():
     order = ("idle", "automation", "eden")
@@ -137,6 +244,7 @@ def _on_mode_hotkey_triggered():
         next_mode = "automation"
     engine.set_automation_mode(next_mode)
     eel.js_on_mode_hotkey(next_mode)()
+
 
 def _register_mode_hotkey(key: str):
     global _mode_hotkey_handle
@@ -152,18 +260,22 @@ def _register_mode_hotkey(key: str):
         if not key or key.lower() == "none":
             return
         try:
-            _mode_hotkey_handle = keyboard.add_hotkey(key, _on_mode_hotkey_triggered, suppress=True)
+            _mode_hotkey_handle = keyboard.add_hotkey(
+                key, _on_mode_hotkey_triggered, suppress=True
+            )
             print(f"[Hotkey] Registered mode toggle hotkey: {key}")
         except Exception as e:
             print(f"[Hotkey] Could not register mode hotkey '{key}': {e}")
+
 
 def _on_hotkey_triggered():
     if engine.running:
         result = engine.stop()
         eel.js_on_hotkey_stop(result)()
     else:
-        result = engine.start()
+        result = _start_engine_if_available()
         eel.js_on_hotkey_start(result)()
+
 
 def _register_hotkey(key: str):
     global _hotkey_handle
@@ -177,10 +289,13 @@ def _register_hotkey(key: str):
                 pass
             _hotkey_handle = None
         try:
-            _hotkey_handle = keyboard.add_hotkey(key, _on_hotkey_triggered, suppress=True)
+            _hotkey_handle = keyboard.add_hotkey(
+                key, _on_hotkey_triggered, suppress=True
+            )
             print(f"[Hotkey] Registered global hotkey: {key}")
         except Exception as e:
             print(f"[Hotkey] Could not register '{key}': {e}")
+
 
 def _state_with_status() -> dict:
     state = config.state()
@@ -188,19 +303,24 @@ def _state_with_status() -> dict:
     state["uptime"] = engine.uptime
     return state
 
+
 def _guard():
     return engine.running
+
 
 def _broadcast_engine_sync():
     
     try:
-        eel.js_on_engine_sync({
-            "running": engine.running,
-            "uptime": engine.uptime,
-            "mode": config.automation.get("mode", "idle"),
-        })()
+        eel.js_on_engine_sync(
+            {
+                "running": engine.running,
+                "uptime": engine.uptime,
+                "mode": config.automation.get("mode", "idle"),
+            }
+        )()
     except Exception:
         pass
+
 
 def _broadcast_settings_sync():
     
@@ -209,9 +329,11 @@ def _broadcast_settings_sync():
     except Exception:
         pass
 
+
 @eel.expose
 def get_state():
     return _state_with_status()
+
 
 @eel.expose
 def get_status():
@@ -226,10 +348,13 @@ def get_status():
         "cyberspaceProgress": config.cyberspace_progress(),
         "edenStats": dict(config.eden_stats),
         "accountStates": engine.account_runtime(),
-        "fishing": {**engine.automation.fishing.status(),
-                    "rotation": engine.automation.fishing.rotation_status()},
+        "fishing": {
+            **engine.automation.fishing.status(),
+            "rotation": engine.automation.fishing.rotation_status(),
+        },
         "timeTracking": engine.time.live(),
     }
+
 
 @eel.expose
 def get_engine_signal():
@@ -248,18 +373,23 @@ def get_engine_signal():
         "status": status,
     }
 
+
 @eel.expose
 def get_activity_log(since_id=0):
     return activity_log.since(since_id)
 
+
 @eel.expose
 def get_biome_durations():
     from core import biomes as _biomes
+
     return dict(_biomes.BIOME_DURATIONS)
+
 
 @eel.expose
 def get_time_tracking():
     return engine.time.live()
+
 
 @eel.expose
 def reset_time_tracking():
@@ -268,41 +398,104 @@ def reset_time_tracking():
     config.reset_time_tracking()
     return {"ok": True, "timeTracking": engine.time.live()}
 
+
+@eel.expose
+def clear_roblox_logs():
+    blocked = _begin_maintenance()
+    if blocked:
+        return {
+            "ok": False,
+            "error": blocked,
+            "closedInstances": 0,
+            "deletedItems": 0,
+            "remainingItems": 0,
+            "failedFiles": [],
+        }
+    try:
+        return roblox_cleanup_mod.clear_logs()
+    except Exception as error:
+        print(f"[Roblox] Log cleanup failed: {error}")
+        return {
+            "ok": False,
+            "error": "cleanup_failed",
+            "closedInstances": 0,
+            "deletedItems": 0,
+            "remainingItems": 0,
+            "failedFiles": [],
+        }
+    finally:
+        _end_maintenance()
+
+
 @eel.expose
 def add_account(name, link=""):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
     owner = config.account_name_owner(name)
     if owner:
-        return {"ok": False, "error": f"duplicate_account:{owner.get('name', '')}",
-                "state": _state_with_status()}
-    avatar = MacroEngine.get_roblox_avatar(name)
+        return {
+            "ok": False,
+            "error": f"duplicate_account:{owner.get('name', '')}",
+            "state": _state_with_status(),
+        }
+    profile = MacroEngine.get_roblox_profile(name)
     try:
-        config.add_account(name, link, avatar)
+        config.add_account(
+            name,
+            link,
+            profile.get("avatar", ""),
+            roblox_user_id=profile.get("id"),
+            roblox_username=profile.get("name", ""),
+        )
     except ValueError:
-        return {"ok": False, "error": "duplicate_account",
-                "state": _state_with_status()}
+        return {
+            "ok": False,
+            "error": "duplicate_account",
+            "state": _state_with_status(),
+        }
     return {"ok": True, "state": _state_with_status()}
+
 
 @eel.expose
 def update_account(acc_id, name=None, link=None):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
-    owner = config.account_name_owner(name, exclude_id=acc_id) if name is not None else None
+    owner = (
+        config.account_name_owner(name, exclude_id=acc_id) if name is not None else None
+    )
     if owner:
-        return {"ok": False, "error": f"duplicate_account:{owner.get('name', '')}",
-                "state": _state_with_status()}
+        return {
+            "ok": False,
+            "error": f"duplicate_account:{owner.get('name', '')}",
+            "state": _state_with_status(),
+        }
     avatar = None
+    profile = None
     existing = next((a for a in config.accounts if a.get("id") == acc_id), None)
     if existing and name and name.strip() != existing.get("name"):
-        avatar = MacroEngine.get_roblox_avatar(name)
+        profile = MacroEngine.get_roblox_profile(name)
+        avatar = profile.get("avatar", "")
     try:
         updated = config.update_account(acc_id, name=name, link=link, avatar=avatar)
     except ValueError:
-        return {"ok": False, "error": "duplicate_account",
-                "state": _state_with_status()}
-    return {"ok": bool(updated), "error": None if updated else "no_account",
-            "state": _state_with_status()}
+        return {
+            "ok": False,
+            "error": "duplicate_account",
+            "state": _state_with_status(),
+        }
+    if updated and profile is not None:
+        config.set_account_profile(
+            acc_id,
+            profile.get("id"),
+            profile.get("name", ""),
+            avatar=profile.get("avatar", ""),
+        )
+    return {
+        "ok": bool(updated),
+        "error": None if updated else "no_account",
+        "state": _state_with_status(),
+    }
+
 
 @eel.expose
 def delete_account(acc_id):
@@ -311,12 +504,14 @@ def delete_account(acc_id):
     config.delete_account(acc_id)
     return _state_with_status()
 
+
 @eel.expose
 def move_account(acc_id, direction):
     if _guard():
         return _state_with_status()
     config.move_account(acc_id, direction)
     return _state_with_status()
+
 
 @eel.expose
 def set_account_enabled(acc_id, enabled):
@@ -329,56 +524,86 @@ def set_account_enabled(acc_id, enabled):
 def _is_point(v):
     return isinstance(v, (list, tuple)) and len(v) == 2
 
+
 def _is_region(v):
     return isinstance(v, (list, tuple)) and len(v) == 4
+
 
 def _inventory_calib_ready():
     px = config.automation.get("pixels", {}) or {}
     return all(_is_point(px.get(k)) for k in _auto_presets.slot_keys())
 
+
 def _merchant_calib_ready():
-    general = (((config.automation.get("merchants", {}) or {}).get("calib", {}) or {})
-               .get("general", {}) or {})
-    return (_is_point((general.get("pixels", {}) or {}).get("dialogue_skip"))
-            and _is_region((general.get("regions", {}) or {}).get("merchant_name")))
+    general = (
+        (config.automation.get("merchants", {}) or {}).get("calib", {}) or {}
+    ).get("general", {}) or {}
+    return _is_point(
+        (general.get("pixels", {}) or {}).get("dialogue_skip")
+    ) and _is_region((general.get("regions", {}) or {}).get("merchant_name"))
+
+
+
 
 
 
 def _merchant_autobuy_calib_ready():
     
     import core.merchants_data as _md
-    calib = ((config.automation.get("merchants", {}) or {}).get("calib", {}) or {})
+
+    calib = (config.automation.get("merchants", {}) or {}).get("calib", {}) or {}
 
     def _points_ok(group):
-        px = ((calib.get(group, {}) or {}).get("pixels", {}) or {})
+        px = (calib.get(group, {}) or {}).get("pixels", {}) or {}
         return all(_is_point(px.get(k)) for k in _md.calib_point_keys(group))
 
     def _regions_ok(group):
-        rg = ((calib.get(group, {}) or {}).get("regions", {}) or {})
-        keys = (_md.required_shop_region_keys() if group == "shop"
-                else _md.calib_region_keys(group))
+        rg = (calib.get(group, {}) or {}).get("regions", {}) or {}
+        keys = (
+            _md.required_shop_region_keys()
+            if group == "shop"
+            else _md.calib_region_keys(group)
+        )
         return all(_is_region(rg.get(k)) for k in keys)
 
-    return (_points_ok("shop") and _regions_ok("shop")
-            and _points_ok("mari") and _points_ok("jester"))
+    return (
+        _points_ok("shop")
+        and _regions_ok("shop")
+        and _points_ok("mari")
+        and _points_ok("jester")
+    )
 
-FISHING_REQUIRED_SLOTS = ("cast_point", "bite_indicator", "bar_sample", "zone_left",
-                          "zone_right", "reel_click", "claim_button")
+
+FISHING_REQUIRED_SLOTS = (
+    "cast_point",
+    "bite_indicator",
+    "bar_sample",
+    "zone_left",
+    "zone_right",
+    "reel_click",
+    "claim_button",
+)
+
 
 def _fishing_calib_ready():
     px = (config.automation.get("fishing", {}) or {}).get("pixels", {}) or {}
     return all(_is_point(px.get(k)) for k in FISHING_REQUIRED_SLOTS)
 
+
 def _autopop_calib_ready():
     region = (config.automation.get("autopop", {}) or {}).get("amountRegion")
     return _inventory_calib_ready() and _is_region(region)
+
 
 @eel.expose
 def set_account_module(acc_id, task, enabled):
     if _guard():
         return _state_with_status()
     if enabled:
-        if task in ("strangeController", "biomeRandomizer") and not _inventory_calib_ready():
+        if (
+            task in ("strangeController", "biomeRandomizer")
+            and not _inventory_calib_ready()
+        ):
             return _state_with_status()
         if task == "merchantTeleporter" and not (
             ocr.available() and _inventory_calib_ready() and _merchant_calib_ready()
@@ -389,6 +614,7 @@ def set_account_module(acc_id, task, enabled):
     config.set_account_module(acc_id, task, enabled)
     return _state_with_status()
 
+
 def _apply_token_refresh(acc_id, refreshed):
     
     if refreshed:
@@ -398,25 +624,36 @@ def _apply_token_refresh(acc_id, refreshed):
         except Exception as e:
             print(f"[Auth] Could not store rotated cookie for {acc_id}: {e}")
 
+
 @eel.expose
 def set_account_token(acc_id, token):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
     owner = config.token_owner(token, exclude_id=acc_id)
     if owner:
-        return {"ok": False, "error": f"already_linked:{owner.get('name', '')}",
-                "state": _state_with_status()}
+        return {
+            "ok": False,
+            "error": f"already_linked:{owner.get('name', '')}",
+            "state": _state_with_status(),
+        }
     info = roblox_auth.validate_token(token)
     if info.get("ok") or info.get("refreshed"):
         linked_owner = config.linked_user_owner(info.get("name", ""), exclude_id=acc_id)
         if linked_owner:
-            return {"ok": False,
-                    "error": f"already_linked:{linked_owner.get('name', '')}",
-                    "state": _state_with_status()}
+            return {
+                "ok": False,
+                "error": f"already_linked:{linked_owner.get('name', '')}",
+                "state": _state_with_status(),
+            }
         config.set_account_token(acc_id, info.get("refreshed") or token)
-        config.set_account_token_status(acc_id, info.get("name", ""), True)
-        result = {"ok": True, "user": info.get("name", ""),
-                  "displayName": info.get("displayName", "")}
+        config.set_account_token_status(
+            acc_id, info.get("name", ""), True, info.get("id")
+        )
+        result = {
+            "ok": True,
+            "user": info.get("name", ""),
+            "displayName": info.get("displayName", ""),
+        }
     elif info.get("definitive"):
         config.set_account_token(acc_id, token)
         config.set_account_token_status(acc_id, "", False)
@@ -424,10 +661,16 @@ def set_account_token(acc_id, token):
     else:
         config.set_account_token(acc_id, token)
         config.set_account_token_status(acc_id, "", True)
-        result = {"ok": True, "user": "", "displayName": "", "unverified": True,
-                  "error": info.get("error")}
+        result = {
+            "ok": True,
+            "user": "",
+            "displayName": "",
+            "unverified": True,
+            "error": info.get("error"),
+        }
     result["state"] = _state_with_status()
     return result
+
 
 @eel.expose
 def start_browser_login(acc_id):
@@ -451,7 +694,7 @@ def start_browser_login(acc_id):
                     pass
                 return
             info = roblox_auth.validate_token(token)
-            store_token = (info.get("refreshed") or token)
+            store_token = info.get("refreshed") or token
             if info.get("ok") or info.get("refreshed"):
                 tname = (info.get("name") or "").strip()
                 dname = (info.get("displayName") or "").strip()
@@ -459,17 +702,25 @@ def start_browser_login(acc_id):
                 linked_owner = config.linked_user_owner(tname, exclude_id=acc_id)
                 if linked_owner:
                     payload = f"already_linked:{linked_owner.get('name', '')}"
-                elif want and tname and want.lower() not in (tname.lower(), dname.lower()):
+                elif (
+                    want
+                    and tname
+                    and want.lower() not in (tname.lower(), dname.lower())
+                ):
                     payload = f"wrong_account:{tname}"
                 else:
                     config.set_account_token(acc_id, store_token)
-                    config.set_account_token_status(acc_id, tname, True)
+                    config.set_account_token_status(
+                        acc_id, tname, True, info.get("id")
+                    )
                     ok, payload = True, tname
             elif info.get("definitive"):
                 payload = info.get("error", "invalid")
             else:
                 config.set_account_token(acc_id, token)
-                config.set_account_token_status(acc_id, (acc.get("name") or "").strip(), True)
+                config.set_account_token_status(
+                    acc_id, (acc.get("name") or "").strip(), True
+                )
                 ok, payload = True, (acc.get("name") or "").strip()
         try:
             eel.onBrowserLoginResult(acc_id, ok, payload)()
@@ -478,10 +729,12 @@ def start_browser_login(acc_id):
 
     return browser_login.start(_done)
 
+
 @eel.expose
 def cancel_browser_login():
     browser_login.cancel()
     return {"ok": True}
+
 
 @eel.expose
 def clear_account_token(acc_id):
@@ -489,6 +742,7 @@ def clear_account_token(acc_id):
         return {"ok": False, "error": "running", "state": _state_with_status()}
     config.clear_account_token(acc_id)
     return {"ok": True, "state": _state_with_status()}
+
 
 @eel.expose
 def revalidate_account_token(acc_id):
@@ -498,13 +752,20 @@ def revalidate_account_token(acc_id):
     info = roblox_auth.validate_token(token)
     _apply_token_refresh(acc_id, info.get("refreshed"))
     if info.get("ok") or info.get("refreshed"):
-        config.set_account_token_status(acc_id, info.get("name", ""), True)
+        config.set_account_token_status(
+            acc_id, info.get("name", ""), True, info.get("id")
+        )
         return {"ok": True, "user": info.get("name", ""), "state": _state_with_status()}
     if info.get("definitive"):
         config.set_account_token_status(acc_id, "", False)
         return {"ok": False, "error": info.get("error"), "state": _state_with_status()}
-    return {"ok": False, "transient": True, "error": info.get("error"),
-            "state": _state_with_status()}
+    return {
+        "ok": False,
+        "transient": True,
+        "error": info.get("error"),
+        "state": _state_with_status(),
+    }
+
 
 @eel.expose
 def get_performance():
@@ -515,21 +776,26 @@ def get_performance():
         print(f"[Throttle] status failed: {e}")
     return snap
 
+
 @eel.expose
 def get_throttle_state():
     return throttler.status()
+
 
 @eel.expose
 def get_performance_benchmark():
     return performance_benchmark.status()
 
+
 @eel.expose
 def start_performance_benchmark():
     return performance_benchmark.start()
 
+
 @eel.expose
 def trim_system_ram():
     return perfmon.trim_system_ram()
+
 
 @eel.expose
 def resolve_link_info(acc_id, link):
@@ -541,6 +807,7 @@ def resolve_link_info(acc_id, link):
     if not token:
         return {"ok": False, "error": "no_token"}
     import requests as _req
+
     place_info = roblox_auth.parse_private_link(token, link)
     if not place_info:
         return {"ok": False, "error": "invalid_link"}
@@ -548,20 +815,20 @@ def resolve_link_info(acc_id, link):
     if not place_id:
         return {"ok": False, "error": "no_place_id"}
     try:
-
         r = _req.get(
             f"https://apis.roblox.com/universes/v1/places/{place_id}/universe",
-            timeout=10)
+            timeout=10,
+        )
         universe_id = r.json().get("universeId") if r.ok else None
         universe_name = ""
         owner_name = ""
         owner_type = ""
         thumb_url = ""
         if universe_id:
-
             r2 = _req.get(
                 f"https://games.roblox.com/v1/games?universeIds={universe_id}",
-                timeout=10)
+                timeout=10,
+            )
             if r2.ok:
                 data = r2.json().get("data", [])
                 if data:
@@ -574,7 +841,8 @@ def resolve_link_info(acc_id, link):
             r3 = _req.get(
                 f"https://thumbnails.roblox.com/v1/games/icons?universeIds={universe_id}"
                 f"&returnPolicy=PlaceHolder&size=128x128&format=Png&isCircular=false",
-                timeout=10)
+                timeout=10,
+            )
             if r3.ok:
                 tdata = r3.json().get("data", [])
                 if tdata:
@@ -591,10 +859,12 @@ def resolve_link_info(acc_id, link):
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
 @eel.expose
 def teleport_in_bound_window(acc_id, link):
 
     from core import win_windows
+
     acc = next((a for a in config.accounts if a.get("id") == acc_id), None)
     if not acc:
         return {"ok": False, "error": "no_account"}
@@ -609,7 +879,7 @@ def teleport_in_bound_window(acc_id, link):
     resolved = win_windows.resolve_accounts([acc])
     info = resolved.get(acc_id, {})
     hwnd = info.get("hwnd")
-    pid  = info.get("pid")
+    pid = info.get("pid")
     in_place = bool(hwnd and pid and sys.platform == "win32")
 
     if in_place:
@@ -624,7 +894,7 @@ def teleport_in_bound_window(acc_id, link):
         return {"ok": False, "error": "deeplink_failed"}
 
     tmp = dict(acc)
-    tmp["link"]  = link
+    tmp["link"] = link
     tmp["token"] = token
     res = roblox_auth.launch_account(tmp, mode="private")
     if not res.get("ok"):
@@ -632,6 +902,7 @@ def teleport_in_bound_window(acc_id, link):
     acc["launchTime"] = time.time()
     config.save()
     return {"ok": True, "method": "new_window", "rebound": False}
+
 
 @eel.expose
 def launch_link_as_account(acc_id, link):
@@ -652,6 +923,7 @@ def launch_link_as_account(acc_id, link):
         config.save()
     return res
 
+
 @eel.expose
 def launch_account(acc_id, mode="home"):
     acc = next((a for a in config.accounts if a.get("id") == acc_id), None)
@@ -669,10 +941,12 @@ def launch_account(acc_id, mode="home"):
         config.save()
     return res
 
+
 @eel.expose
 def get_account_windows():
     
     from core import win_windows
+
     bindings_before = {
         a.get("id"): dict(a.get("windowBinding"))
         for a in config.accounts
@@ -696,18 +970,28 @@ def get_account_windows():
     for a in config.accounts:
         aid = a.get("id")
         if not a.get("enabled", True):
-            out.append({"id": aid, "online": False, "currentBiome": None,
-                        "window": None, "hwndKnown": False})
+            out.append(
+                {
+                    "id": aid,
+                    "online": False,
+                    "currentBiome": None,
+                    "window": None,
+                    "hwndKnown": False,
+                }
+            )
             continue
         info = resolved.get(aid, {})
-        out.append({
-            "id": aid,
-            "online": bool(info.get("online")),
-            "currentBiome": None,
-            "window": info.get("label"),
-            "hwndKnown": info.get("hwnd") is not None,
-        })
+        out.append(
+            {
+                "id": aid,
+                "online": bool(info.get("online")),
+                "currentBiome": None,
+                "window": info.get("label"),
+                "hwndKnown": info.get("hwnd") is not None,
+            }
+        )
     return out
+
 
 @eel.expose
 def launch_all_accounts(mode="home"):
@@ -716,8 +1000,14 @@ def launch_all_accounts(mode="home"):
     for acc in config.enabled_accounts():
         token = config.account_token(acc.get("id"))
         if not token:
-            results.append({"id": acc.get("id"), "name": acc.get("name"),
-                            "ok": False, "error": "no_token"})
+            results.append(
+                {
+                    "id": acc.get("id"),
+                    "name": acc.get("name"),
+                    "ok": False,
+                    "error": "no_token",
+                }
+            )
             continue
         tmp = dict(acc)
         tmp["token"] = token
@@ -733,11 +1023,14 @@ def launch_all_accounts(mode="home"):
             time.sleep(2.5)
     return {"ok": launched > 0, "launched": launched, "results": results}
 
+
 _bind_cancel = threading.Event()
+
 
 @eel.expose
 def start_bind_window(acc_id):
     from core import win_windows
+
     acc = next((a for a in config.accounts if a.get("id") == acc_id), None)
     if not acc:
         return {"ok": False, "error": "no_account"}
@@ -745,8 +1038,9 @@ def start_bind_window(acc_id):
 
     def _run():
         print(f"[Bind] Waiting for click to bind '{acc.get('name')}'…")
-        hwnd, pid = win_windows.hwnd_from_click(timeout=30.0,
-                                                cancel_flag=lambda: _bind_cancel.is_set())
+        hwnd, pid = win_windows.hwnd_from_click(
+            timeout=30.0, cancel_flag=lambda: _bind_cancel.is_set()
+        )
         if hwnd and pid:
             win_windows.set_manual_bind(acc_id, hwnd, pid)
             print(f"[Bind] '{acc.get('name')}' manually bound → hwnd {hwnd} pid {pid}")
@@ -763,17 +1057,21 @@ def start_bind_window(acc_id):
     threading.Thread(target=_run, daemon=True).start()
     return {"ok": True}
 
+
 @eel.expose
 def cancel_bind_window():
     _bind_cancel.set()
     return {"ok": True}
 
+
 @eel.expose
 def clear_bind_window(acc_id):
     from core import win_windows
+
     win_windows.clear_manual_bind(acc_id)
     print(f"[Bind] Manual bind cleared for acc {acc_id}")
     return {"ok": True}
+
 
 @eel.expose
 def set_fishing_account(acc_id):
@@ -784,12 +1082,15 @@ def set_fishing_account(acc_id):
     config.set_fishing_account(acc_id)
     return _state_with_status()
 
+
 @eel.expose
 def set_fishing_schedule(schedule):
     if _guard():
         return _state_with_status()
     config.set_fishing_schedule(schedule)
     return _state_with_status()
+
+
 
 
 @eel.expose
@@ -801,12 +1102,15 @@ def wipe_config():
     return {"ok": True}
 
 
+
+
 @eel.expose
 def set_eden_account(acc_id):
     if _guard():
         return _state_with_status()
     config.set_eden_account(acc_id)
     return _state_with_status()
+
 
 @eel.expose
 def set_eden_setting(key, value):
@@ -815,12 +1119,14 @@ def set_eden_setting(key, value):
     config.set_eden_setting(key, value)
     return _state_with_status()
 
+
 @eel.expose
 def add_webhook(name, url):
     if _guard():
         return _state_with_status()
     config.add_webhook(name, url)
     return _state_with_status()
+
 
 @eel.expose
 def update_webhook(wh_id, name=None, url=None):
@@ -829,12 +1135,14 @@ def update_webhook(wh_id, name=None, url=None):
     config.update_webhook(wh_id, name=name, url=url)
     return _state_with_status()
 
+
 @eel.expose
 def delete_webhook(wh_id):
     if _guard():
         return _state_with_status()
     config.delete_webhook(wh_id)
     return _state_with_status()
+
 
 @eel.expose
 def set_webhook_active(wh_id, active):
@@ -843,12 +1151,14 @@ def set_webhook_active(wh_id, active):
     config.set_webhook_active(wh_id, active)
     return _state_with_status()
 
+
 @eel.expose
 def set_routing(wh_id, acc_id, enabled):
     if _guard():
         return _state_with_status()
     config.set_routing(wh_id, acc_id, enabled)
     return _state_with_status()
+
 
 @eel.expose
 def set_biome_logging(value):
@@ -860,11 +1170,13 @@ def set_biome_logging(value):
     config.set_setting("biomeLogging", enabled)
     return _state_with_status()
 
+
 @eel.expose
 def set_biome_ping(biome_key, ptype, pid):
     
     config.set_biome_ping(biome_key, ptype, pid)
     return _state_with_status()
+
 
 @eel.expose
 def set_setting(key, value):
@@ -877,12 +1189,26 @@ def set_setting(key, value):
         _register_mode_hotkey(str(value))
     if key in ("ramTrimEnabled", "ramTrimInterval"):
         ram_trimmer.sync()
-    if key in ("throttleEnabled", "throttleMethod", "throttleCycleMs", "throttleQuota",
-               "throttleFocusAware", "throttleOnlyWhenRunning", "throttleScope",
-               "throttleBreathe", "throttleRamCap",
-               "throttleRamCapMb", "throttleAccounts"):
+    if key in (
+        "throttleEnabled",
+        "throttleMethod",
+        "throttleCycleMs",
+        "throttleQuota",
+        "throttleFocusAware",
+        "throttleOnlyWhenRunning",
+        "throttleScope",
+        "throttleBreathe",
+        "throttleRamCap",
+        "throttleRamCapMb",
+        "throttleAccounts",
+    ):
         throttler.sync()
-    if key in ("antiAfkStandalone", "antiAfkEnabled", "antiAfkInterval", "antiAfkAction"):
+    if key in (
+        "antiAfkStandalone",
+        "antiAfkEnabled",
+        "antiAfkInterval",
+        "antiAfkAction",
+    ):
         engine.refresh_anti_afk()
     if key in ("monitorDimEnabled", "monitorDimLevel") and engine.running:
         if config.settings.get("monitorDimEnabled"):
@@ -892,11 +1218,13 @@ def set_setting(key, value):
     _broadcast_settings_sync()
     return _state_with_status()
 
+
 @eel.expose
 def set_automation_mode(mode):
     engine.set_automation_mode(mode)
     _broadcast_engine_sync()
     return _state_with_status()
+
 
 @eel.expose
 def set_automation_task(task, enabled):
@@ -905,12 +1233,14 @@ def set_automation_task(task, enabled):
     config.set_automation_task(task, enabled)
     return _state_with_status()
 
+
 @eel.expose
 def set_automation_search(task, term):
     if _guard():
         return _state_with_status()
     config.set_search_term(task, term)
     return _state_with_status()
+
 
 @eel.expose
 def set_automation_amount(value):
@@ -919,9 +1249,11 @@ def set_automation_amount(value):
     config.set_amount(value)
     return _state_with_status()
 
+
 @eel.expose
 def get_automation_presets():
     return {"presets": presets.preset_names(), "slots": presets.PIXEL_SLOTS}
+
 
 @eel.expose
 def load_automation_preset(name):
@@ -1032,21 +1364,25 @@ def _capture_guided_region(scope, slot, *, group=None, timeout=30.0):
     finally:
         overlay.hide_calibration_guide()
 
+
 @eel.expose
 def capture_item_region():
 
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    p1, p2, error = _capture_guided_region(
-        "automation", "first_item_region"
-    )
+    p1, p2, error = _capture_guided_region("automation", "first_item_region")
     if error:
         return {"ok": False, "error": error}
     config.set_first_item_region(p1, p2)
-    x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
-    w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
-    print(f"[Calibration] Item region set → ({x},{y}) {w}×{h}px, click centre ({x+w//2},{y+h//2})")
+    x = min(p1[0], p2[0])
+    y = min(p1[1], p2[1])
+    w = abs(p2[0] - p1[0])
+    h = abs(p2[1] - p1[1])
+    print(
+        f"[Calibration] Item region set → ({x},{y}) {w}×{h}px, click centre ({x + w // 2},{y + h // 2})"
+    )
     return {"ok": True, "region": [x, y, w, h]}
+
 
 @eel.expose
 def clear_item_region():
@@ -1054,6 +1390,7 @@ def clear_item_region():
         return _state_with_status()
     config.clear_first_item_region()
     return _state_with_status()
+
 
 @eel.expose
 def capture_pixel(slot):
@@ -1073,12 +1410,14 @@ def capture_pixel(slot):
         "y": position[1],
     }
 
+
 @eel.expose
 def clear_pixel(slot):
     if _guard():
         return _state_with_status()
     config.set_pixel(slot, None)
     return _state_with_status()
+
 
 @eel.expose
 def get_fishing_presets():
@@ -1088,12 +1427,14 @@ def get_fishing_presets():
         "slots": fishing_presets.PIXEL_SLOTS,
     }
 
+
 @eel.expose
 def set_fishing_enabled(value):
     if _guard():
         return _state_with_status()
     config.set_fishing("enabled", bool(value))
     return _state_with_status()
+
 
 @eel.expose
 def set_fishing_account_setting(acc_id, key, value):
@@ -1102,11 +1443,13 @@ def set_fishing_account_setting(acc_id, key, value):
     config.set_fishing_account_setting(acc_id, key, value)
     return _state_with_status()
 
+
 @eel.expose
 def set_fishing_webhook(enabled):
 
     config.set_fishing("webhookEnabled", bool(enabled))
     return _state_with_status()
+
 
 @eel.expose
 def load_fishing_preset(name):
@@ -1114,6 +1457,8 @@ def load_fishing_preset(name):
         return _state_with_status()
     config.load_fishing_preset(name)
     return _state_with_status()
+
+
 
 
 @eel.expose
@@ -1134,12 +1479,14 @@ def capture_fishing_pixel(slot):
         "y": position[1],
     }
 
+
 @eel.expose
 def clear_fishing_pixel(slot):
     if _guard():
         return _state_with_status()
     config.set_fishing_pixel(slot, None)
     return _state_with_status()
+
 
 @eel.expose
 def capture_fishing_region(name):
@@ -1151,10 +1498,13 @@ def capture_fishing_region(name):
     if error:
         return {"ok": False, "error": error}
     config.set_fishing_region(name, p1, p2)
-    x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
-    w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
+    x = min(p1[0], p2[0])
+    y = min(p1[1], p2[1])
+    w = abs(p2[0] - p1[0])
+    h = abs(p2[1] - p1[1])
     print(f"[Calibration] Fishing region '{name}' set → ({x},{y}) {w}×{h}px")
     return {"ok": True, "region": [x, y, w, h]}
+
 
 @eel.expose
 def clear_fishing_region(name):
@@ -1163,9 +1513,11 @@ def clear_fishing_region(name):
     config.clear_fishing_region(name)
     return _state_with_status()
 
+
 @eel.expose
 def get_ocr_status():
     from core import tesseract_install
+
     ocr.reset_cache()
     st = ocr.status()
     st["installing"] = tesseract_install.is_installing()
@@ -1174,10 +1526,12 @@ def get_ocr_status():
         st["binaryPresent"] = True
     return st
 
+
 @eel.expose
 def install_tesseract():
     
     from core import tesseract_install
+
     if ocr.available():
         return {"ok": False, "error": "already_installed"}
     if tesseract_install.is_installing():
@@ -1201,6 +1555,7 @@ def install_tesseract():
     threading.Thread(target=_run, daemon=True).start()
     return {"ok": True, "started": True}
 
+
 @eel.expose
 def set_ocr_failsafe(task, enabled):
     if _guard():
@@ -1210,11 +1565,13 @@ def set_ocr_failsafe(task, enabled):
     config.set_ocr_failsafe(task, bool(enabled))
     return _state_with_status()
 
+
 @eel.expose
 def set_notification(key, enabled):
 
     config.set_notification(key, bool(enabled))
     return _state_with_status()
+
 
 @eel.expose
 def set_merchant_interval(value):
@@ -1223,21 +1580,20 @@ def set_merchant_interval(value):
     config.set_merchant_interval(value)
     return _state_with_status()
 
+
 @eel.expose
 def capture_merchant_pixel(group, slot):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
     import core.merchants_data as _md
+
     if slot not in _md.calib_point_keys(group):
         return {"ok": False, "error": "bad_slot"}
     position, error = _capture_guided_point("merchant", slot, group=group)
     if error:
         return {"ok": False, "error": error}
     config.set_merchant_pixel(group, slot, [position[0], position[1]])
-    print(
-        f"[Calibration] Merchant '{group}/{slot}' → "
-        f"{position[0]}, {position[1]}"
-    )
+    print(f"[Calibration] Merchant '{group}/{slot}' → {position[0]}, {position[1]}")
     return {
         "ok": True,
         "group": group,
@@ -1245,6 +1601,7 @@ def capture_merchant_pixel(group, slot):
         "x": position[0],
         "y": position[1],
     }
+
 
 @eel.expose
 def clear_merchant_pixel(group, slot):
@@ -1253,23 +1610,26 @@ def clear_merchant_pixel(group, slot):
     config.clear_merchant_pixel(group, slot)
     return _state_with_status()
 
+
 @eel.expose
 def capture_merchant_region(group, name):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
     import core.merchants_data as _md
+
     if name not in _md.calib_region_keys(group):
         return {"ok": False, "error": "bad_region"}
-    p1, p2, error = _capture_guided_region(
-        "merchant", name, group=group
-    )
+    p1, p2, error = _capture_guided_region("merchant", name, group=group)
     if error:
         return {"ok": False, "error": error}
     config.set_merchant_region(group, name, p1, p2)
-    x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
-    w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
+    x = min(p1[0], p2[0])
+    y = min(p1[1], p2[1])
+    w = abs(p2[0] - p1[0])
+    h = abs(p2[1] - p1[1])
     print(f"[Calibration] Merchant region '{group}/{name}' set → ({x},{y}) {w}×{h}px")
     return {"ok": True, "group": group, "region": [x, y, w, h]}
+
 
 @eel.expose
 def clear_merchant_region(group, name):
@@ -1278,21 +1638,20 @@ def clear_merchant_region(group, name):
     config.clear_merchant_region(group, name)
     return _state_with_status()
 
+
 @eel.expose
 def capture_extra_pixel(group, slot):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
     import core.extra_calibrations as _ec
+
     if slot not in _ec.point_keys(group):
         return {"ok": False, "error": "bad_slot"}
     position, error = _capture_guided_point("extra", slot, group=group)
     if error:
         return {"ok": False, "error": error}
     config.set_extra_pixel(group, slot, [position[0], position[1]])
-    print(
-        f"[Calibration] Extra '{group}/{slot}' → "
-        f"{position[0]}, {position[1]}"
-    )
+    print(f"[Calibration] Extra '{group}/{slot}' → {position[0]}, {position[1]}")
     return {
         "ok": True,
         "group": group,
@@ -1301,6 +1660,7 @@ def capture_extra_pixel(group, slot):
         "y": position[1],
     }
 
+
 @eel.expose
 def clear_extra_pixel(group, slot):
     if _guard():
@@ -1308,21 +1668,26 @@ def clear_extra_pixel(group, slot):
     config.clear_extra_pixel(group, slot)
     return _state_with_status()
 
+
 @eel.expose
 def capture_extra_region(group, name):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
     import core.extra_calibrations as _ec
+
     if name not in _ec.region_keys(group):
         return {"ok": False, "error": "bad_region"}
     p1, p2, error = _capture_guided_region("extra", name, group=group)
     if error:
         return {"ok": False, "error": error}
     config.set_extra_region(group, name, p1, p2)
-    x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
-    w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
+    x = min(p1[0], p2[0])
+    y = min(p1[1], p2[1])
+    w = abs(p2[0] - p1[0])
+    h = abs(p2[1] - p1[1])
     print(f"[Calibration] Extra region '{group}/{name}' set → ({x},{y}) {w}×{h}px")
     return {"ok": True, "group": group, "region": [x, y, w, h]}
+
 
 @eel.expose
 def clear_extra_region(group, name):
@@ -1330,6 +1695,7 @@ def clear_extra_region(group, name):
         return _state_with_status()
     config.clear_extra_region(group, name)
     return _state_with_status()
+
 
 @eel.expose
 def set_merchant_autobuy(acc_id, mid, enabled):
@@ -1344,6 +1710,7 @@ def set_merchant_autobuy(acc_id, mid, enabled):
     config.set_merchant_autobuy_enabled(acc_id, mid, bool(enabled))
     return _state_with_status()
 
+
 @eel.expose
 def set_merchant_autobuy_items(acc_id, mid, items):
     if _guard():
@@ -1351,15 +1718,19 @@ def set_merchant_autobuy_items(acc_id, mid, items):
     config.set_merchant_autobuy_items(acc_id, mid, items)
     return _state_with_status()
 
+
 @eel.expose
 def reset_merchant_buy_log():
     config.reset_merchant_buy_log()
     return _state_with_status()
 
+
 @eel.expose
 def get_merchant_presets():
     import core.merchant_presets as _mp
+
     return {"presets": _mp.preset_names()}
+
 
 @eel.expose
 def load_merchant_preset(name):
@@ -1368,10 +1739,13 @@ def load_merchant_preset(name):
     config.load_merchant_preset(name)
     return _state_with_status()
 
+
 @eel.expose
 def get_extra_presets():
     import core.extra_presets as _ep
+
     return {"presets": _ep.preset_names()}
+
 
 @eel.expose
 def load_extra_preset(name):
@@ -1380,12 +1754,14 @@ def load_extra_preset(name):
     config.load_extra_preset(name)
     return _state_with_status()
 
+
 @eel.expose
 def get_autopop_biomes():
     import core.autopop as _ap
+
     unknown = sorted((config.unknown_biomes or {}).keys())
-    return {"biomes": _ap.biome_keys(),
-            "unknown": ["unknown:" + n for n in unknown]}
+    return {"biomes": _ap.biome_keys(), "unknown": ["unknown:" + n for n in unknown]}
+
 
 @eel.expose
 def set_autopop_option(key, enabled):
@@ -1393,6 +1769,7 @@ def set_autopop_option(key, enabled):
         return _state_with_status()
     config.set_autopop_option(key, bool(enabled))
     return _state_with_status()
+
 
 @eel.expose
 def set_autopop_account(acc_id, enabled):
@@ -1403,6 +1780,7 @@ def set_autopop_account(acc_id, enabled):
     config.set_autopop_account(acc_id, bool(enabled))
     return _state_with_status()
 
+
 @eel.expose
 def set_autopop_account_biome_enabled(acc_id, biome_key, enabled):
     if _guard():
@@ -1410,12 +1788,14 @@ def set_autopop_account_biome_enabled(acc_id, biome_key, enabled):
     config.set_autopop_account_biome_enabled(acc_id, biome_key, bool(enabled))
     return _state_with_status()
 
+
 @eel.expose
 def set_autopop_account_items(acc_id, biome_key, items):
     if _guard():
         return _state_with_status()
     config.set_autopop_account_items(acc_id, biome_key, items)
     return _state_with_status()
+
 
 @eel.expose
 def capture_autopop_amount_region():
@@ -1425,10 +1805,13 @@ def capture_autopop_amount_region():
     if error:
         return {"ok": False, "error": error}
     config.set_autopop_amount_region(p1, p2)
-    x = min(p1[0], p2[0]); y = min(p1[1], p2[1])
-    w = abs(p2[0]-p1[0]); h = abs(p2[1]-p1[1])
+    x = min(p1[0], p2[0])
+    y = min(p1[1], p2[1])
+    w = abs(p2[0] - p1[0])
+    h = abs(p2[1] - p1[1])
     print(f"[Calibration] Auto Pop amount region set -> ({x},{y}) {w}x{h}px")
     return {"ok": True, "region": [x, y, w, h]}
+
 
 @eel.expose
 def clear_autopop_amount_region():
@@ -1437,12 +1820,14 @@ def clear_autopop_amount_region():
     config.clear_autopop_amount_region()
     return _state_with_status()
 
+
 @eel.expose
 def save_autopop_preset(acc_id, name):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
     ok = config.save_autopop_preset(acc_id, name)
     return {"ok": bool(ok), "state": _state_with_status()}
+
 
 @eel.expose
 def load_autopop_preset(acc_id, name):
@@ -1451,6 +1836,7 @@ def load_autopop_preset(acc_id, name):
     ok = config.load_autopop_preset(acc_id, name)
     return {"ok": bool(ok), "state": _state_with_status()}
 
+
 @eel.expose
 def delete_autopop_preset(name):
     if _guard():
@@ -1458,11 +1844,14 @@ def delete_autopop_preset(name):
     ok = config.delete_autopop_preset(name)
     return {"ok": bool(ok), "state": _state_with_status()}
 
+
 @eel.expose
 def export_autopop_preset(name, acc_id=None):
     import json as _json
+
     data = config.export_autopop_preset(name, acc_id=acc_id)
     return {"ok": True, "name": data.get("name", name), "json": _json.dumps(data)}
+
 
 @eel.expose
 def import_autopop_preset(name, payload):
@@ -1472,11 +1861,13 @@ def import_autopop_preset(name, payload):
     res["state"] = _state_with_status()
     return res
 
+
 @eel.expose
 def start_macro():
-    result = engine.start()
+    result = _start_engine_if_available()
     _broadcast_engine_sync()
     return result
+
 
 @eel.expose
 def stop_macro():
@@ -1484,14 +1875,29 @@ def stop_macro():
     _broadcast_engine_sync()
     return result
 
+
+@eel.expose
+def confirm_blocked_rare_ping(pending_id):
+    
+    return engine.confirm_blocked_rare_ping(pending_id)
+
+
+@eel.expose
+def dismiss_blocked_rare_ping(pending_id):
+    
+    return engine.dismiss_blocked_rare_ping(pending_id)
+
+
 @eel.expose
 def get_roblox_avatar(username):
     return MacroEngine.get_roblox_avatar(username)
+
 
 @eel.expose
 def check_update():
     current = config.data.get("version", "?")
     return updater.check_for_update(current)
+
 
 @eel.expose
 def open_url(url):
@@ -1503,17 +1909,20 @@ def open_url(url):
             print(f"[Update] Could not open url: {e}")
     return False
 
+
 @eel.expose
 def window_minimize():
     if sys.platform != "win32":
         return False
     try:
         import ctypes
+
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.ShowWindow(hwnd, 6)
         return True
     except Exception:
         return False
+
 
 @eel.expose
 def window_maximize():
@@ -1521,6 +1930,7 @@ def window_maximize():
         return False
     try:
         import ctypes
+
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         is_max = ctypes.windll.user32.IsZoomed(hwnd)
         ctypes.windll.user32.ShowWindow(hwnd, 9 if not is_max else 1)
@@ -1528,15 +1938,18 @@ def window_maximize():
     except Exception:
         return False
 
+
 @eel.expose
 def window_close():
     try:
         import ctypes
+
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)
         return True
     except Exception:
         return False
+
 
 @eel.expose
 def close_app_window():
@@ -1546,15 +1959,18 @@ def close_app_window():
     except Exception:
         return {"ok": False}
 
+
 @eel.expose
 def get_releases():
     current = config.data.get("version", "?")
     return updater.get_all_releases(current)
 
+
 @eel.expose
 def download_and_install_update(url, name=""):
     
     from core import self_update
+
     if self_update.is_busy():
         return {"ok": False, "error": "already_running"}
 
@@ -1574,18 +1990,21 @@ def download_and_install_update(url, name=""):
     threading.Thread(target=_run, daemon=True).start()
     return {"ok": True, "started": True}
 
+
 _MERCHANT_GROUP_COLORS = {
     "general": "#f59e0b",
-    "shop":    "#fb923c",
-    "mari":    "#a855f7",
-    "jester":  "#22d3ee",
-    "rin":     "#34d399",
+    "shop": "#fb923c",
+    "mari": "#a855f7",
+    "jester": "#22d3ee",
+    "rin": "#34d399",
 }
+
 
 def _collect_merchant_points():
     import core.merchants_data as _md
+
     auto = config.automation
-    calib = ((auto.get("merchants", {}) or {}).get("calib", {}) or {})
+    calib = (auto.get("merchants", {}) or {}).get("calib", {}) or {}
     points = []
     for group in _md.calib_groups():
         gkey = group["key"]
@@ -1594,14 +2013,22 @@ def _collect_merchant_points():
         for slot, label in group.get("points", []):
             pos = gpix.get(slot)
             if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                points.append({"x": pos[0], "y": pos[1],
-                               "label": f"{group['label']}: {label}", "color": color})
+                points.append(
+                    {
+                        "x": pos[0],
+                        "y": pos[1],
+                        "label": f"{group['label']}: {label}",
+                        "color": color,
+                    }
+                )
     return points
+
 
 def _collect_merchant_regions():
     import core.merchants_data as _md
+
     auto = config.automation
-    calib = ((auto.get("merchants", {}) or {}).get("calib", {}) or {})
+    calib = (auto.get("merchants", {}) or {}).get("calib", {}) or {}
     regions = []
     for group in _md.calib_groups():
         gkey = group["key"]
@@ -1610,12 +2037,22 @@ def _collect_merchant_regions():
         for name, label in group.get("regions", []):
             box = grgn.get(name)
             if isinstance(box, (list, tuple)) and len(box) == 4:
-                regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                "label": f"{group['label']}: {label}", "color": color})
+                regions.append(
+                    {
+                        "x": box[0],
+                        "y": box[1],
+                        "w": box[2],
+                        "h": box[3],
+                        "label": f"{group['label']}: {label}",
+                        "color": color,
+                    }
+                )
     return regions
+
 
 def _collect_extra_points():
     import core.extra_calibrations as _ec
+
     calib = config.automation.get("calib", {}) or {}
     points = []
     for group in _ec.groups():
@@ -1625,19 +2062,32 @@ def _collect_extra_points():
         for slot, label in group.get("points", []):
             pos = gpix.get(slot)
             if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                points.append({"x": pos[0], "y": pos[1],
-                               "label": f"{group['label']}: {label}", "color": color})
+                points.append(
+                    {
+                        "x": pos[0],
+                        "y": pos[1],
+                        "label": f"{group['label']}: {label}",
+                        "color": color,
+                    }
+                )
         for sg in group.get("subgroups", []):
             for slot, label in sg.get("points", []):
                 pos = gpix.get(slot)
                 if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                    points.append({"x": pos[0], "y": pos[1],
-                                   "label": f"{group['label']}: {sg['label']}: {label}",
-                                   "color": color})
+                    points.append(
+                        {
+                            "x": pos[0],
+                            "y": pos[1],
+                            "label": f"{group['label']}: {sg['label']}: {label}",
+                            "color": color,
+                        }
+                    )
     return points
+
 
 def _collect_extra_regions():
     import core.extra_calibrations as _ec
+
     calib = config.automation.get("calib", {}) or {}
     regions = []
     for group in _ec.groups():
@@ -1647,16 +2097,32 @@ def _collect_extra_regions():
         for name, label in group.get("regions", []):
             box = grgn.get(name)
             if isinstance(box, (list, tuple)) and len(box) == 4:
-                regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                "label": f"{group['label']}: {label}", "color": color})
+                regions.append(
+                    {
+                        "x": box[0],
+                        "y": box[1],
+                        "w": box[2],
+                        "h": box[3],
+                        "label": f"{group['label']}: {label}",
+                        "color": color,
+                    }
+                )
         for sg in group.get("subgroups", []):
             for name, label in sg.get("regions", []):
                 box = grgn.get(name)
                 if isinstance(box, (list, tuple)) and len(box) == 4:
-                    regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                    "label": f"{group['label']}: {sg['label']}: {label}",
-                                    "color": color})
+                    regions.append(
+                        {
+                            "x": box[0],
+                            "y": box[1],
+                            "w": box[2],
+                            "h": box[3],
+                            "label": f"{group['label']}: {sg['label']}: {label}",
+                            "color": color,
+                        }
+                    )
     return regions
+
 
 def _collect_points(scope):
     auto = config.automation
@@ -1666,7 +2132,9 @@ def _collect_points(scope):
         for slot, label in _auto_presets.PIXEL_SLOTS:
             pos = pixels.get(slot)
             if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                points.append({"x": pos[0], "y": pos[1], "label": label, "color": "#4f6ef7"})
+                points.append(
+                    {"x": pos[0], "y": pos[1], "label": label, "color": "#4f6ef7"}
+                )
     if scope in ("merchants", "all"):
         points.extend(_collect_merchant_points())
     if scope in ("fishing", "all"):
@@ -1674,9 +2142,20 @@ def _collect_points(scope):
         for slot, label in _fish_presets.PIXEL_SLOTS:
             pos = fpixels.get(slot)
             if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                points.append({"x": pos[0], "y": pos[1], "label": label, "color": "#22d3ee"})
-    if scope in ("chat", "aura_storage", "fischl", "crafting", "loading_screen", "ps_check", "all"):
+                points.append(
+                    {"x": pos[0], "y": pos[1], "label": label, "color": "#22d3ee"}
+                )
+    if scope in (
+        "chat",
+        "aura_storage",
+        "fischl",
+        "crafting",
+        "loading_screen",
+        "ps_check",
+        "all",
+    ):
         import core.extra_calibrations as _ec
+
         all_pts = _collect_extra_points()
         all_rgns_extra = _collect_extra_regions()
         if scope == "all":
@@ -1690,14 +2169,23 @@ def _collect_points(scope):
                 for slot, label in g.get("points", []):
                     pos = gpix.get(slot)
                     if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                        points.append({"x": pos[0], "y": pos[1], "label": label, "color": color})
+                        points.append(
+                            {"x": pos[0], "y": pos[1], "label": label, "color": color}
+                        )
                 for sg in g.get("subgroups", []):
                     for slot, label in sg.get("points", []):
                         pos = gpix.get(slot)
                         if isinstance(pos, (list, tuple)) and len(pos) == 2:
-                            points.append({"x": pos[0], "y": pos[1],
-                                           "label": f"{sg['label']}: {label}", "color": color})
+                            points.append(
+                                {
+                                    "x": pos[0],
+                                    "y": pos[1],
+                                    "label": f"{sg['label']}: {label}",
+                                    "color": color,
+                                }
+                            )
     return points
+
 
 def _collect_regions(scope):
     auto = config.automation
@@ -1705,18 +2193,43 @@ def _collect_regions(scope):
     if scope in ("automation", "all"):
         item = auto.get("firstItemRegion")
         if isinstance(item, (list, tuple)) and len(item) == 4:
-            regions.append({"x": item[0], "y": item[1], "w": item[2], "h": item[3],
-                            "label": "First Item Region", "color": "#4f6ef7"})
+            regions.append(
+                {
+                    "x": item[0],
+                    "y": item[1],
+                    "w": item[2],
+                    "h": item[3],
+                    "label": "First Item Region",
+                    "color": "#4f6ef7",
+                }
+            )
     if scope in ("merchants", "all"):
         regions.extend(_collect_merchant_regions())
     if scope in ("fishing", "all"):
         fregions = (auto.get("fishing", {}) or {}).get("regions", {}) or {}
         for nm, box in fregions.items():
             if isinstance(box, (list, tuple)) and len(box) == 4:
-                regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                "label": _fish_presets.region_label(nm), "color": "#22d3ee"})
-    if scope in ("chat", "aura_storage", "fischl", "crafting", "loading_screen", "ps_check", "all"):
+                regions.append(
+                    {
+                        "x": box[0],
+                        "y": box[1],
+                        "w": box[2],
+                        "h": box[3],
+                        "label": _fish_presets.region_label(nm),
+                        "color": "#22d3ee",
+                    }
+                )
+    if scope in (
+        "chat",
+        "aura_storage",
+        "fischl",
+        "crafting",
+        "loading_screen",
+        "ps_check",
+        "all",
+    ):
         import core.extra_calibrations as _ec
+
         if scope == "all":
             regions.extend(_collect_extra_regions())
         else:
@@ -1728,22 +2241,49 @@ def _collect_regions(scope):
                 for name, label in g.get("regions", []):
                     box = grgn.get(name)
                     if isinstance(box, (list, tuple)) and len(box) == 4:
-                        regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                        "label": label, "color": color})
+                        regions.append(
+                            {
+                                "x": box[0],
+                                "y": box[1],
+                                "w": box[2],
+                                "h": box[3],
+                                "label": label,
+                                "color": color,
+                            }
+                        )
                 for sg in g.get("subgroups", []):
                     for name, label in sg.get("regions", []):
                         box = grgn.get(name)
                         if isinstance(box, (list, tuple)) and len(box) == 4:
-                            regions.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                            "label": f"{sg['label']}: {label}", "color": color})
+                            regions.append(
+                                {
+                                    "x": box[0],
+                                    "y": box[1],
+                                    "w": box[2],
+                                    "h": box[3],
+                                    "label": f"{sg['label']}: {label}",
+                                    "color": color,
+                                }
+                            )
     return regions
+
 
 @eel.expose
 def show_calibration_points(scope="all", duration=4.0):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    _VALID_SCOPES = {"automation", "fishing", "merchants",
-                     "chat", "aura_storage", "fischl", "crafting", "loading_screen", "ps_check", "all"}
+    _VALID_SCOPES = {
+        "automation",
+        "fishing",
+        "merchants",
+        "chat",
+        "aura_storage",
+        "fischl",
+        "crafting",
+        "loading_screen",
+        "ps_check",
+        "all",
+    }
     norm = scope if scope in _VALID_SCOPES else "all"
     points = _collect_points(norm)
     regions = _collect_regions(norm)
@@ -1757,6 +2297,9 @@ def show_calibration_points(scope="all", duration=4.0):
 
 
 
+
+
+
 @eel.expose
 def set_tutorial_seen(kind, version=""):
     if kind == "firstStart":
@@ -1765,11 +2308,13 @@ def set_tutorial_seen(kind, version=""):
         config.set_setting("tutorialVersion", str(version or ""))
     return _state_with_status()
 
+
 @eel.expose
 def reset_tutorial():
     config.set_setting("firstStartDone", False)
     config.set_setting("tutorialVersion", "")
     return _state_with_status()
+
 
 @eel.expose
 def get_creator_info():
@@ -1777,9 +2322,12 @@ def get_creator_info():
     info["stats"] = creator.get_stats()
     return info
 
+
 @eel.expose
 def refresh_creator_stats():
     return creator.get_stats(force=True)
+
+
 
 
 @eel.expose
@@ -1790,13 +2338,22 @@ def get_calibration_text(scope):
         fish = config.automation.get("fishing", {}) or {}
         pixels = fish.get("pixels", {}) or {}
         regions = fish.get("regions", {}) or {}
-        region_keys = fishing_presets.region_keys()
+        region_keys = (
+            fishing_presets.region_keys()
+        )
         label = "fishing"
     elif scope == "merchants":
         return _merchant_calibration_text()
     elif scope == "all":
         return _all_calibration_text()
-    elif scope in ("chat", "aura_storage", "fischl", "crafting", "loading_screen", "ps_check"):
+    elif scope in (
+        "chat",
+        "aura_storage",
+        "fischl",
+        "crafting",
+        "loading_screen",
+        "ps_check",
+    ):
         return _extra_calibration_text(scope)
     else:
         keys = presets.slot_keys()
@@ -1812,14 +2369,18 @@ def get_calibration_text(scope):
     for name in region_keys:
         v = regions.get(name)
         if isinstance(v, (list, tuple)) and len(v) == 4:
-            lines.append(f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],')
+            lines.append(
+                f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],'
+            )
         else:
             lines.append(f'        "{name}": None,')
     lines.append("    },")
     return "\n".join(lines)
 
+
 def _extra_calibration_text(scope):
     import core.extra_calibrations as _ec
+
     g = _ec.group(scope)
     if not g:
         return ""
@@ -1827,26 +2388,47 @@ def _extra_calibration_text(scope):
     gdata = calib.get(scope, {}) or {}
     gpix = gdata.get("pixels", {}) or {}
     grgn = gdata.get("regions", {}) or {}
-    lines = [f'# SolRich {g["label"]} calibration', '    "MY RESOLUTION (rename me)": {']
+    lines = [
+        f"# SolRich {g['label']} calibration",
+        '    "MY RESOLUTION (rename me)": {',
+    ]
     for slot, _lbl in g.get("points", []):
         v = gpix.get(slot)
-        lines.append(f'        "{slot}": [{int(v[0])}, {int(v[1])}],' if isinstance(v, (list,tuple)) and len(v)==2 else f'        "{slot}": None,')
+        lines.append(
+            f'        "{slot}": [{int(v[0])}, {int(v[1])}],'
+            if isinstance(v, (list, tuple)) and len(v) == 2
+            else f'        "{slot}": None,'
+        )
     for name, _lbl in g.get("regions", []):
         v = grgn.get(name)
-        lines.append(f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],' if isinstance(v, (list,tuple)) and len(v)==4 else f'        "{name}": None,')
+        lines.append(
+            f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],'
+            if isinstance(v, (list, tuple)) and len(v) == 4
+            else f'        "{name}": None,'
+        )
     for sg in g.get("subgroups", []):
-        lines.append(f'        # {sg["label"]}')
+        lines.append(f"        # {sg['label']}")
         for slot, _lbl in sg.get("points", []):
             v = gpix.get(slot)
-            lines.append(f'        "{slot}": [{int(v[0])}, {int(v[1])}],' if isinstance(v, (list,tuple)) and len(v)==2 else f'        "{slot}": None,')
+            lines.append(
+                f'        "{slot}": [{int(v[0])}, {int(v[1])}],'
+                if isinstance(v, (list, tuple)) and len(v) == 2
+                else f'        "{slot}": None,'
+            )
         for name, _lbl in sg.get("regions", []):
             v = grgn.get(name)
-            lines.append(f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],' if isinstance(v, (list,tuple)) and len(v)==4 else f'        "{name}": None,')
+            lines.append(
+                f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],'
+                if isinstance(v, (list, tuple)) and len(v) == 4
+                else f'        "{name}": None,'
+            )
     lines.append("    },")
     return "\n".join(lines)
 
+
 def _all_calibration_text():
     import core.extra_calibrations as _ec
+
     parts = []
     parts.append("# SolRich — All calibrations\n")
     parts.append("# == Inventory ==")
@@ -1856,13 +2438,15 @@ def _all_calibration_text():
     parts.append("\n# == Merchants ==")
     parts.append(_merchant_calibration_text())
     for g in _ec.groups():
-        parts.append(f'\n# == {g["label"]} ==')
+        parts.append(f"\n# == {g['label']} ==")
         parts.append(_extra_calibration_text(g["key"]))
     auto = config.automation
+
     def _fmt_region(v):
         if isinstance(v, (list, tuple)) and len(v) == 4:
             return f"[{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}]"
         return "None"
+
     fir = auto.get("firstItemRegion")
     amount = (auto.get("autopop", {}) or {}).get("amountRegion")
     parts.append("\n# == Regions ==")
@@ -1870,9 +2454,11 @@ def _all_calibration_text():
     parts.append(f'    "autopop_amount_region": {_fmt_region(amount)},')
     return "\n".join(parts)
 
+
 def _merchant_calibration_text():
     import core.merchants_data as _md
-    calib = ((config.automation.get("merchants", {}) or {}).get("calib", {}) or {})
+
+    calib = (config.automation.get("merchants", {}) or {}).get("calib", {}) or {}
     lines = ["# SolRich merchant calibration"]
     for group in _md.calib_groups():
         gkey = group["key"]
@@ -1889,26 +2475,35 @@ def _merchant_calibration_text():
         for name, _lbl in group.get("regions", []):
             v = grgn.get(name)
             if isinstance(v, (list, tuple)) and len(v) == 4:
-                lines.append(f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],')
+                lines.append(
+                    f'        "{name}": [{int(v[0])}, {int(v[1])}, {int(v[2])}, {int(v[3])}],'
+                )
             else:
                 lines.append(f'        "{name}": None,')
         lines.append("    },")
     return "\n".join(lines)
 
 
+
+
 @eel.expose
 def tick_streak():
     return config.touch_streak()
+
 
 @eel.expose
 def reset_biome_counts():
     config.reset_biome_counts()
     return _state_with_status()
 
+
 @eel.expose
 def reset_eden_stats():
     config.reset_eden_stats()
     return _state_with_status()
+
+
+
 
 
 
@@ -1948,9 +2543,9 @@ def run():
             cmd_args = []
             if mode in ["chrome", "edge"]:
                 cmd_args = [
-                    f'--user-data-dir={profile_dir}',
-                    '--no-first-run',
-                    '--new-window',
+                    f"--user-data-dir={profile_dir}",
+                    "--no-first-run",
+                    "--new-window",
                 ]
 
             eel.start(

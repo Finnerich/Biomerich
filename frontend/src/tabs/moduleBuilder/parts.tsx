@@ -314,6 +314,14 @@ export function MiscSettings() {
         checked={settings.fakePingGuard !== false}
         onChange={(c) => setSetting("fakePingGuard", c)}
       />
+      <div className="afk-divider"></div>
+      <ToggleRow
+        name="Ask Before Releasing a Blocked Ping"
+        desc="Shows a red warning on the Macro screen after Anti Fake Ping blocks a rare biome. Releasing the normal @everyone biome embed always needs two confirmations. Recommended on."
+        checked={settings.fakePingPrompt !== false}
+        disabled={settings.fakePingGuard === false}
+        onChange={(c) => setSetting("fakePingPrompt", c)}
+      />
     </>
   );
 }

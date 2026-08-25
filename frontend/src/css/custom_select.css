@@ -27,6 +27,13 @@
 }
 .cs-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-label.placeholder { color: var(--text-faint); }
+.cs-option-icon {
+    width: 14px;
+    flex-shrink: 0;
+    color: var(--text-faint);
+    font-size: 11px;
+    text-align: center;
+}
 .cs-arrow {
     font-size: 11px; color: var(--text-faint); flex-shrink: 0;
     transition: transform var(--t-med) var(--ease-out);

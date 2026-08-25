@@ -78,7 +78,10 @@ body.accent-anim *::after {
 }
 
 
-body.nav-anim-scanlines .topbar,
+body.nav-anim-scanlines .topbar {
+  position: relative;
+  overflow: visible;
+}
 body.nav-anim-scanlines .sidebar {
   position: relative;
   overflow: hidden;
