@@ -24,6 +24,7 @@ const RAW_NAV_GROUPS: NavGroupDef[] = [
       { tab: "home", icon: "fa-house", label: "Home" },
       { tab: "stats", icon: "fa-chart-simple", label: "Stats" },
       { tab: "monitor", icon: "fa-desktop", label: "Monitor" },
+      { tab: "timeline", icon: "fa-timeline", label: "Timeline" },
     ],
   },
   {

@@ -4,6 +4,7 @@
 import {
   Fragment,
   memo,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -48,6 +49,7 @@ export const OCR_FAILSAFE_DESC: Record<string, string> = {
 export type DrawerState =
   | { kind: "antiafk" }
   | { kind: "biomelog" }
+  | { kind: "clipping" }
   | { kind: "aura" }
   | { kind: "ramtrim" }
   | { kind: "misc" }
@@ -137,9 +139,11 @@ export const AccountRow = memo(function AccountRow(props: {
   else { statusLabel = "Offline: no Roblox window found"; statusClass = "off"; }
 
   const merchOn = !!modules.merchantTeleporter;
+  const auraOn = !!modules.auraDetection;
   const fishingOn = !!modules.fishing;
   const itemLocked = (key: "strangeController" | "biomeRandomizer") => !!locks.item && !modules[key];
   const merchLocked = !!locks.merchant && !merchOn;
+  const auraLocked = !!locks.aura && !auraOn;
   const fishingLocked = !!locks.fishing && !fishingOn;
   const popLocked = (!!locks.autopop || !autopopHasBiome) && !autopopOn;
   const popLockMsg = locks.autopop || "Enable at least one biome in the Auto Pop settings (gear) first";
@@ -212,6 +216,18 @@ export const AccountRow = memo(function AccountRow(props: {
           </button>
         </span>
 
+        <span className="mb-chip-wrap">
+          <button
+            className={`prio-chip prio-chip-aura${auraOn ? " on" : ""}${auraLocked ? " mb-locked" : ""}`}
+            title={auraLocked ? locks.aura! : "Detect equipped auras from Roblox logs"}
+            onClick={() => { if (!auraLocked) props.onToggleModule(acc.id, "auraDetection"); }}
+          >
+            <i className={`fa-solid ${auraLocked ? "fa-lock" : "fa-star"}`}></i><span>Aura Det.</span>
+          </button>
+          <button className="mb-chip-gear" title="Aura Detection settings" onClick={() => props.onOpenDrawer(acc.id, "aura")}>
+            <i className="fa-solid fa-gear"></i>
+          </button>
+        </span>
 
         <span className="mb-chip-wrap">
           <button
@@ -328,6 +344,432 @@ export function MiscSettings() {
 
 
 
+export interface AuraEntry { id: number; account: string; aura: string; rarity: number | null; ts: number }
+
+function rarityDigits(value: unknown): string {
+  return String(value ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+}
+
+function formatRarityInput(value: unknown): string {
+  return rarityDigits(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+export function AuraSettings({ open }: { open: boolean }) {
+  const settings = useStore((s) => s.settings);
+  const patchSettings = useStore((s) => s.patchSettings);
+  const [log, setLog] = useState<AuraEntry[]>([]);
+
+  function saveText(key: string, value: string) {
+    patchSettings({ [key]: value });
+    void callPy("set_setting", key, value);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    const fetchLog = () =>
+      void callPy<AuraEntry[]>("get_aura_log", 0).then((entries) => { if (alive) setLog(Array.isArray(entries) ? entries : []); });
+    fetchLog();
+    const intervalId = window.setInterval(fetchLog, 4000);
+    return () => { alive = false; window.clearInterval(intervalId); };
+  }, [open]);
+
+  const logReversed = useMemo(() => [...log].reverse(), [log]);
+
+  return (
+    <>
+      <div className="mb-scope-note">
+        <i className="fa-solid fa-circle-info"></i>
+        <span>
+          Enable the <b>Aura Det.</b> chip for each account you want to track. SolRich reads equipped
+          aura changes directly from that account's Roblox log. No Tesseract or Chat calibration is needed.
+        </span>
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Minimum rarity to send</span>
+          <span className="afk-setting-desc">Known auras below this number will stay in the log, but no webhook is sent. Leave empty to send all. Unknown auras are always sent.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="e.g. 1000000"
+          defaultValue={formatRarityInput(settings.auraMinimumRarity)}
+          onFocus={(e) => { e.currentTarget.value = rarityDigits(e.currentTarget.value); }}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => {
+            const digits = rarityDigits(e.currentTarget.value);
+            e.currentTarget.value = formatRarityInput(digits);
+            saveText("auraMinimumRarity", digits);
+          }}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="setting-col drawer-setting-block">
+        <div className="setting-info">
+          <span className="setting-name">Always send these auras</span>
+          <span className="setting-desc">Aura names that ignore the minimum rarity. Separate names with commas or new lines.</span>
+        </div>
+        <textarea
+          className="aura-input aura-area"
+          rows={2}
+          placeholder="Illusionary, Common"
+          defaultValue={String(settings.auraAlwaysSendNames ?? "")}
+          onBlur={(e) => saveText("auraAlwaysSendNames", e.currentTarget.value.trim())}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Discord User ID to ping</span>
+          <span className="afk-setting-desc">Only this user can be mentioned by Aura Detection. Leave empty to disable aura pings.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="Discord User ID"
+          defaultValue={String(settings.auraPingUserId ?? "")}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => saveText("auraPingUserId", e.currentTarget.value.replace(/\D/g, ""))}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Ping from rarity</span>
+          <span className="afk-setting-desc">Ping the Discord user when a known aura has this rarity or higher. Leave empty to use only the name list below.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="e.g. 10000000"
+          defaultValue={formatRarityInput(settings.auraPingMinimumRarity)}
+          onFocus={(e) => { e.currentTarget.value = rarityDigits(e.currentTarget.value); }}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => {
+            const digits = rarityDigits(e.currentTarget.value);
+            e.currentTarget.value = formatRarityInput(digits);
+            saveText("auraPingMinimumRarity", digits);
+          }}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="setting-col drawer-setting-block">
+        <div className="setting-info">
+          <span className="setting-name">Always ping these auras</span>
+          <span className="setting-desc">These names ping the configured user even below the ping rarity. Separate names with commas or new lines.</span>
+        </div>
+        <textarea
+          className="aura-input aura-area"
+          rows={2}
+          placeholder="Illusionary, Glitch"
+          defaultValue={String(settings.auraAlwaysPingNames ?? "")}
+          onBlur={(e) => saveText("auraAlwaysPingNames", e.currentTarget.value.trim())}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="setting-info aura-log-heading">
+        <span className="setting-name"><i className="fa-solid fa-list-ul"></i> Detected auras log</span>
+      </div>
+      <div className="aura-log">
+        {log.length === 0 ? (
+          <div className="log-empty">No auras detected yet.</div>
+        ) : (
+          logReversed.map((entry) => (
+            <div className="aura-log-row" key={entry.id}>
+              <span className="aura-log-name">{entry.aura}</span>
+              <span className="aura-log-rar">{entry.rarity ? `1 in ${entry.rarity.toLocaleString("en-US")}` : "-"}</span>
+              <span className="aura-log-acc">{entry.account}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
+
+
+const CLIP_BIOMES = [
+  { key: "glitched", name: "Glitched" },
+  { key: "dreamspace", name: "Dreamspace" },
+  { key: "cyberspace", name: "Cyberspace" },
+  { key: "singularity", name: "Singularity" },
+] as const;
+
+const HOTKEY_NAMES: Record<string, string> = {
+  " ": "space",
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  PageUp: "page up",
+  PageDown: "page down",
+  CapsLock: "caps lock",
+  NumLock: "num lock",
+  ScrollLock: "scroll lock",
+  PrintScreen: "print screen",
+  ContextMenu: "menu",
+  AudioVolumeUp: "volume up",
+  AudioVolumeDown: "volume down",
+  AudioVolumeMute: "volume mute",
+  MediaPlayPause: "play/pause",
+  MediaTrackNext: "next track",
+  MediaTrackPrevious: "previous track",
+  ",": "comma",
+  "+": "plus",
+};
+const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta", "AltGraph"]);
+
+function recordedHotkey(event: KeyboardEvent): string {
+  if (MODIFIER_KEYS.has(event.key)) return "";
+  let key = HOTKEY_NAMES[event.key] || event.key.toLowerCase();
+  if (/^Key[A-Z]$/.test(event.code)) key = event.code.slice(3).toLowerCase();
+  else if (/^Digit\d$/.test(event.code)) key = event.code.slice(5);
+  else if (/^Numpad\d$/.test(event.code)) key = event.code.slice(6);
+  key = String(key).trim().toLowerCase();
+  if (!key || key === "unidentified" || key === "dead") return "";
+
+  const parts: string[] = [];
+  if (event.ctrlKey) parts.push("ctrl");
+  if (event.altKey) parts.push("alt");
+  if (event.shiftKey) parts.push("shift");
+  if (event.metaKey) parts.push("windows");
+  parts.push(key);
+  return parts.join("+");
+}
+
+function displayHotkey(value: string): string {
+  const labels: Record<string, string> = {
+    ctrl: "Ctrl", alt: "Alt", shift: "Shift", windows: "Win",
+    space: "Space", comma: ",", plus: "+",
+  };
+  return value.split("+").map((part) => {
+    if (labels[part]) return labels[part];
+    if (part.length === 1 || /^f\d+$/i.test(part)) return part.toUpperCase();
+    return part.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }).join(" + ");
+}
+
+interface ClipTestResult { ok?: boolean; error?: string; hotkey?: string; delay?: number }
+
+export function ClippingSettings() {
+  const settings = useStore((s) => s.settings);
+  const patchSettings = useStore((s) => s.patchSettings);
+  const [testMessage, setTestMessage] = useState("");
+  const [testRunning, setTestRunning] = useState(false);
+  const [recordingHotkey, setRecordingHotkey] = useState(false);
+  const clipHotkey = String(settings.clipHotkey || "f8").toLowerCase();
+  const selectedBiomes = Array.isArray(settings.clipBiomes)
+    ? settings.clipBiomes.map(String)
+    : CLIP_BIOMES.map((biome) => biome.key);
+
+  useEffect(() => {
+    if (!recordingHotkey) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      if (event.repeat) return;
+      const next = recordedHotkey(event);
+      if (!next) return;
+      const reserved = new Set([
+        String(settings.hotkey || "f5").trim().toLowerCase(),
+        String(settings.modeHotkey || "none").trim().toLowerCase(),
+      ]);
+      if (reserved.has(next)) {
+        setRecordingHotkey(false);
+        setTestMessage("This hotkey is already used by Start/Stop or Mode Toggle.");
+        return;
+      }
+      patchSettings({ clipHotkey: next });
+      void callPy("set_setting", "clipHotkey", next);
+      setRecordingHotkey(false);
+      setTestMessage(`${displayHotkey(next)} is now your clip hotkey.`);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [patchSettings, recordingHotkey, settings.hotkey, settings.modeHotkey]);
+
+  function save(key: string, value: unknown) {
+    patchSettings({ [key]: value });
+    void callPy("set_setting", key, value);
+  }
+
+  function saveDigits(key: string, value: string) {
+    save(key, value.replace(/\D/g, ""));
+  }
+
+  function toggleBiome(key: string) {
+    const next = selectedBiomes.includes(key)
+      ? selectedBiomes.filter((biome) => biome !== key)
+      : [...selectedBiomes, key];
+    save("clipBiomes", next);
+  }
+
+  async function testHotkey() {
+    if (testRunning) return;
+    setTestRunning(true);
+    setTestMessage("The hotkey will be sent in 5 seconds. Focus Medal now…");
+    const result: ClipTestResult = await callPy<ClipTestResult>("test_clip_hotkey")
+      .catch((): ClipTestResult => ({ ok: false, error: "backend_error" }));
+    if (!result.ok) {
+      setTestRunning(false);
+      setTestMessage(result.error === "invalid_or_conflicting_hotkey"
+        ? "Choose a hotkey that is not used by Start/Stop or Mode Toggle."
+        : "The hotkey test could not be scheduled.");
+      return;
+    }
+    window.setTimeout(() => {
+      setTestRunning(false);
+      setTestMessage(`${result.hotkey || clipHotkey} was sent.`);
+    }, 5200);
+  }
+
+  return (
+    <>
+      <div className="mb-scope-note">
+        <i className="fa-solid fa-circle-info"></i>
+        <span>
+          Global module. SolRich presses your Medal clip hotkey after a selected biome or aura.
+          Anti Fake Ping blocks the biome trigger before it reaches this module.
+        </span>
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Clip hotkey</span>
+          <span className="afk-setting-desc">Set this to the same clip hotkey you use in Medal. Start/Stop and Mode Toggle keys cannot be reused.</span>
+        </div>
+        <div className="clip-hotkey-control">
+          <kbd className={`clip-hotkey-value${recordingHotkey ? " recording" : ""}`}>
+            {recordingHotkey ? "Press a key…" : displayHotkey(clipHotkey)}
+          </kbd>
+          <button
+            className={`clip-record-button${recordingHotkey ? " recording" : ""}`}
+            type="button"
+            aria-pressed={recordingHotkey}
+            onClick={() => {
+              setRecordingHotkey((current) => !current);
+              setTestMessage(recordingHotkey ? "Hotkey recording cancelled." : "Press any key or combination. Click Listening again to cancel.");
+            }}
+          >
+            <i className={`fa-solid ${recordingHotkey ? "fa-circle" : "fa-keyboard"}`}></i>
+            {recordingHotkey ? "Listening…" : "Record hotkey"}
+          </button>
+        </div>
+      </div>
+      <div className="clip-test-row drawer-setting-block">
+        <button className="clip-test-button" type="button" disabled={testRunning} onClick={() => void testHotkey()}>
+          <i className="fa-solid fa-stopwatch"></i> Test in 5 seconds
+        </button>
+        {testMessage && <span className="clip-test-message">{testMessage}</span>}
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="setting-col drawer-setting-block">
+        <div className="setting-info">
+          <span className="setting-name">Biome clips</span>
+          <span className="setting-desc">Choose which trusted rare-biome detections should schedule a clip.</span>
+        </div>
+        <div className="clip-biome-grid">
+          {CLIP_BIOMES.map((biome) => {
+            const active = selectedBiomes.includes(biome.key);
+            return (
+              <button
+                key={biome.key}
+                type="button"
+                className={`clip-biome clip-biome--${biome.key}${active ? " on" : ""}`}
+                aria-pressed={active}
+                onClick={() => toggleBiome(biome.key)}
+              >
+                <span className="clip-biome-name">{biome.name}</span>
+                <span className="clip-biome-check"><i className={`fa-solid ${active ? "fa-check" : "fa-plus"}`}></i></span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="afk-divider"></div>
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Biome clip delay</span>
+          <span className="afk-setting-desc">Seconds to wait after the biome starts. Medal can then include the start of the biome from its recording buffer.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="60"
+          defaultValue={String(settings.clipBiomeDelay ?? "60")}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => saveDigits("clipBiomeDelay", e.currentTarget.value)}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Aura rarity to clip</span>
+          <span className="afk-setting-desc">Clip known auras at this rarity or higher. Leave empty to trigger only for the names below.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="99.999.999"
+          defaultValue={formatRarityInput(settings.clipAuraMinimumRarity ?? "99999999")}
+          onFocus={(e) => { e.currentTarget.value = rarityDigits(e.currentTarget.value); }}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => {
+            const digits = rarityDigits(e.currentTarget.value);
+            e.currentTarget.value = formatRarityInput(digits);
+            save("clipAuraMinimumRarity", digits);
+          }}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="setting-col drawer-setting-block">
+        <div className="setting-info">
+          <span className="setting-name">Always clip these auras</span>
+          <span className="setting-desc">Works even when the aura has no catalog rarity. Separate names with commas or new lines.</span>
+        </div>
+        <textarea
+          className="aura-input aura-area"
+          rows={2}
+          placeholder="Illusionary"
+          defaultValue={String(settings.clipAuraNames ?? "Illusionary")}
+          onBlur={(e) => save("clipAuraNames", e.currentTarget.value.trim())}
+        />
+      </div>
+      <div className="afk-divider"></div>
+
+      <div className="afk-setting drawer-setting-block">
+        <div className="afk-setting-info">
+          <span className="afk-setting-name">Aura clip delay</span>
+          <span className="afk-setting-desc">Seconds to wait after the aura is detected before pressing the clip hotkey.</span>
+        </div>
+        <input
+          className="aura-input"
+          inputMode="numeric"
+          placeholder="60"
+          defaultValue={String(settings.clipAuraDelay ?? "60")}
+          onChange={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, ""); }}
+          onBlur={(e) => saveDigits("clipAuraDelay", e.currentTarget.value)}
+        />
+      </div>
+    </>
+  );
+}
 
 
 

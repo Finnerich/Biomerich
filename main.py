@@ -40,7 +40,12 @@ from core import calibration_guides
 from core import win_windows
 from core import status_events
 from core import activity_log
+from core import account_timeline
+from core import display_calibration
 from core import monitor_dim
+from core import windows_notifications
+from core import support_bundle
+from core import windows_search
 
 from core import creator
 from core import roblox_auth
@@ -55,6 +60,7 @@ from core import roblox_cleanup as roblox_cleanup_mod
 from core import presets as _auto_presets
 from core import fishing_presets as _fish_presets
 from core import ocr
+from core.secure_store import SecureStoreError
 from core.anti_afk import focus_roblox
 
 
@@ -160,11 +166,37 @@ def _close_blocked_rare_ping(pending_id):
         pass
 
 
+def _show_biome_health_warning(payload):
+    try:
+        eel.js_on_biome_health_warning(payload)()
+    except Exception as exc:
+        print(f"[Engine] Could not show biome-health warning: {exc}")
+
+
+def _close_biome_health_warning(acc_id):
+    try:
+        eel.js_on_biome_health_resolved(acc_id)()
+    except Exception:
+        pass
+
+
 engine.rare_ping_notifier = _show_blocked_rare_ping
 engine.rare_ping_resolver = _close_blocked_rare_ping
+engine.biome_health_notifier = _show_biome_health_warning
+engine.biome_health_resolver = _close_biome_health_warning
 
 
 activity_log.account_provider = lambda: engine.automation.current_account
+def _timeline_account_id(account_name):
+    wanted = str(account_name or "").casefold()
+    for account in config.accounts:
+        if str(account.get("name") or "").casefold() == wanted:
+            return account.get("id")
+    return None
+
+
+activity_log.account_id_provider = _timeline_account_id
+activity_log.timeline_sink = account_timeline.record_activity
 ram_trimmer = ram_trim.RamTrimmer(config, is_engine_running=lambda: engine.running)
 throttler = throttle_mod.ThrottleEngine(
     config, is_engine_running=lambda: engine.running
@@ -174,12 +206,6 @@ engine.automation.set_throttler(throttler)
 performance_benchmark = performance_benchmark_mod.PerformanceBenchmark(
     config, throttler
 )
-
-if "pytest" not in sys.modules:
-    try:
-        roblox_auth.ensure_multi_instance()
-    except Exception as _multi_instance_error:
-        print(f"[Roblox] Multi-instance guard failed: {_multi_instance_error}")
 
 browser_login = browser_login_mod.BrowserLogin()
 
@@ -380,6 +406,19 @@ def get_activity_log(since_id=0):
 
 
 @eel.expose
+def get_account_timeline(account_id=None, before_id=None, limit=250,
+                         categories=None, search=None, kinds=None, since_ts=None):
+    return account_timeline.get(
+        account_id, before_id, limit, categories, search, kinds, since_ts
+    )
+
+
+@eel.expose
+def clear_account_timeline(account_id=None):
+    return account_timeline.clear(account_id)
+
+
+@eel.expose
 def get_biome_durations():
     from core import biomes as _biomes
 
@@ -425,6 +464,41 @@ def clear_roblox_logs():
         }
     finally:
         _end_maintenance()
+
+
+@eel.expose
+def create_support_bundle():
+    
+    try:
+        return support_bundle.create(
+            config.dir,
+            config.data,
+            str(config.data.get("version") or "1.2.0"),
+            dev_build="dev" in config.dir.name.casefold(),
+        )
+    except Exception as exc:
+        print(f"[Support Bundle] Could not create archive: {exc}")
+        return {"ok": False, "error": "create_failed"}
+
+
+def _windows_search_dev_build() -> bool:
+    
+    return config.dir.name.casefold() == "solrich-dev"
+
+
+@eel.expose
+def get_windows_search_status():
+    return windows_search.status(_windows_search_dev_build())
+
+
+@eel.expose
+def add_windows_search_shortcut():
+    return windows_search.install(_windows_search_dev_build())
+
+
+@eel.expose
+def remove_windows_search_shortcut():
+    return windows_search.uninstall(_windows_search_dev_build())
 
 
 @eel.expose
@@ -545,8 +619,6 @@ def _merchant_calib_ready():
 
 
 
-
-
 def _merchant_autobuy_calib_ready():
     
     import core.merchants_data as _md
@@ -645,7 +717,15 @@ def set_account_token(acc_id, token):
                 "error": f"already_linked:{linked_owner.get('name', '')}",
                 "state": _state_with_status(),
             }
-        config.set_account_token(acc_id, info.get("refreshed") or token)
+        try:
+            config.set_account_token(acc_id, info.get("refreshed") or token)
+        except SecureStoreError:
+            return {
+                "ok": False,
+                "error": "secure_storage_unavailable",
+                "state": _state_with_status(),
+                "security": config.token_security_status(),
+            }
         config.set_account_token_status(
             acc_id, info.get("name", ""), True, info.get("id")
         )
@@ -655,11 +735,19 @@ def set_account_token(acc_id, token):
             "displayName": info.get("displayName", ""),
         }
     elif info.get("definitive"):
-        config.set_account_token(acc_id, token)
-        config.set_account_token_status(acc_id, "", False)
+
+
         result = {"ok": False, "error": info.get("error", "invalid")}
     else:
-        config.set_account_token(acc_id, token)
+        try:
+            config.set_account_token(acc_id, token)
+        except SecureStoreError:
+            return {
+                "ok": False,
+                "error": "secure_storage_unavailable",
+                "state": _state_with_status(),
+                "security": config.token_security_status(),
+            }
         config.set_account_token_status(acc_id, "", True)
         result = {
             "ok": True,
@@ -669,6 +757,7 @@ def set_account_token(acc_id, token):
             "error": info.get("error"),
         }
     result["state"] = _state_with_status()
+    result["security"] = config.token_security_status()
     return result
 
 
@@ -709,7 +798,15 @@ def start_browser_login(acc_id):
                 ):
                     payload = f"wrong_account:{tname}"
                 else:
-                    config.set_account_token(acc_id, store_token)
+                    try:
+                        config.set_account_token(acc_id, store_token)
+                    except SecureStoreError:
+                        payload = "secure_storage_unavailable"
+                        try:
+                            eel.onBrowserLoginResult(acc_id, False, payload)()
+                        except Exception:
+                            pass
+                        return
                     config.set_account_token_status(
                         acc_id, tname, True, info.get("id")
                     )
@@ -717,7 +814,15 @@ def start_browser_login(acc_id):
             elif info.get("definitive"):
                 payload = info.get("error", "invalid")
             else:
-                config.set_account_token(acc_id, token)
+                try:
+                    config.set_account_token(acc_id, token)
+                except SecureStoreError:
+                    payload = "secure_storage_unavailable"
+                    try:
+                        eel.onBrowserLoginResult(acc_id, False, payload)()
+                    except Exception:
+                        pass
+                    return
                 config.set_account_token_status(
                     acc_id, (acc.get("name") or "").strip(), True
                 )
@@ -740,8 +845,47 @@ def cancel_browser_login():
 def clear_account_token(acc_id):
     if _guard():
         return {"ok": False, "error": "running", "state": _state_with_status()}
-    config.clear_account_token(acc_id)
-    return {"ok": True, "state": _state_with_status()}
+    try:
+        config.clear_account_token(acc_id)
+    except SecureStoreError:
+        return {"ok": False, "error": "delete_failed", "state": _state_with_status()}
+    return {
+        "ok": True,
+        "state": _state_with_status(),
+        "security": config.token_security_status(),
+    }
+
+
+@eel.expose
+def get_token_security_status():
+    
+    return config.token_security_status()
+
+
+@eel.expose
+def clear_all_account_tokens():
+    if _guard():
+        return {
+            "ok": False,
+            "error": "running",
+            "state": _state_with_status(),
+            "security": config.token_security_status(),
+        }
+    try:
+        removed = config.clear_all_account_tokens()
+    except SecureStoreError:
+        return {
+            "ok": False,
+            "error": "delete_failed",
+            "state": _state_with_status(),
+            "security": config.token_security_status(),
+        }
+    return {
+        "ok": True,
+        "removed": removed,
+        "state": _state_with_status(),
+        "security": config.token_security_status(),
+    }
 
 
 @eel.expose
@@ -1220,6 +1364,14 @@ def set_setting(key, value):
 
 
 @eel.expose
+def test_clip_hotkey():
+    
+    return engine.clipping.test_hotkey()
+
+
+
+
+@eel.expose
 def set_automation_mode(mode):
     engine.set_automation_mode(mode)
     _broadcast_engine_sync()
@@ -1253,6 +1405,21 @@ def set_automation_amount(value):
 @eel.expose
 def get_automation_presets():
     return {"presets": presets.preset_names(), "slots": presets.PIXEL_SLOTS}
+
+
+@eel.expose
+def get_display_calibration_info():
+    
+    import core.merchant_presets as _merchant_presets
+    import core.extra_presets as _extra_presets
+
+    names = list(dict.fromkeys(
+        presets.preset_names()
+        + fishing_presets.preset_names()
+        + _merchant_presets.preset_names()
+        + _extra_presets.preset_names()
+    ))
+    return display_calibration.inspect_displays(names)
 
 
 @eel.expose
@@ -2124,6 +2291,20 @@ def _collect_extra_regions():
     return regions
 
 
+_VALID_CALIBRATION_SCOPES = {
+    "automation",
+    "fishing",
+    "merchants",
+    "chat",
+    "aura_storage",
+    "fischl",
+    "crafting",
+    "loading_screen",
+    "ps_check",
+    "all",
+}
+
+
 def _collect_points(scope):
     auto = config.automation
     points = []
@@ -2272,19 +2453,7 @@ def _collect_regions(scope):
 def show_calibration_points(scope="all", duration=4.0):
     if _guard():
         return {"ok": False, "error": "tracking_active"}
-    _VALID_SCOPES = {
-        "automation",
-        "fishing",
-        "merchants",
-        "chat",
-        "aura_storage",
-        "fischl",
-        "crafting",
-        "loading_screen",
-        "ps_check",
-        "all",
-    }
-    norm = scope if scope in _VALID_SCOPES else "all"
+    norm = scope if scope in _VALID_CALIBRATION_SCOPES else "all"
     points = _collect_points(norm)
     regions = _collect_regions(norm)
     if not points and not regions:
@@ -2294,6 +2463,32 @@ def show_calibration_points(scope="all", duration=4.0):
     except (TypeError, ValueError):
         d = 4.0
     return overlay.show_points(points, d, regions=regions)
+
+
+@eel.expose
+def start_calibration_test(scope="automation"):
+    
+    if _guard():
+        return {"ok": False, "error": "tracking_active"}
+    norm = scope if scope in _VALID_CALIBRATION_SCOPES else "automation"
+    points = _collect_points(norm)
+    regions = _collect_regions(norm)
+    if not points and not regions:
+        return {"ok": False, "error": "no_points", "scope": norm, "count": 0}
+    result = overlay.show_points(points, None, regions=regions)
+    return {
+        **result,
+        "scope": norm,
+        "count": len(points) + len(regions),
+        "points": len(points),
+        "regions": len(regions),
+    }
+
+
+@eel.expose
+def stop_calibration_test():
+    
+    return overlay.hide_points()
 
 
 
@@ -2505,6 +2700,15 @@ def reset_eden_stats():
 
 
 
+@eel.expose
+def get_aura_log(since_id=0):
+    
+    try:
+        return engine.aura.aura_log(int(since_id or 0))
+    except Exception:
+        return []
+
+
 
 
 
@@ -2512,6 +2716,15 @@ def reset_eden_stats():
 def run():
     
     print(f"[Finnerich] Config folder: {config.dir}")
+
+
+
+    threading.Thread(
+        target=windows_search.repair_if_installed,
+        args=(_windows_search_dev_build(),),
+        name="windows-search-repair",
+        daemon=True,
+    ).start()
 
     saved_hotkey = config.settings.get("hotkey", "F5")
     _register_hotkey(saved_hotkey)

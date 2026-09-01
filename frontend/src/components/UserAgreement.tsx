@@ -48,8 +48,18 @@ export function UserAgreement() {
             <b> entirely at your own risk</b> and are solely responsible for any consequences to your accounts.</p>
 
           <h4>3. Your accounts &amp; tokens</h4>
-          <p>Any Roblox tokens you link are <b>encrypted and stored only on your own PC</b>; they are never
-            uploaded or sent anywhere by SolRich. You are responsible for keeping your device secure.</p>
+          <p>Linking a Roblox <code>.ROBLOSECURITY</code> login cookie is optional. A login cookie can grant
+            access to an account and must be treated like a password. Only link an account you own on a trusted
+            device. Linked cookies are stored outside <code>config.json</code> in a separate local file protected
+            with <b>Windows DPAPI encryption tied to your current Windows user</b>. SolRich refuses to save new
+            cookies if that protection is unavailable.</p>
+          <p>Cookies are sent only to official Roblox services when SolRich validates or launches an account;
+            they are not sent to the SolRich developer, Discord, webhooks or analytics. Browser login opens the
+            official Roblox login page in an isolated temporary browser profile, reads the Roblox cookie after
+            sign-in, and removes that profile afterward. SolRich does not read or store your Roblox password.</p>
+          <p>Windows encryption protects stored data at rest, but cannot protect an unlocked or infected PC.
+            You can delete local login data inside SolRich. If a cookie may have been exposed, you should also
+            sign out of Roblox sessions or change your password to revoke it.</p>
 
           <h4>4. Notifications</h4>
           <p>If you configure Discord webhooks, SolRich posts messages to the webhook URLs you provide. This

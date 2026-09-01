@@ -1,0 +1,5058 @@
+{
+  "schemaVersion": 1,
+  "auras": [
+    {
+      "id": "nothing",
+      "displayName": "Nothing",
+      "aliases": [],
+      "rarity": 1,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "common",
+      "displayName": "Common",
+      "aliases": [],
+      "rarity": 2,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "uncommon",
+      "displayName": "Uncommon",
+      "aliases": [],
+      "rarity": 4,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "good",
+      "displayName": "Good",
+      "aliases": [],
+      "rarity": 5,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "natural",
+      "displayName": "Natural",
+      "aliases": [],
+      "rarity": 8,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "rare",
+      "displayName": "Rare",
+      "aliases": [],
+      "rarity": 16,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "divinus",
+      "displayName": "Divinus",
+      "aliases": [],
+      "rarity": 32,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 6,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "crystallized",
+      "displayName": "Crystallized",
+      "aliases": [],
+      "rarity": 64,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "dizzy",
+      "displayName": "Dizzy",
+      "aliases": [],
+      "rarity": 123,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "rage",
+      "displayName": "Rage",
+      "aliases": [],
+      "rarity": 128,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "topaz",
+      "displayName": "Topaz",
+      "aliases": [],
+      "rarity": 150,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "ruby",
+      "displayName": "Ruby",
+      "aliases": [],
+      "rarity": 350,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "forbidden",
+      "displayName": "Forbidden",
+      "aliases": [],
+      "rarity": 403,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 202,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "emerald",
+      "displayName": "Emerald",
+      "aliases": [],
+      "rarity": 500,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "gilded",
+      "displayName": "Gilded",
+      "aliases": [],
+      "rarity": 512,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 128,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "ink",
+      "displayName": "Ink",
+      "aliases": [],
+      "rarity": 700,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "jackpot",
+      "displayName": "Jackpot",
+      "aliases": [],
+      "rarity": 777,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 194,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "sapphire",
+      "displayName": "Sapphire",
+      "aliases": [],
+      "rarity": 800,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "aquamarine",
+      "displayName": "Aquamarine",
+      "aliases": [],
+      "rarity": 900,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": []
+    },
+    {
+      "id": "wind",
+      "displayName": "Wind",
+      "aliases": [],
+      "rarity": 900,
+      "category": "Basic",
+      "color": "#FFFFFF",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 300,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "diaboli",
+      "displayName": "Diaboli",
+      "aliases": [],
+      "rarity": 1004,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "penumbra",
+      "displayName": "Penumbra",
+      "aliases": [],
+      "rarity": 1010,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "umbra",
+      "displayName": "Umbra",
+      "aliases": [],
+      "rarity": 1010,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "precious",
+      "displayName": "Precious",
+      "aliases": [],
+      "rarity": 1024,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "hydrogen",
+      "displayName": "Hydrogen",
+      "aliases": [],
+      "rarity": 1111,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "atomic",
+      "displayName": "Atomic",
+      "aliases": [],
+      "rarity": 1180,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "glock",
+      "displayName": "Glock",
+      "aliases": [],
+      "rarity": 1700,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "magnetic",
+      "displayName": "Magnetic",
+      "aliases": [],
+      "rarity": 2048,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "ash",
+      "displayName": "Ash",
+      "aliases": [],
+      "rarity": 2300,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "glacier",
+      "displayName": "Glacier",
+      "aliases": [],
+      "rarity": 2304,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 768,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "player",
+      "displayName": "Player",
+      "aliases": [],
+      "rarity": 3000,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 1500,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "flora",
+      "displayName": "Flora",
+      "aliases": [],
+      "rarity": 3700,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "cola",
+      "displayName": "Cola",
+      "aliases": [],
+      "rarity": 3999,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "sidereum",
+      "displayName": "Sidereum",
+      "aliases": [],
+      "rarity": 4096,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "bleeding",
+      "displayName": "Bleeding",
+      "aliases": [],
+      "rarity": 4444,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "flutter",
+      "displayName": "Flutter",
+      "aliases": [],
+      "rarity": 5000,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "targeted",
+      "displayName": "Targeted",
+      "aliases": [],
+      "rarity": 5000,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "flushed",
+      "displayName": ":Flushed:",
+      "aliases": [],
+      "rarity": 6900,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "hazard",
+      "displayName": "Hazard",
+      "aliases": [],
+      "rarity": 7000,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 1400,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "doodle",
+      "displayName": "Doodle",
+      "aliases": [],
+      "rarity": 7500,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "quartz",
+      "displayName": "Quartz",
+      "aliases": [],
+      "rarity": 8192,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "honey",
+      "displayName": "Honey",
+      "aliases": [],
+      "rarity": 8335,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "lostsoul",
+      "displayName": "Lost Soul",
+      "aliases": [],
+      "rarity": 9200,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "atomicribonucleic",
+      "displayName": "Atomic : Ribonucleic",
+      "aliases": [],
+      "rarity": 9876,
+      "category": "Epic",
+      "color": "#A78BFA",
+      "conditions": []
+    },
+    {
+      "id": "★",
+      "displayName": "★",
+      "aliases": [],
+      "rarity": null,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "dreamspace",
+          "rarity": 100,
+          "label": "from DREAMSPACE"
+        }
+      ]
+    },
+    {
+      "id": "undead",
+      "displayName": "Undead",
+      "aliases": [],
+      "rarity": 12000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 2000,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "corrosive",
+      "displayName": "Corrosive",
+      "aliases": [],
+      "rarity": 12000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 2400,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "kawaii",
+      "displayName": "Kawaii",
+      "aliases": [],
+      "rarity": 12300,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "rageheated",
+      "displayName": "Rage : Heated",
+      "aliases": [],
+      "rarity": 12800,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "inkleak",
+      "displayName": "Ink : Leak",
+      "aliases": [],
+      "rarity": 14000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "powered",
+      "displayName": "Powered",
+      "aliases": [],
+      "rarity": 16384,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "gildedcrowned",
+      "displayName": "Gilded : Crowned",
+      "aliases": [],
+      "rarity": 20000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 5000,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "marsh",
+      "displayName": "Marsh",
+      "aliases": [],
+      "rarity": 25000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "copper",
+      "displayName": "Copper",
+      "aliases": [],
+      "rarity": 29000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "watt",
+      "displayName": "Watt",
+      "aliases": [],
+      "rarity": 32768,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "aquatic",
+      "displayName": "Aquatic",
+      "aliases": [],
+      "rarity": 40000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "solar",
+      "displayName": "Solar",
+      "aliases": [],
+      "rarity": 50000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "lunar",
+      "displayName": "Lunar",
+      "aliases": [],
+      "rarity": 50000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "starlight",
+      "displayName": "Starlight",
+      "aliases": [],
+      "rarity": 50000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 10000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "starrider",
+      "displayName": "StarRider",
+      "aliases": [],
+      "rarity": 50000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 10000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "pleiades",
+      "displayName": "Pleiades",
+      "aliases": [],
+      "rarity": null,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 65358,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "flushedlobotomy",
+      "displayName": "Flushed : Lobotomy",
+      "aliases": [],
+      "rarity": 69000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "hazardrays",
+      "displayName": "Hazard : Rays",
+      "aliases": [],
+      "rarity": 70000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 14000,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "nautilus",
+      "displayName": "Nautilus",
+      "aliases": [],
+      "rarity": 70000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": []
+    },
+    {
+      "id": "permafrost",
+      "displayName": "Permafrost",
+      "aliases": [],
+      "rarity": 73500,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 24500,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "pulsar",
+      "displayName": "Pulsar",
+      "aliases": [],
+      "rarity": null,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 83345,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "constella",
+      "displayName": "Constella",
+      "aliases": [],
+      "rarity": null,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 86988,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "flow",
+      "displayName": "Flow",
+      "aliases": [],
+      "rarity": 87000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 29000,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "stormal",
+      "displayName": "Stormal",
+      "aliases": [],
+      "rarity": 90000,
+      "category": "Unique",
+      "color": "#38BDF8",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 30000,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "★★",
+      "displayName": "★★",
+      "aliases": [],
+      "rarity": null,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "dreamspace",
+          "rarity": 1000,
+          "label": "from DREAMSPACE"
+        }
+      ]
+    },
+    {
+      "id": "fault",
+      "displayName": "Fault",
+      "aliases": [],
+      "rarity": null,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "glitched",
+          "rarity": 3000,
+          "label": "from GLITCHED"
+        }
+      ]
+    },
+    {
+      "id": "exotic",
+      "displayName": "Exotic",
+      "aliases": [],
+      "rarity": 99999,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "diabolivoid",
+      "displayName": "Diaboli : Void",
+      "aliases": [],
+      "rarity": 100400,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "comet",
+      "displayName": "Comet",
+      "aliases": [],
+      "rarity": 120000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 24000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "divinusangel",
+      "displayName": "Divinus : Angel",
+      "aliases": [],
+      "rarity": 120000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 24000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "jade",
+      "displayName": "Jade",
+      "aliases": [],
+      "rarity": 125000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "spectre",
+      "displayName": "Spectre",
+      "aliases": [],
+      "rarity": 140000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "jazz",
+      "displayName": "Jazz",
+      "aliases": [],
+      "rarity": 160000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "aether",
+      "displayName": "Aether",
+      "aliases": [],
+      "rarity": 180000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "bounded",
+      "displayName": "Bounded",
+      "aliases": [],
+      "rarity": 200000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "lantern",
+      "displayName": "Lantern",
+      "aliases": [],
+      "rarity": 333333,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "celestial",
+      "displayName": "Celestial",
+      "aliases": [],
+      "rarity": 350000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "vortex",
+      "displayName": "Vortex",
+      "aliases": [],
+      "rarity": 399999,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 133333,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "terror",
+      "displayName": "Terror",
+      "aliases": [],
+      "rarity": 400000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "hope",
+      "displayName": "Hope",
+      "aliases": [],
+      "rarity": 488725,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 97745,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "raven",
+      "displayName": "Raven",
+      "aliases": [],
+      "rarity": 500000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "warlock",
+      "displayName": "Warlock",
+      "aliases": [],
+      "rarity": 666000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "undeaddevil",
+      "displayName": "Undead : Devil",
+      "aliases": [],
+      "rarity": 666666,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 111111,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "kyawthuite",
+      "displayName": "Kyawthuite",
+      "aliases": [],
+      "rarity": 850000,
+      "category": "Legendary",
+      "color": "#FACC15",
+      "conditions": []
+    },
+    {
+      "id": "★★★",
+      "displayName": "★★★",
+      "aliases": [],
+      "rarity": null,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "dreamspace",
+          "rarity": 10000,
+          "label": "from DREAMSPACE"
+        }
+      ]
+    },
+    {
+      "id": "arcane",
+      "displayName": "Arcane",
+      "aliases": [],
+      "rarity": 1000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "starlightkunzite",
+      "displayName": "Starlight : Kunzite",
+      "aliases": [],
+      "rarity": 1000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 200000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "gothic",
+      "displayName": "Gothic",
+      "aliases": [],
+      "rarity": 1000001,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "magneticreversepolarity",
+      "displayName": "Magnetic : Reverse Polarity",
+      "aliases": [],
+      "rarity": 1024000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "undefined",
+      "displayName": "Undefined",
+      "aliases": [],
+      "rarity": 1111000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 1111,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "ragebrawler",
+      "displayName": "Rage : Brawler",
+      "aliases": [],
+      "rarity": 1280000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "symbiosis",
+      "displayName": "Symbiosis",
+      "aliases": [],
+      "rarity": 1331201,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 266240,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "astral",
+      "displayName": "Astral",
+      "aliases": [],
+      "rarity": 1336000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 267200,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "cosmos",
+      "displayName": "Cosmos",
+      "aliases": [],
+      "rarity": 1520000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "obsidian",
+      "displayName": "Obsidian",
+      "aliases": [],
+      "rarity": 1750000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "archmage",
+      "displayName": "Archmage",
+      "aliases": [],
+      "rarity": 1766000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "playerrespawn",
+      "displayName": "Player : Respawn",
+      "aliases": [],
+      "rarity": 1999999,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 999999,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "gravitational",
+      "displayName": "Gravitational",
+      "aliases": [],
+      "rarity": 2000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "boundedunbound",
+      "displayName": "Bounded : Unbound",
+      "aliases": [],
+      "rarity": 2000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "flutterbuggify",
+      "displayName": "Flutter : Buggify",
+      "aliases": [],
+      "rarity": 2000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "flowed",
+      "displayName": "Flowed",
+      "aliases": [],
+      "rarity": 2121121,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 2121,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "virtual",
+      "displayName": "Virtual",
+      "aliases": [],
+      "rarity": 2500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 1250000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "vega",
+      "displayName": "Vega",
+      "aliases": [],
+      "rarity": null,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 2580000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "parasite",
+      "displayName": "Parasite",
+      "aliases": [],
+      "rarity": 3000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 600000,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "orion",
+      "displayName": "Orion",
+      "aliases": [],
+      "rarity": 3000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 600000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "apatite",
+      "displayName": "Apatite",
+      "aliases": [],
+      "rarity": 3133133,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "savior",
+      "displayName": "Savior",
+      "aliases": [],
+      "rarity": 3200000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "shiftlock",
+      "displayName": "Shiftlock",
+      "aliases": [],
+      "rarity": 3325000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 3325,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "evanescent",
+      "displayName": "Evanescent",
+      "aliases": [],
+      "rarity": 3360000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 840000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "cosmosalice",
+      "displayName": "Cosmos : Alice",
+      "aliases": [],
+      "rarity": 3500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "crystallizedbejeweled",
+      "displayName": "Crystallized : Bejeweled",
+      "aliases": [],
+      "rarity": 3600000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "aquaticflame",
+      "displayName": "Aquatic : Flame",
+      "aliases": [],
+      "rarity": 4000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "poseidon",
+      "displayName": "Poseidon",
+      "aliases": [],
+      "rarity": 4000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 1000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "metabytes",
+      "displayName": "Metabytes",
+      "aliases": [],
+      "rarity": 4000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 2000000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "wraith",
+      "displayName": "Wraith",
+      "aliases": [],
+      "rarity": 4100000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "zeus",
+      "displayName": "Zeus",
+      "aliases": [],
+      "rarity": 4500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "solarsolstice",
+      "displayName": "Solar : Solstice",
+      "aliases": [],
+      "rarity": 5000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "galaxy",
+      "displayName": "Galaxy",
+      "aliases": [],
+      "rarity": 5000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 1000000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "lunarfullmoon",
+      "displayName": "Lunar : Full Moon",
+      "aliases": [],
+      "rarity": 5000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "anima",
+      "displayName": "Anima",
+      "aliases": [],
+      "rarity": 5730000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "twilight",
+      "displayName": "Twilight",
+      "aliases": [],
+      "rarity": 6000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "astronaut",
+      "displayName": "Astronaut",
+      "aliases": [],
+      "rarity": null,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 6117186,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "origin",
+      "displayName": "Origin",
+      "aliases": [],
+      "rarity": 6500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "hades",
+      "displayName": "Hades",
+      "aliases": [],
+      "rarity": 6666666,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 1111111,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "celestialdivine",
+      "displayName": "Celestial : Divine",
+      "aliases": [],
+      "rarity": 7000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "anubis",
+      "displayName": "Anubis",
+      "aliases": [],
+      "rarity": 7200000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 1800000,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "refraction",
+      "displayName": "Refraction",
+      "aliases": [],
+      "rarity": 7242000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "faith",
+      "displayName": "Faith",
+      "aliases": [],
+      "rarity": 7250000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 1450000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "hypervolt",
+      "displayName": "Hyper-Volt",
+      "aliases": [],
+      "rarity": 7500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "velocity",
+      "displayName": "Velocity",
+      "aliases": [],
+      "rarity": 7630000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "nautiluslost",
+      "displayName": "Nautilus : Lost",
+      "aliases": [],
+      "rarity": 7700000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "divinusguardian",
+      "displayName": "Divinus : Guardian",
+      "aliases": [],
+      "rarity": 7777777,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 1555555,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "outlaw",
+      "displayName": "Outlaw",
+      "aliases": [],
+      "rarity": 8000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 2000000,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "spectrerequiem",
+      "displayName": "Spectre : Requiem",
+      "aliases": [],
+      "rarity": 8222000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "soultorn",
+      "displayName": "Soultorn",
+      "aliases": [],
+      "rarity": 8333333,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "harnessed",
+      "displayName": "Harnessed",
+      "aliases": [],
+      "rarity": 8500000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "nihility",
+      "displayName": "Nihility",
+      "aliases": [],
+      "rarity": 9000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 9000,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "helios",
+      "displayName": "Helios",
+      "aliases": [],
+      "rarity": 9000000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "stargazer",
+      "displayName": "Stargazer",
+      "aliases": [],
+      "rarity": 9200000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 1840000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "jadepurity",
+      "displayName": "Jade : Purity",
+      "aliases": [],
+      "rarity": 9250000,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "amethyst",
+      "displayName": "Amethyst",
+      "aliases": [],
+      "rarity": 9333700,
+      "category": "Mythic",
+      "color": "#D946EF",
+      "conditions": []
+    },
+    {
+      "id": "starscourge",
+      "displayName": "Starscourge",
+      "aliases": [],
+      "rarity": 10000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 2000000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "sharkyn",
+      "displayName": "Sharkyn",
+      "aliases": [],
+      "rarity": 10000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 2500000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "guardian",
+      "displayName": "Guardian",
+      "aliases": [],
+      "rarity": 10000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "empty",
+      "displayName": "Empty",
+      "aliases": [],
+      "rarity": 11111111,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "melodic",
+      "displayName": "Melodic",
+      "aliases": [],
+      "rarity": 11300000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "sailor",
+      "displayName": "Sailor",
+      "aliases": [],
+      "rarity": 12000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 3000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "graffiti",
+      "displayName": "Graffiti",
+      "aliases": [],
+      "rarity": 12000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "imaginary",
+      "displayName": "Imaginary",
+      "aliases": [],
+      "rarity": 12200200,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "stormalhurricane",
+      "displayName": "Stormal : Hurricane",
+      "aliases": [],
+      "rarity": 13500000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 4500000,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "sirius",
+      "displayName": "Sirius",
+      "aliases": [],
+      "rarity": 14000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 2800000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "arcanelegacy",
+      "displayName": "Arcane : Legacy",
+      "aliases": [],
+      "rarity": 15000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "icarus",
+      "displayName": "Icarus",
+      "aliases": [],
+      "rarity": 15660000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 3132000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "lullaby",
+      "displayName": "Lullaby",
+      "aliases": [],
+      "rarity": 17000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "chromatic",
+      "displayName": "Chromatic",
+      "aliases": [],
+      "rarity": 20000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "plasma",
+      "displayName": "Plasma",
+      "aliases": [],
+      "rarity": 20600000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "oculus",
+      "displayName": "Oculus",
+      "aliases": [],
+      "rarity": 23233340,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 4646668,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "aviator",
+      "displayName": "Aviator",
+      "aliases": [],
+      "rarity": 24000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 8000000,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "rubybrimstone",
+      "displayName": "Ruby : Brimstone",
+      "aliases": [],
+      "rarity": 24060000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "apotheosis",
+      "displayName": "Apotheosis",
+      "aliases": [],
+      "rarity": 24691356,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "centurion",
+      "displayName": "Centurion",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 25000000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "blizzard",
+      "displayName": "Blizzard",
+      "aliases": [],
+      "rarity": 27315000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 9105000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "arcanedark",
+      "displayName": "Arcane : Dark",
+      "aliases": [],
+      "rarity": 30000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "floraflorest",
+      "displayName": "Flora : Florest",
+      "aliases": [],
+      "rarity": 32800000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "ethereal",
+      "displayName": "Ethereal",
+      "aliases": [],
+      "rarity": 35000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "virtualfatalerror",
+      "displayName": "Virtual : Fatal Error",
+      "aliases": [],
+      "rarity": 40413000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 20206500,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "juxtaposition",
+      "displayName": "Juxtaposition",
+      "aliases": [],
+      "rarity": 40440400,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "overseer",
+      "displayName": "Overseer",
+      "aliases": [],
+      "rarity": 45000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "exoticapex",
+      "displayName": "Exotic : Apex",
+      "aliases": [],
+      "rarity": 49999500,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "matrix",
+      "displayName": "Matrix",
+      "aliases": [],
+      "rarity": 50000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 25000000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "runic",
+      "displayName": "Runic",
+      "aliases": [],
+      "rarity": 50000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "sentinel",
+      "displayName": "Sentinel",
+      "aliases": [],
+      "rarity": 60000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "twilightiridescentmemory",
+      "displayName": "Twilight : Iridescent Memory",
+      "aliases": [],
+      "rarity": 60000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "antivirus",
+      "displayName": "Antivirus",
+      "aliases": [],
+      "rarity": 62500000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 31250000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "dominion",
+      "displayName": "Dominion",
+      "aliases": [],
+      "rarity": 70000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 14000000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "starborn",
+      "displayName": "Starborn",
+      "aliases": [],
+      "rarity": 72000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 14400000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "melodicserenade",
+      "displayName": "Melodic : Serenade",
+      "aliases": [],
+      "rarity": 77000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "sailorflyingdutchman",
+      "displayName": "Sailor : Flying Dutchman",
+      "aliases": [],
+      "rarity": 80000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 20000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "carriage",
+      "displayName": "Carriage",
+      "aliases": [],
+      "rarity": 80000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "aquaria",
+      "displayName": "Aquaria",
+      "aliases": [],
+      "rarity": 80000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 20000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "virtualfullcontrol",
+      "displayName": "Virtual : Full Control",
+      "aliases": [],
+      "rarity": 80000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 40000000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "harnessedelements",
+      "displayName": "Harnessed : Elements",
+      "aliases": [],
+      "rarity": 85000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "hellbound",
+      "displayName": "Hellbound",
+      "aliases": [],
+      "rarity": 85000000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 14166666,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "runicwilt",
+      "displayName": "Runic : Wilt",
+      "aliases": [],
+      "rarity": 87388744,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "virtualworldwide",
+      "displayName": "Virtual : WorldWide",
+      "aliases": [],
+      "rarity": 87500000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 43750000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "atomicnucleus",
+      "displayName": "Atomic : Nucleus",
+      "aliases": [],
+      "rarity": 92118000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "quartzrose",
+      "displayName": "Quartz : Rose",
+      "aliases": [],
+      "rarity": 97500000,
+      "category": "Exalted",
+      "color": "#F97316",
+      "conditions": []
+    },
+    {
+      "id": "chromaticgenesis",
+      "displayName": "Chromatic : Genesis",
+      "aliases": [],
+      "rarity": 99999999,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "starscourgeradiant",
+      "displayName": "Starscourge : Radiant",
+      "aliases": [],
+      "rarity": 100000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 20000000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "spectraflow",
+      "displayName": "Spectraflow",
+      "aliases": [],
+      "rarity": 100000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "lily",
+      "displayName": "Lily",
+      "aliases": [],
+      "rarity": 112000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "sharkynhammerhead",
+      "displayName": "Sharkyn : HammerHead",
+      "aliases": [],
+      "rarity": 120000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 30000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "overture",
+      "displayName": "Overture",
+      "aliases": [],
+      "rarity": 150000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "boundedaichmalotos",
+      "displayName": "Bounded : Aichmalotos",
+      "aliases": [],
+      "rarity": 170000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "symphony",
+      "displayName": "Symphony",
+      "aliases": [],
+      "rarity": 175000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "twilightwitheringgrace",
+      "displayName": "Twilight : Withering Grace",
+      "aliases": [],
+      "rarity": 180000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "felled",
+      "displayName": "Felled",
+      "aliases": [],
+      "rarity": 180000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 30000000,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "impeached",
+      "displayName": "Impeached",
+      "aliases": [],
+      "rarity": 200000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 40000000,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "ravenplague",
+      "displayName": "Raven : Plague",
+      "aliases": [],
+      "rarity": 200000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "lumenpool",
+      "displayName": "Lumenpool",
+      "aliases": [],
+      "rarity": 220000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 55000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "hypervolteverstorm",
+      "displayName": "Hyper-Volt : Ever-Storm",
+      "aliases": [],
+      "rarity": 225000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "virtualmemory",
+      "displayName": "Virtual Memory",
+      "aliases": [],
+      "rarity": 232232232,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 116116116,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "astralzodiac",
+      "displayName": "Astral : Zodiac",
+      "aliases": [],
+      "rarity": 267200000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 53440000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "prophecy",
+      "displayName": "Prophecy",
+      "aliases": [],
+      "rarity": 275649430,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 55129886,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "exoticvoid",
+      "displayName": "Exotic : Void",
+      "aliases": [],
+      "rarity": 299999999,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "overturehistory",
+      "displayName": "Overture : History",
+      "aliases": [],
+      "rarity": 300000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "bloodlust",
+      "displayName": "Bloodlust",
+      "aliases": [],
+      "rarity": 300000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 50000000,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "maelstrom",
+      "displayName": "Maelstrom",
+      "aliases": [],
+      "rarity": 309999999,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "windy",
+          "rarity": 103333333,
+          "label": "from WINDY"
+        }
+      ]
+    },
+    {
+      "id": "dreamer",
+      "displayName": "Dreamer",
+      "aliases": [],
+      "rarity": 315000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "perpetual",
+      "displayName": "Perpetual",
+      "aliases": [],
+      "rarity": 315000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "lotusfall",
+      "displayName": "Lotusfall",
+      "aliases": [],
+      "rarity": 320000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "cytokinesis",
+      "displayName": "Cytokinesis",
+      "aliases": [],
+      "rarity": 330400472,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 165200236,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "jazzorchestra",
+      "displayName": "Jazz : Orchestra",
+      "aliases": [],
+      "rarity": 336870912,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "archangel",
+      "displayName": "Archangel",
+      "aliases": [],
+      "rarity": 350000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 70000000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "atlas",
+      "displayName": "Atlas",
+      "aliases": [],
+      "rarity": 360000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "sandstorm",
+          "rarity": 90000000,
+          "label": "from SANDSTORM"
+        }
+      ]
+    },
+    {
+      "id": "floraevergreen",
+      "displayName": "Flora : Evergreen",
+      "aliases": [],
+      "rarity": 370073730,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "chillsear",
+      "displayName": "Chillsear",
+      "aliases": [],
+      "rarity": 375000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 125000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "celestialeclipse",
+      "displayName": "Celestial : Eclipse",
+      "aliases": [],
+      "rarity": 384400000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "abyssalhunter",
+      "displayName": "Abyssal Hunter",
+      "aliases": [],
+      "rarity": 400000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 100000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "gargantua",
+      "displayName": "Gargantua",
+      "aliases": [],
+      "rarity": 430000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 86000000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "apostolos",
+      "displayName": "Apostolos",
+      "aliases": [],
+      "rarity": 444000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "the_citadel_of_orders",
+          "rarity": 222000000,
+          "label": "from THE CITADEL OF ORDERS"
+        }
+      ]
+    },
+    {
+      "id": "unknown",
+      "displayName": "Unknown",
+      "aliases": [],
+      "rarity": 444444444,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "kyawthuiteremembrance",
+      "displayName": "Kyawthuite : Remembrance",
+      "aliases": [],
+      "rarity": 450000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "ruins",
+      "displayName": "Ruins",
+      "aliases": [],
+      "rarity": 500000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "matrixoverdrive",
+      "displayName": "Matrix : Overdrive",
+      "aliases": [],
+      "rarity": 503000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 251500000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "sailoradmiral",
+      "displayName": "Sailor : Admiral",
+      "aliases": [],
+      "rarity": 540000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 135000000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "elude",
+      "displayName": "Elude",
+      "aliases": [],
+      "rarity": 555555555,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "sophyra",
+      "displayName": "Sophyra",
+      "aliases": [],
+      "rarity": 570000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "matrixreality",
+      "displayName": "Matrix : Reality",
+      "aliases": [],
+      "rarity": 601020102,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 300510051,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "sloth",
+      "displayName": "Sloth",
+      "aliases": [],
+      "rarity": 650000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "prologue",
+      "displayName": "Prologue",
+      "aliases": [],
+      "rarity": 666616111,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "pythios",
+      "displayName": "Pythios",
+      "aliases": [],
+      "rarity": 666666666,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "hell",
+          "rarity": 111111111,
+          "label": "from HELL"
+        }
+      ]
+    },
+    {
+      "id": "sovereign",
+      "displayName": "Sovereign",
+      "aliases": [],
+      "rarity": 750000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "ruinswithered",
+      "displayName": "Ruins : Withered",
+      "aliases": [],
+      "rarity": 800000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "aegis",
+      "displayName": "Aegis",
+      "aliases": [],
+      "rarity": 825000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 412500000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "eisveil",
+      "displayName": "Eisveil",
+      "aliases": [],
+      "rarity": 830000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 276666666,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "dreamscape",
+      "displayName": "Dreamscape",
+      "aliases": [],
+      "rarity": 850000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": []
+    },
+    {
+      "id": "poseidonatlantis",
+      "displayName": "Poseidon : Atlantis",
+      "aliases": [],
+      "rarity": 850000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 212500000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "ascendant",
+      "displayName": "Ascendant",
+      "aliases": [],
+      "rarity": 935000000,
+      "category": "Glorious",
+      "color": "#EF4444",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 187000000,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "nyctophobia",
+      "displayName": "Nyctophobia",
+      "aliases": [],
+      "rarity": 1011111010,
+      "category": "Transcendent",
+      "color": "#E2E8F0",
+      "conditions": []
+    },
+    {
+      "id": "pixelation",
+      "displayName": "Pixelation",
+      "aliases": [],
+      "rarity": 1073741824,
+      "category": "Transcendent",
+      "color": "#E2E8F0",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 536870912,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "luminosity",
+      "displayName": "Luminosity",
+      "aliases": [],
+      "rarity": 1200000000,
+      "category": "Transcendent",
+      "color": "#E2E8F0",
+      "conditions": []
+    },
+    {
+      "id": "breakthrough",
+      "displayName": "Breakthrough",
+      "aliases": [],
+      "rarity": 1999999999,
+      "category": "Transcendent",
+      "color": "#E2E8F0",
+      "conditions": []
+    },
+    {
+      "id": "equinox",
+      "displayName": "Equinox",
+      "aliases": [],
+      "rarity": 2500000000,
+      "category": "Transcendent",
+      "color": "#E2E8F0",
+      "conditions": []
+    },
+    {
+      "id": "abyssalhunterawakened",
+      "displayName": "Abyssal Hunter : Awakened",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "atlasatlas",
+      "displayName": "Atlas : A.T.L.A.S.",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "cellasteroides",
+      "displayName": "Cell Asteroides",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "chromatichyper",
+      "displayName": "Chromatic : Hyper",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "eclipse",
+      "displayName": "Eclipse",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "masterhand",
+      "displayName": "MasterHand",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "matrixsteampunk",
+      "displayName": "Matrix : Steampunk",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "紅月の災厄",
+      "displayName": "紅月の災厄",
+      "aliases": [],
+      "rarity": null,
+      "category": "Craftable",
+      "color": "#60A5FA",
+      "conditions": []
+    },
+    {
+      "id": "memory",
+      "displayName": "Memory",
+      "aliases": [],
+      "rarity": 100,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": []
+    },
+    {
+      "id": "neferkhaf",
+      "displayName": "Neferkhaf",
+      "aliases": [],
+      "rarity": 1000,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": []
+    },
+    {
+      "id": "fragmentsofthecrimsonmoon",
+      "displayName": "Fragments of the Crimson Moon",
+      "aliases": [],
+      "rarity": 1000,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": []
+    },
+    {
+      "id": "meta",
+      "displayName": "Meta",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 10000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "glitch",
+      "displayName": "Glitch",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "glitched",
+          "rarity": 12210110,
+          "label": "from GLITCHED"
+        }
+      ]
+    },
+    {
+      "id": "borealis",
+      "displayName": "Borealis",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "dreamspace",
+          "rarity": 13333333,
+          "label": "from DREAMSPACE"
+        }
+      ]
+    },
+    {
+      "id": "projection",
+      "displayName": "Projection",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 197000000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "pointzero",
+      "displayName": "Point : Zero",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 521121900,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "leviathan",
+      "displayName": "Leviathan",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 1730400000,
+          "label": "from RAINY"
+        },
+        {
+          "biome": "glitched",
+          "rarity": 1730400000,
+          "label": "from GLITCHED"
+        }
+      ]
+    },
+    {
+      "id": "dreamcatcher",
+      "displayName": "Dream Catcher",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged",
+      "color": "#FB7185",
+      "conditions": []
+    },
+    {
+      "id": "oblivion",
+      "displayName": "Oblivion",
+      "aliases": [],
+      "rarity": 2000,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": []
+    },
+    {
+      "id": "illusionary",
+      "displayName": "Illusionary",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": [
+        {
+          "biome": "cyberspace",
+          "rarity": 10000000,
+          "label": "from CYBERSPACE"
+        }
+      ]
+    },
+    {
+      "id": "oppression",
+      "displayName": "Oppression",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": [
+        {
+          "biome": "glitched",
+          "rarity": 220000000,
+          "label": "from GLITCHED"
+        }
+      ]
+    },
+    {
+      "id": "dreammetric",
+      "displayName": "Dreammetric",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": [
+        {
+          "biome": "dreamspace",
+          "rarity": 320000000,
+          "label": "from DREAMSPACE"
+        }
+      ]
+    },
+    {
+      "id": "astraios",
+      "displayName": "Astraios",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": [
+        {
+          "biome": "singularity",
+          "rarity": 1750000000,
+          "label": "from SINGULARITY"
+        }
+      ]
+    },
+    {
+      "id": "monarch",
+      "displayName": "Monarch",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 3000000000,
+          "label": "from CORRUPTION"
+        },
+        {
+          "biome": "glitched",
+          "rarity": 3000000000,
+          "label": "from GLITCHED"
+        }
+      ]
+    },
+    {
+      "id": "eden",
+      "displayName": "Eden",
+      "aliases": [],
+      "rarity": null,
+      "category": "Challenged+",
+      "color": "#E11D48",
+      "conditions": []
+    },
+    {
+      "id": "pukeko",
+      "displayName": "pukeko",
+      "aliases": [],
+      "rarity": 3198,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "megaphone",
+      "displayName": "Megaphone",
+      "aliases": [],
+      "rarity": 5000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "snowball",
+      "displayName": "Snowball",
+      "aliases": [],
+      "rarity": 10000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 5000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "pump",
+      "displayName": "Pump",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "starridersnowflake",
+      "displayName": "StarRider : Snowflake",
+      "aliases": [],
+      "rarity": 240000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 120000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "starriderstarfish",
+      "displayName": "StarRider : Starfish",
+      "aliases": [],
+      "rarity": 250000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "starfall",
+          "rarity": 25000,
+          "label": "from STARFALL"
+        }
+      ]
+    },
+    {
+      "id": "cryogenic",
+      "displayName": "Cryogenic",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 250000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "astralastrald",
+      "displayName": "Astral : Astrald",
+      "aliases": [],
+      "rarity": 267000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "attorney",
+      "displayName": "Attorney",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "the_citadel_of_orders",
+          "rarity": 270000,
+          "label": "from THE CITADEL OF ORDERS"
+        }
+      ]
+    },
+    {
+      "id": "watermelon",
+      "displayName": "Watermelon",
+      "aliases": [],
+      "rarity": 320000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "observerofthecrimsonmoon",
+      "displayName": "Observer of the Crimson Moon",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "clockwork",
+      "displayName": "Clockwork",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 530000,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "prowler",
+      "displayName": "Prowler",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "pumptrickster",
+      "displayName": "Pump : Trickster",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "floaty",
+      "displayName": "Floaty",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 600000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "seekerofthecrimsonmoon",
+      "displayName": "Seeker of the Crimson Moon",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "burger",
+      "displayName": "Burger",
+      "aliases": [],
+      "rarity": 676767,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "verdict",
+      "displayName": "Verdict",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "the_citadel_of_orders",
+          "rarity": 700000,
+          "label": "from THE CITADEL OF ORDERS"
+        }
+      ]
+    },
+    {
+      "id": "flushedtroll",
+      "displayName": "Flushed : Troll",
+      "aliases": [],
+      "rarity": 1000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "starrideryourdidit",
+      "displayName": "StarRider : yourdidit",
+      "aliases": [],
+      "rarity": 1234567,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "celestialwicked",
+      "displayName": "Celestial : Wicked",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "beachball",
+      "displayName": "Beach Ball",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 1938000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "lunarcultist",
+      "displayName": "Lunar : Cultist",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 2000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "boundedkidnapped",
+      "displayName": "Bounded : Kidnapped",
+      "aliases": [],
+      "rarity": 2000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "defined",
+      "displayName": "Defined",
+      "aliases": [],
+      "rarity": 2222000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "null",
+          "rarity": 2222,
+          "label": "from NULL"
+        }
+      ]
+    },
+    {
+      "id": "lunarnightfall",
+      "displayName": "Lunar : Nightfall",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 3000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "headless",
+      "displayName": "Headless",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 3200000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "werewolf",
+      "displayName": "Werewolf",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 3600000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "gingerbread",
+      "displayName": "Gingerbread",
+      "aliases": [],
+      "rarity": 3750000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 1875000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "shucks",
+      "displayName": "Shucks",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "jackfrost",
+      "displayName": "Jackfrost",
+      "aliases": [],
+      "rarity": 4700000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 2350000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "vital",
+      "displayName": "Vital",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "oni",
+      "displayName": "Oni",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "originonion",
+      "displayName": "Origin : Onion",
+      "aliases": [],
+      "rarity": 8000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "lostsoulwander",
+      "displayName": "Lost Soul : Wander",
+      "aliases": [],
+      "rarity": 9400000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 4700000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "moonflower",
+      "displayName": "Moonflower",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "wonderland",
+      "displayName": "Wonderland",
+      "aliases": [],
+      "rarity": 12000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 4000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "sinister",
+      "displayName": "Sinister",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "verysmallsewageratthatsabout3082studslong",
+      "displayName": "Very Small Sewage Rat That's About 3.082 Studs Long",
+      "aliases": [],
+      "rarity": 20070629,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "nostalgia",
+      "displayName": "Nostalgia",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 20170000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "cryptfire",
+      "displayName": "Cryptfire",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 21000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "frostwood",
+      "displayName": "Frostwood",
+      "aliases": [],
+      "rarity": 24500000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 12250000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "innovator",
+      "displayName": "Innovator",
+      "aliases": [],
+      "rarity": 30000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "pukekojumping",
+      "displayName": "Pukeko : Jumping",
+      "aliases": [],
+      "rarity": 31980000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "headlesshorseman",
+      "displayName": "Headless : Horseman",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "aetherdisappointment",
+      "displayName": "Aether : Disappointment",
+      "aliases": [],
+      "rarity": 33333330,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "heaven",
+          "rarity": 6666666,
+          "label": "from HEAVEN"
+        }
+      ]
+    },
+    {
+      "id": "kromat1k",
+      "displayName": "Kromat1k",
+      "aliases": [],
+      "rarity": 40000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "soulhunter",
+      "displayName": "Soul Hunter",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 40000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "hatchwarden",
+      "displayName": "Hatchwarden",
+      "aliases": [],
+      "rarity": 40000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "santafrost",
+      "displayName": "Santa Frost",
+      "aliases": [],
+      "rarity": 45000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 15000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "northpole",
+      "displayName": "North Pole",
+      "aliases": [],
+      "rarity": 45000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 22500000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "gooserave",
+      "displayName": "Goose Rave",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 50000000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "vacation",
+      "displayName": "Vacation",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 58620000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "skyburst",
+      "displayName": "Sky Burst",
+      "aliases": [],
+      "rarity": 60000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 30000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "bayview",
+      "displayName": "Bayview",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 60000000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "reaper",
+      "displayName": "Reaper",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "bloatedexe",
+      "displayName": "Bloated.exe",
+      "aliases": [],
+      "rarity": 67676767,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "dullahan",
+      "displayName": "Dullahan",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 72000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "winterfantasy",
+      "displayName": "Winter Fantasy",
+      "aliases": [],
+      "rarity": 72000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 24000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "emperor",
+      "displayName": "Emperor",
+      "aliases": [],
+      "rarity": 80000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "accursed",
+      "displayName": "Accursed",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "bloodgarden",
+      "displayName": "Bloodgarden",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "grief",
+      "displayName": "Grief",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 88250000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "express",
+      "displayName": "Express",
+      "aliases": [],
+      "rarity": 90000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 30000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "abominable",
+      "displayName": "Abominable",
+      "aliases": [],
+      "rarity": 120000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 40000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "crimson",
+      "displayName": "Crimson",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "glocktheglockofthesky",
+      "displayName": "Glock : the glock of the sky",
+      "aliases": [],
+      "rarity": 170000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "nightmaresky",
+      "displayName": "Nightmare Sky",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "shardsurfer",
+      "displayName": "Shard Surfer",
+      "aliases": [],
+      "rarity": 225000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 75000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "encase",
+      "displayName": "Encase",
+      "aliases": [],
+      "rarity": 230000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 115000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "impeachedimcrine",
+      "displayName": "Impeached : Imcrine",
+      "aliases": [],
+      "rarity": 250000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "corruption",
+          "rarity": 50000000,
+          "label": "from CORRUPTION"
+        }
+      ]
+    },
+    {
+      "id": "graveborn",
+      "displayName": "Graveborn",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 290000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "manta",
+      "displayName": "Manta",
+      "aliases": [],
+      "rarity": 300000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 150000000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "eggsistance",
+      "displayName": "Eggsistance",
+      "aliases": [],
+      "rarity": 307777777,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "symphonybloomed",
+      "displayName": "Symphony : Bloomed",
+      "aliases": [],
+      "rarity": 375000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "cryofang",
+      "displayName": "CryoFang",
+      "aliases": [],
+      "rarity": 380000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 190000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "impeachedimpeach",
+      "displayName": "Impeached: i'm peach",
+      "aliases": [],
+      "rarity": 400000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "doodleabyssalhunter",
+      "displayName": "Doodle : Abyssal Hunter",
+      "aliases": [],
+      "rarity": 400000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "northern",
+      "displayName": "Northern",
+      "aliases": [],
+      "rarity": 405000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 202500000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "evenight",
+      "displayName": "EveNight",
+      "aliases": [],
+      "rarity": 424000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 212000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "afterparty",
+      "displayName": "Afterparty",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 440000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "phantasma",
+      "displayName": "Phantasma",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "atlasyuletide",
+      "displayName": "Atlas : Yuletide",
+      "aliases": [],
+      "rarity": 510000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "snowy",
+          "rarity": 170000000,
+          "label": "from SNOWY"
+        }
+      ]
+    },
+    {
+      "id": "surfersymphony",
+      "displayName": "Surfer : Symphony",
+      "aliases": [],
+      "rarity": 600000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "apocalypse",
+      "displayName": "Apocalypse",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 624000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "lumenpoolramenpool",
+      "displayName": "Lumenpool : Ramenpool",
+      "aliases": [],
+      "rarity": 630000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "rainy",
+          "rarity": 157500000,
+          "label": "from RAINY"
+        }
+      ]
+    },
+    {
+      "id": "revive",
+      "displayName": "Revive",
+      "aliases": [],
+      "rarity": 645000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "workshopsystem",
+      "displayName": "Workshop : System",
+      "aliases": [],
+      "rarity": 650000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 325000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "harvester",
+      "displayName": "Harvester",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 666000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "wraithlight",
+      "displayName": "Wraithlight",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "workshop",
+      "displayName": "Workshop",
+      "aliases": [],
+      "rarity": 700000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 350000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "eggore",
+      "displayName": "Eggore",
+      "aliases": [],
+      "rarity": 700000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "malediction",
+      "displayName": "Malediction",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "banshee",
+      "displayName": "Banshee",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 730000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "parol",
+      "displayName": "Parol",
+      "aliases": [],
+      "rarity": 760000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 380000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "apostolosveil",
+      "displayName": "Apostolos : Veil",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 800000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "aegiswatergun",
+      "displayName": "Aegis : Watergun",
+      "aliases": [],
+      "rarity": 825000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 412500000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "ravage",
+      "displayName": "Ravage",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "graveyard",
+          "rarity": 930000000,
+          "label": "from GRAVEYARD"
+        }
+      ]
+    },
+    {
+      "id": "arachnophobia",
+      "displayName": "Arachnophobia",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "poolparty",
+      "displayName": "Pool Party",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "blazing_sun",
+          "rarity": 972000000,
+          "label": "from BLAZING SUN"
+        }
+      ]
+    },
+    {
+      "id": "lamenthyr",
+      "displayName": "Lamenthyr",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "sovereignfrostveil",
+      "displayName": "Sovereign : Frostveil",
+      "aliases": [],
+      "rarity": 1000000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 500000000,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "eostre",
+      "displayName": "Eostre",
+      "aliases": [],
+      "rarity": 1000000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "pukekopukekogod",
+      "displayName": "Pukeko : P.U.K.E.K.O.G.O.D.",
+      "aliases": [],
+      "rarity": 1000000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "afoolsexperience",
+      "displayName": "A Fool's Experience",
+      "aliases": [],
+      "rarity": 1000000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "eggis",
+      "displayName": "Eggis",
+      "aliases": [],
+      "rarity": 1150000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "erebus",
+      "displayName": "Erebus",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "wintergarden",
+      "displayName": "Winter Garden",
+      "aliases": [],
+      "rarity": 1450012025,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 725006013,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "yolkegg",
+      "displayName": "Yolkegg",
+      "aliases": [],
+      "rarity": 1790909090,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "skyfestival",
+      "displayName": "Sky Festival",
+      "aliases": [],
+      "rarity": 2000000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "dreamtraveler",
+      "displayName": "Dream Traveler",
+      "aliases": [],
+      "rarity": 2025012025,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": [
+        {
+          "biome": "aurora",
+          "rarity": 1012506013,
+          "label": "from AURORA"
+        }
+      ]
+    },
+    {
+      "id": "equinoxyouareanidiot",
+      "displayName": "Equinox : You Are An Idiot",
+      "aliases": [],
+      "rarity": 2500000000,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "aeroquest",
+      "displayName": "Aeroquest",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "alohaoe",
+      "displayName": "Alohaoe",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "bioluminescent",
+      "displayName": "Bioluminescent",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "blooddemon",
+      "displayName": "Blood Demon",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "blossom",
+      "displayName": "Blossom",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "blossomfrozen",
+      "displayName": "Blossom : Frozen",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "bubble",
+      "displayName": "Bubble",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "carousel",
+      "displayName": "Carousel",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "celestialcupid",
+      "displayName": "Celestial : Cupid",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "christmastide",
+      "displayName": "Christmastide",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "corruptionegg",
+      "displayName": "Corruption Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "discipleofthecrimsonmoon",
+      "displayName": "Disciple of the Crimson Moon",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "divinuslove",
+      "displayName": "Divinus : Love",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "dreadsea",
+      "displayName": "Dreadsea",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "easterisles",
+      "displayName": "Easter Isles",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "egger",
+      "displayName": "Egger",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "flushedhearteye",
+      "displayName": "Flushed : Heart Eye",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "frigid",
+      "displayName": "Frigid",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "glitchedegg",
+      "displayName": "Glitched Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "hellfireegg",
+      "displayName": "Hellfire Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "inkpaintballgun",
+      "displayName": "Ink : PaintballGun",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "lament",
+      "displayName": "Lament",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "lifeguard",
+      "displayName": "Life Guard",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "nullegg",
+      "displayName": "Null Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "parasol",
+      "displayName": "Parasol",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "present",
+      "displayName": "Present",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "rabbitinvasion",
+      "displayName": "Rabbit Invasion",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "rainyegg",
+      "displayName": "Rainy Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "reina",
+      "displayName": "Reina",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "sandbasket",
+      "displayName": "SandBasket",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "sandstormegg",
+      "displayName": "Sandstorm Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "scavenger",
+      "displayName": "Scavenger",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "scorpion",
+      "displayName": "Scorpion",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "skyforge",
+      "displayName": "Skyforge",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "slaughter",
+      "displayName": "Slaughter",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "snowyegg",
+      "displayName": "Snowy Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "starfallegg",
+      "displayName": "Starfall Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "surfer",
+      "displayName": "Surfer",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "thaneborne",
+      "displayName": "Thaneborne",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "veinweaver",
+      "displayName": "Veinweaver",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "velvet",
+      "displayName": "Velvet",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "windyegg",
+      "displayName": "Windy Egg",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "zilch",
+      "displayName": "Zilch",
+      "aliases": [],
+      "rarity": null,
+      "category": "Event",
+      "color": "#F472B6",
+      "conditions": []
+    },
+    {
+      "id": "lightning",
+      "displayName": "Lightning",
+      "aliases": [],
+      "rarity": 40000,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "abomination",
+      "displayName": "Abomination",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "alchemist",
+      "displayName": "Alchemist",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "anotherrealm",
+      "displayName": "Another Realm",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "contentcreator",
+      "displayName": "Content Creator",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "contentcreatorplatinum",
+      "displayName": "Content Creator : Platinum",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "contentdeleted",
+      "displayName": "Content Deleted",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "cruel",
+      "displayName": "Cruel",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "edict",
+      "displayName": "Edict",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "findtheprobabilityofthisaura",
+      "displayName": "Find the probability of this aura.",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "godslayer",
+      "displayName": "Godslayer",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "kanade",
+      "displayName": "Kanade",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "mastermind",
+      "displayName": "Mastermind",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "morningstar",
+      "displayName": "Morning Star",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "redfullmoon",
+      "displayName": "Red Full Moon",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "samgong",
+      "displayName": "Samgong",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "sapphirepeace",
+      "displayName": "Sapphire : Peace",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "sol",
+      "displayName": "Sol",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "therarestaura",
+      "displayName": "THE RAREST AURA",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    },
+    {
+      "id": "yuyo",
+      "displayName": "yuyo",
+      "aliases": [],
+      "rarity": null,
+      "category": "Exclusive & Unobtainable",
+      "color": "#94A3B8",
+      "conditions": []
+    }
+  ]
+}

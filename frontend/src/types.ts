@@ -12,8 +12,29 @@ export interface AppSettings {
   slowReset?: boolean;
   fakePingGuard?: boolean;
   fakePingPrompt?: boolean;
+  auraPushNotify?: boolean;
+  auraMinimumRarity?: string;
+  auraAlwaysSendNames?: string;
+  auraPingUserId?: string;
+  auraPingMinimumRarity?: string;
+  auraAlwaysPingNames?: string;
+  clippingEnabled?: boolean;
+  clipHotkey?: string;
+  clipBiomes?: string[];
+  clipBiomeDelay?: string;
+  clipAuraMinimumRarity?: string;
+  clipAuraNames?: string;
+  clipAuraDelay?: string;
   monitorDimEnabled?: boolean;
   monitorDimLevel?: number;
+  windowsNotificationsEnabled?: boolean;
+  windowsNotifyBiomes?: boolean;
+  windowsNotifyDisconnects?: boolean;
+  windowsNotifyAuras?: boolean;
+  windowsNotifyBiomeHealth?: boolean;
+  windowsAuraMinimumRarity?: string;
+  biomeHealthMonitorEnabled?: boolean;
+  biomeHealthTimeoutMinutes?: number;
   tesseractPromptDismissed?: boolean;
   [key: string]: unknown;
 }
@@ -112,6 +133,7 @@ export interface Account {
     strangeController?: boolean;
     biomeRandomizer?: boolean;
     merchantTeleporter?: boolean;
+    auraDetection?: boolean;
     fishing?: boolean;
   };
   hasToken?: boolean;
@@ -159,6 +181,22 @@ export interface TimeTracking {
   activeModules?: string[];
   fishCaught?: number;
   [key: string]: unknown;
+}
+
+export interface TimelineEntry extends ActivityEntry {
+  accountId?: number | null;
+  category: "biome" | "aura" | "clip" | "connection" | "fishing" | "merchant" | "action" | "system" | string;
+  decision?: DecisionTrace;
+}
+
+export interface DecisionTrace {
+  status: "acted" | "skipped" | "blocked" | "waiting" | "cancelled" | "failed";
+  reasonCode?: string;
+  module?: string;
+  summary: string;
+  checks?: Array<{ label: string; state: "pass" | "fail" | "info"; detail?: string }>;
+  facts?: Array<{ label: string; value: string }>;
+  nextStep?: { label: string; tab: string; anchor?: string; drawer?: string; accountId?: number };
 }
 
 export interface ModuleUseCounts {

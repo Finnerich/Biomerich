@@ -375,6 +375,72 @@ def biome_started(
         _post(url, message, content=content)
 
 
+def aura_found(
+    urls,
+    account,
+    aura_name,
+    rarity,
+    version,
+    *,
+    category="",
+    color=0xFFFFFF,
+    condition_label="",
+    session_time="00:00:00",
+    ping_user_id="",
+):
+    
+    account = account or {}
+    account_name = account.get("name", "?")
+    rarity_text = f" - 1 in {int(rarity):,}" if rarity else ""
+    condition_text = f" ({condition_label})" if condition_label else ""
+    simulation_text = ""
+
+    try:
+        accent_color = int(color)
+    except (TypeError, ValueError):
+        accent_color = 0xFFFFFF
+    if not 0 <= accent_color <= 0xFFFFFF:
+        accent_color = 0xFFFFFF
+
+    container = _container(accent_color)
+    _add_author(container, account)
+    _add_header(
+        container,
+        f"## ✨ {account_name} HAS FOUND {aura_name}{rarity_text}"
+        f"{condition_text}{simulation_text}",
+    )
+    container.separator(spacing=SPACING_SMALL)
+    details = []
+    if category:
+        details.append(f"**Category:** {category}")
+    details.extend([
+        f"**Account:** {account_name}",
+        f"**Session Time:** {session_time}",
+    ])
+    container.text("\n".join(details))
+    _add_support_footer(container, version)
+    message = _message(container)
+    user_id = str(ping_user_id or "").strip()
+    allowed_users = []
+    if user_id.isdigit() and 15 <= len(user_id) <= 22:
+        allowed_users = [user_id]
+        content = f"<@{user_id}>"
+    else:
+        content = ""
+
+
+
+    message["allowed_mentions"] = {
+        "parse": [],
+        "users": allowed_users,
+        "roles": [],
+        "replied_user": False,
+    }
+    event_log.maybe_log(message, account=account)
+    for url in urls:
+        _post(url, message, content=content)
+
+
 
 
 

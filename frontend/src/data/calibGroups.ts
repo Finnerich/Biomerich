@@ -36,4 +36,3 @@ export const EXTRA_CALIB_GROUPS: CalibGroup[] = [
     regions: [],
   },
 ];
-

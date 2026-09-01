@@ -134,6 +134,7 @@ class AccountModules(TypedDict, total=False):
     strangeController: bool
     biomeRandomizer: bool
     merchantTeleporter: bool
+    auraDetection: bool
 
 
 class Account(TypedDict, total=False):

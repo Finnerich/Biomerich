@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { navGroupsFor, isTabHidden } from "../navConfig";
+import { groupOfTab, navGroupsFor, isTabHidden } from "../navConfig";
 import { getMacroMode } from "../data/macroMode";
 import { NavGroup, spotlightMove } from "./NavGroup";
 import { useStore } from "../store";
@@ -31,6 +31,17 @@ export function Sidebar() {
   useEffect(() => {
     if (isTabHidden(currentTab, macroMode)) setCurrentTab("home");
   }, [currentTab, macroMode, setCurrentTab]);
+
+  useEffect(() => {
+    const activeGroup = groupOfTab(currentTab);
+    if (!activeGroup) return;
+    setCollapsed((previous) => {
+      if (!previous.has(activeGroup)) return previous;
+      const next = new Set(previous);
+      next.delete(activeGroup);
+      return next;
+    });
+  }, [currentTab]);
 
   const gatedItems: { tab: string; icon: string; label: string }[] = [
   ];

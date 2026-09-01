@@ -26,6 +26,12 @@ export interface RarePingWarning {
   account?: string;
   test?: boolean;
 }
+export interface BiomeHealthWarning {
+  id: string;
+  accountId: number;
+  account: string;
+  silentMinutes: number;
+}
 export interface Release {
   tag: string;
   name: string;
@@ -125,6 +131,9 @@ interface Store {
   rarePingWarnings: RarePingWarning[];
   pushRarePingWarning: (warning: RarePingWarning) => void;
   dismissRarePingWarning: (id: string) => void;
+  biomeHealthWarnings: BiomeHealthWarning[];
+  pushBiomeHealthWarning: (warning: BiomeHealthWarning) => void;
+  dismissBiomeHealthWarning: (accountId: number) => void;
   
   
   tutorialDrawer: { kind: string; accId?: number } | null;
@@ -248,6 +257,18 @@ export const useStore = create<Store>((set) => ({
       : { rarePingWarnings: [...st.rarePingWarnings, warning] }),
   dismissRarePingWarning: (id) =>
     set((st) => ({ rarePingWarnings: st.rarePingWarnings.filter((item) => item.id !== id) })),
+  biomeHealthWarnings: [],
+  pushBiomeHealthWarning: (warning) =>
+    set((st) => ({
+      biomeHealthWarnings: [
+        ...st.biomeHealthWarnings.filter((item) => item.accountId !== warning.accountId),
+        warning,
+      ],
+    })),
+  dismissBiomeHealthWarning: (accountId) =>
+    set((st) => ({
+      biomeHealthWarnings: st.biomeHealthWarnings.filter((item) => item.accountId !== accountId),
+    })),
   tutorialDrawer: null,
   setTutorialDrawer: (d) => set({ tutorialDrawer: d }),
 

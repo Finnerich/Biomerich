@@ -17,7 +17,7 @@ import type { UpdProgress, UpdDone } from "./updateInstall";
 import { loadReleases } from "./update";
 import { showStartErrors } from "./engine";
 import type { BackendState } from "./types";
-import type { RarePingWarning } from "./store";
+import type { BiomeHealthWarning, RarePingWarning } from "./store";
 import { alertDialog } from "./dialog";
 
 applyAccent(getAccentIndex());
@@ -69,6 +69,37 @@ expose((payload) => {
 expose((pendingId) => {
   useStore.getState().dismissRarePingWarning(String(pendingId));
 }, "js_on_rare_ping_resolved");
+
+expose((payload) => {
+  const warning = (payload || {}) as BiomeHealthWarning;
+  if (!warning.accountId) return;
+  const store = useStore.getState();
+  store.pushBiomeHealthWarning({
+    ...warning,
+    id: String(warning.id || `biome-health-${warning.accountId}`),
+    account: String(warning.account || "Unknown account"),
+    silentMinutes: Number(warning.silentMinutes) || 30,
+  });
+  store.pushToast({
+    icon: "fa-triangle-exclamation",
+    title: "Biome detection may be broken",
+    detail: `${warning.account || "An account"} has produced no biome signal for ${Number(warning.silentMinutes) || 30} minutes.`,
+  });
+}, "js_on_biome_health_warning");
+
+expose((accountId) => {
+  const id = Number(accountId);
+  const store = useStore.getState();
+  const warning = store.biomeHealthWarnings.find((item) => item.accountId === id);
+  store.dismissBiomeHealthWarning(id);
+  if (warning) {
+    store.pushToast({
+      icon: "fa-circle-check",
+      title: "Biome detection recovered",
+      detail: `${warning.account} is producing valid biome signals again.`,
+    });
+  }
+}, "js_on_biome_health_resolved");
 
 expose((accId, success) => {
   useStore.getState().handleBindResult(Number(accId), !!success);
@@ -128,17 +159,24 @@ expose((result) => {
       applyAccent(getAccentIndex(state.settings?.accentIndex));
       applyTheme(getCurrentThemeId(state.settings?.themeId), false);
     }
-    const ocrStatus = await callPy<{ available?: boolean }>("get_ocr_status").catch(() => null);
-    if (ocrStatus) useStore.getState().setOcrAvailable(!!ocrStatus.available);
-    const streak = await callPy<{ count: number; previous: number; advanced: boolean }>("tick_streak").catch(() => null);
-    if (streak) useStore.getState().setStreak(streak);
+    
+    
+    void callPy<{ available?: boolean }>("get_ocr_status")
+      .then((ocrStatus) => { if (ocrStatus) useStore.getState().setOcrAvailable(!!ocrStatus.available); })
+      .catch(() => {});
+    void callPy<{ count: number; previous: number; advanced: boolean }>("tick_streak")
+      .then((streak) => { if (streak) useStore.getState().setStreak(streak); })
+      .catch(() => {});
     void loadReleases();
-    const timeTracking = await callPy<Record<string, unknown>>("get_time_tracking").catch(() => null);
-    if (timeTracking) useStore.getState().setTimeTracking(timeTracking);
+    void callPy<Record<string, unknown>>("get_time_tracking")
+      .then((timeTracking) => { if (timeTracking) useStore.getState().setTimeTracking(timeTracking); })
+      .catch(() => {});
   } catch (err) {
     console.warn("[SolRich] backend not reachable yet:", err);
   } finally {
-    setTimeout(() => useStore.getState().setLoading(false), 650);
+    
+    
+    requestAnimationFrame(() => useStore.getState().setLoading(false));
     setTimeout(async () => {
       const store = useStore.getState();
       const settings = store.settings as Record<string, unknown>;

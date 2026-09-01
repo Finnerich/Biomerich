@@ -13,7 +13,7 @@ const go = (tab: string) => () => useStore.getState().setCurrentTab(tab);
 
 export const SEARCH_INDEX: SearchItem[] = [
   { label: "Home & Setup Checklist", sub: "Overview", icon: "fa-house", run: go("home") },
-  { label: "Safety: Anti-AFK, RAM Trim, Failsafes", sub: "Macro", icon: "fa-shield-halved", run: go("safety") },
+  { label: "Safety & Failsafes", sub: "Macro", icon: "fa-shield-halved", run: go("safety") },
   { label: "Stats & Time Tracking", sub: "Overview", icon: "fa-chart-simple", run: go("stats") },
   { label: "Module Builder", sub: "Macro", icon: "fa-cubes", run: go("modules") },
   { label: "Accounts", sub: "Setup", icon: "fa-users-gear", run: go("accounts") },

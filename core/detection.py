@@ -12,8 +12,6 @@ def norm_name(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
-
-
 def match_reads(mid, reads):
     
     totals = {}

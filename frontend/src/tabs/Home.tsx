@@ -57,6 +57,7 @@ export function Home() {
       { key: "strangeController", name: "Strange Controller", icon: "fa-gamepad" },
       { key: "biomeRandomizer", name: "Biome Randomizer", icon: "fa-shuffle" },
       { key: "merchantTeleporter", name: "Merchant Detection", icon: "fa-store" },
+      { key: "auraDetection", name: "Aura Detection", icon: "fa-star" },
       { key: "fishing", name: "Fishing", icon: "fa-fish" },
     ].map((mod) => { const count = modCount(mod.key); return { ...mod, active: count > 0, scope: "Automation", detail: acctDetail(count) }; }),
     { key: "autopop", name: "Auto Pop", icon: "fa-wand-magic-sparkles", active: autopopCount > 0, scope: "Automation", detail: acctDetail(autopopCount) },
@@ -197,7 +198,7 @@ export function Home() {
         <button className="glass card home-help-card" onClick={() => setCurrentTab("safety")}>
           <i className="fa-solid fa-shield-halved"></i>
           <span className="hh-title">Safety</span>
-          <span className="hh-sub">Anti-AFK, RAM trim and failsafes in one place.</span>
+          <span className="hh-sub">Configure protections for your macro session.</span>
         </button>
         <button className="glass card home-help-card" onClick={() => void callPy("open_url", "https://discord.gg/X7dbbQ5pXV")}>
           <i className="fa-brands fa-discord"></i>

@@ -287,3 +287,24 @@ def latest_biome(log_file, max_bytes=512_000):
         if detected:
             latest = detected
     return latest
+
+
+def latest_aura_state(log_file, max_bytes=512_000):
+    
+    if not log_file:
+        return False, None
+    try:
+        size = os.path.getsize(log_file)
+        with open(log_file, "rb") as f:
+            f.seek(max(0, size - max(1, int(max_bytes))))
+            text = f.read().decode("utf-8", errors="ignore")
+    except OSError:
+        return False, None
+
+    from .aura import aura_state_from_rpc_line
+
+    for line in reversed(text.splitlines()):
+        is_update, aura_name = aura_state_from_rpc_line(line)
+        if is_update:
+            return True, aura_name
+    return False, None

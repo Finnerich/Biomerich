@@ -5,7 +5,7 @@
     position: fixed; inset: 0; z-index: 200;
     display: flex; align-items: center; justify-content: center;
     background: var(--loader-grad);
-    transition: opacity 0.4s var(--ease);
+    transition: opacity 0.16s var(--ease);
     pointer-events: all;
 }
 .loader.hide { opacity: 0; pointer-events: none; }

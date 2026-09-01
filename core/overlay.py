@@ -390,11 +390,24 @@ def show_points(points, duration=4.0, regions=None):
     if not pts and not rgns:
         return {"ok": False, "error": "no_points"}
     try:
-        _OVERLAY.show({"points": pts, "regions": rgns}, float(duration))
+        safe_duration = None if duration is None else float(duration)
+        _OVERLAY.show({"points": pts, "regions": rgns}, safe_duration)
         return {"ok": True, "count": len(pts) + len(rgns)}
     except Exception as e:
         print(f"[Overlay] show failed: {e}")
         return {"ok": False, "error": "show_failed"}
+
+
+def hide_points():
+    
+    if not IS_WINDOWS:
+        return {"ok": False, "error": "not_windows"}
+    try:
+        _OVERLAY.hide_guide()
+        return {"ok": True}
+    except Exception as error:
+        print(f"[Overlay] hide failed: {error}")
+        return {"ok": False, "error": "hide_failed"}
 
 
 def show_calibration_guide(guide, duration=None):

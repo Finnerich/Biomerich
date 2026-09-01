@@ -210,10 +210,123 @@
     text-transform: uppercase;
 }
 .settings-section-label i { color: var(--danger); }
+.notification-section-label i { color: var(--accent); }
+.windows-integration-label i { color: #75a7ff; }
+
+.windows-search-row {
+    border-color: rgba(117, 167, 255, 0.18) !important;
+}
+.windows-search-actions {
+    flex: 0 0 auto;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.windows-search-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-faint);
+    font-size: 12px;
+    font-weight: 650;
+}
+.windows-search-status.installed { color: var(--success); }
+.windows-search-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 126px;
+    padding: 9px 14px;
+    border: 1px solid rgba(117, 167, 255, 0.34);
+    border-radius: var(--r-sm);
+    background: rgba(117, 167, 255, 0.08);
+    color: #8bb6ff;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.windows-search-btn:hover:not(:disabled) {
+    background: rgba(117, 167, 255, 0.14);
+    border-color: rgba(117, 167, 255, 0.54);
+}
+.windows-search-btn.remove {
+    border-color: rgba(242, 109, 120, 0.28);
+    background: rgba(242, 109, 120, 0.06);
+    color: var(--danger);
+}
+.windows-search-btn.remove:hover:not(:disabled) {
+    background: rgba(242, 109, 120, 0.11);
+    border-color: rgba(242, 109, 120, 0.48);
+}
+.windows-search-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+
+@media (max-width: 720px) {
+    .windows-search-actions { width: 100%; justify-content: space-between; }
+}
+
+.notification-rules-card {
+    margin-bottom: 12px;
+    padding: 0 20px !important;
+    transition: opacity var(--t-fast) var(--ease);
+}
+.notification-rules-card.disabled { opacity: 0.48; }
+.notification-rule {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 66px;
+    padding: 12px 0;
+}
+.notification-rule + .notification-rule { border-top: 1px solid var(--stroke-soft); }
+.notification-rule .setting-info { flex: 1 1 220px; min-width: 0; }
+.notification-rule .switch { flex: 0 0 auto; }
+.notification-rarity-input {
+    flex: 0 0 132px;
+    width: 132px;
+    text-align: right;
+    font-family: var(--mono);
+}
+
+@media (max-width: 720px) {
+    .notification-rule { flex-wrap: wrap; }
+    .notification-rarity-input { margin-left: auto; }
+}
 
 .roblox-log-cleanup-row {
     border-color: rgba(242, 109, 120, 0.18) !important;
 }
+.support-bundle-row {
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.18) !important;
+}
+.support-bundle-btn {
+    flex-shrink: 0;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 136px;
+    padding: 9px 15px;
+    border: 1px solid rgba(var(--ar), var(--ag), var(--ab), 0.32);
+    border-radius: var(--r-sm);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.07);
+    color: var(--accent);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.support-bundle-btn:hover:not(:disabled) {
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.12);
+    border-color: rgba(var(--ar), var(--ag), var(--ab), 0.5);
+}
+.support-bundle-btn:active:not(:disabled) { filter: brightness(0.9); }
+.support-bundle-btn:disabled { cursor: wait; opacity: 0.5; }
 .roblox-log-clear-btn {
     flex-shrink: 0;
     align-self: center;

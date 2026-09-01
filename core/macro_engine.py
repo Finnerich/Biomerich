@@ -5,9 +5,21 @@ from urllib.parse import urlparse
 
 import requests
 
-from . import activity_log, biomes, monitor_dim, roblox_logs, webhooks, win_windows, status_events
+from . import (
+    activity_log,
+    biomes,
+    decision_trace,
+    monitor_dim,
+    roblox_logs,
+    status_events,
+    webhooks,
+    win_windows,
+    windows_notifications,
+)
 from .anti_afk import AntiAfk
+from .aura import AuraController, aura_delivery, aura_delivery_decision
 from .automation import AutomationEngine
+from .clipping import CLIP_BIOMES, ClippingController, biome_clip_decision
 from .time_tracking import TimeTracker
 
 def _is_roblox_link(link: str) -> bool:
@@ -21,11 +33,13 @@ def _is_roblox_link(link: str) -> bool:
         return False
 
 FAKE_PING_WINDOW = 12.0
+BIOME_HEALTH_TIMEOUT_MINUTES = 30
 
 class _AccountState:
     __slots__ = ("acc_id", "username", "reader", "current_biome", "biome_since",
                  "online", "last_line_ts", "disconnect_ts", "was_disconnected",
-                 "blocked_biome", "blocked_ping_id")
+                 "blocked_biome", "blocked_ping_id", "health_start_ts",
+                 "last_biome_signal_ts", "health_warned")
 
     def __init__(self, acc_id, username):
         self.acc_id = acc_id
@@ -39,6 +53,9 @@ class _AccountState:
         self.was_disconnected = False
         self.blocked_biome = None
         self.blocked_ping_id = None
+        self.health_start_ts = time.time()
+        self.last_biome_signal_ts = 0.0
+        self.health_warned = False
 
 class MacroEngine:
     def __init__(self, config):
@@ -52,6 +69,8 @@ class MacroEngine:
         self.anti_afk = AntiAfk(config, lambda: self._running)
         self.automation = AutomationEngine(config, lambda: self._running, self.anti_afk)
         self.automation.engine = self
+        self.aura = AuraController()
+        self.clipping = ClippingController(config)
         self.time = TimeTracker(config)
         self._runtime_cache = []
         self._runtime_ts = 0.0
@@ -59,6 +78,8 @@ class MacroEngine:
         self._rare_ping_seq = 0
         self.rare_ping_notifier = None
         self.rare_ping_resolver = None
+        self.biome_health_notifier = None
+        self.biome_health_resolver = None
 
     @property
     def running(self) -> bool:
@@ -298,6 +319,10 @@ class MacroEngine:
 
             if self._logging_active:
                 self._build_states()
+                self.aura.reset()
+                self._seed_current_auras()
+                self.aura.refresh_catalog_async()
+                self.clipping.stop()
 
             self._sync_subsystems()
             self.time.start(self.config.automation.get("mode"))
@@ -325,6 +350,7 @@ class MacroEngine:
         report = "00:00:00"
         self.anti_afk.stop()
         self.automation.stop()
+        self.clipping.stop()
         self.time.stop()
         status_events.reset()
         monitor_dim.stop()
@@ -338,12 +364,15 @@ class MacroEngine:
             self._start_ts = None
             self._logging_active = False
             self._thread = None
+            health_ids = [s.acc_id for s in self._states.values() if s.health_warned]
             self._states.clear()
             pending_ids = list(self._pending_rare_pings)
             self._pending_rare_pings.clear()
 
         for pending_id in pending_ids:
             self._notify_rare_ping_resolved(pending_id)
+        for acc_id in health_ids:
+            self._notify_biome_health_resolved(acc_id)
 
         if was_running and was_logging:
             webhooks.macro_stopped(self._all_active_urls(), report, self._current_version())
@@ -420,12 +449,33 @@ class MacroEngine:
         for st in states:
             self._bootstrap_current_biome(st)
 
+    def _seed_current_auras(self):
+        
+        with self._lock:
+            states = list(self._states.values())
+        for st in states:
+            self._seed_current_aura(st)
+
+    def _seed_current_aura(self, st):
+        if not st.reader:
+            return
+        found, raw_name = roblox_logs.latest_aura_state(st.reader.path)
+        if not found:
+            return
+        self.aura.seed_equipped(st.acc_id, raw_name)
+        if raw_name:
+            print(
+                f"[Aura] Seeded '{st.username}' with already equipped "
+                f"'{raw_name}' at macro start."
+            )
+
     def _bootstrap_current_biome(self, st, respect_fake_guard=False):
         if not st.reader:
             return
         biome_key = roblox_logs.latest_biome(st.reader.path)
         if not biome_key:
             return
+        self._mark_biome_signal(st)
         if st.blocked_biome:
             if biome_key == st.blocked_biome:
                 return
@@ -459,6 +509,7 @@ class MacroEngine:
             )
         else:
             self.config.increment_biome(biome_key, st.acc_id)
+            self._handle_biome_clipping(st, acc, biome_key)
             webhooks.biome_started(
                 urls,
                 acc,
@@ -468,11 +519,13 @@ class MacroEngine:
                 ping_content=self.config.biome_ping_content(biome_key),
             )
         acc_name = (acc or {}).get("name") or st.username
+        self._notify_windows_biome(acc_name, biome_key)
         activity_log.push(
             f"{acc_name} started in {biomes.display_name(biome_key)}",
             account=acc_name,
             kind="biome",
             biome=biome_key,
+            account_id=st.acc_id,
         )
         print(
             f"[Engine] '{st.username}' was already in "
@@ -490,21 +543,25 @@ class MacroEngine:
                     rescan_counter = 0
                     self._rescan_logs()
 
+
+
+
+                    self.aura.refresh_catalog_async()
+
                 with self._lock:
                     states = list(self._states.values())
 
                 for st in states:
-                    if not st.reader:
-                        continue
-                    lines = st.reader.read_new_lines()
-                    if not lines:
-                        continue
-                    st.last_line_ts = time.time()
-                    for line in lines:
-                        try:
-                            self._process_line(st, line)
-                        except Exception as e:
-                            print(f"[Engine] Failed to process log line for '{st.username}': {e}")
+                    if st.reader:
+                        lines = st.reader.read_new_lines()
+                        if lines:
+                            st.last_line_ts = time.time()
+                            for line in lines:
+                                try:
+                                    self._process_line(st, line)
+                                except Exception as e:
+                                    print(f"[Engine] Failed to process log line for '{st.username}': {e}")
+                    self._check_biome_health(st)
             except Exception as e:
                 print(f"[Engine] Tracker loop error (recovering): {e}")
             time.sleep(1)
@@ -527,12 +584,180 @@ class MacroEngine:
                 continue
             st.reader = roblox_logs.LogReader(log_file)
             st.online = True
+            st.health_start_ts = time.time()
+            self._seed_current_aura(st)
             action = "switched" if old_path else "found"
             print(f"[Engine] Log for '{st.username}' {action}: {log_file}")
             self._bootstrap_current_biome(st, respect_fake_guard=True)
 
     def _fake_ping_guard_on(self) -> bool:
         return bool(self.config.settings.get("fakePingGuard", True))
+
+    def _notify_windows(self, rule, title, message, kind="info"):
+        settings = self.config.settings
+        if not settings.get("windowsNotificationsEnabled", True):
+            return False
+        rule_default = False if rule in {"windowsNotifyAuras", "windowsNotifyBiomes"} else True
+        if not settings.get(rule, rule_default):
+            return False
+        return windows_notifications.notify(title, message, kind=kind)
+
+    def _handle_biome_clipping(self, st, acc, biome_key):
+        
+        account_name = (acc or {}).get("name") or st.username
+        result = self.clipping.on_biome(
+            biome_key, account=account_name, account_id=st.acc_id,
+        )
+        key = str(biome_key or "").strip().casefold()
+
+
+        if self.clipping.enabled() and key in CLIP_BIOMES:
+            decision = biome_clip_decision(key, self.config.settings, result)
+            activity_log.push(
+                f"Clip {'scheduled' if result.get('ok') else 'not scheduled'} · {biomes.display_name(key)} biome",
+                account=account_name, account_id=st.acc_id,
+                kind="info" if result.get("ok") else ("bad" if decision["status"] == "failed" else "info"),
+                category="clip", biome=key, decision=decision,
+            )
+        return result
+
+    def _notify_windows_biome(self, account_name, biome_key):
+        name = biomes.display_name(biome_key)
+        return self._notify_windows(
+            "windowsNotifyBiomes",
+            f"{name} biome started",
+            f"{account_name} entered {name}.",
+        )
+
+    def _notify_windows_aura(self, event):
+        rarity = event.get("rarity")
+        digits = "".join(
+            char
+            for char in str(
+                self.config.settings.get("windowsAuraMinimumRarity", "1000000")
+            )
+            if char.isdigit()
+        )
+        try:
+            minimum = max(1, int(digits or "1000000"))
+        except (TypeError, ValueError):
+            minimum = 1_000_000
+        if event.get("known") and not (
+            isinstance(rarity, int) and rarity >= minimum
+        ):
+            return False
+        rarity_text = f" · 1 in {rarity:,}" if isinstance(rarity, int) else ""
+        condition = str(event.get("conditionLabel") or "").strip()
+        condition_text = f" ({condition})" if condition else ""
+        return self._notify_windows(
+            "windowsNotifyAuras",
+            f"Aura found: {event.get('aura') or '?'}",
+            f"{event.get('account') or '?'}{rarity_text}{condition_text}",
+            kind="success",
+        )
+
+    def _biome_health_enabled(self) -> bool:
+        return bool(self.config.settings.get("biomeHealthMonitorEnabled", True))
+
+    def _biome_health_timeout(self) -> float:
+        try:
+            minutes = float(
+                self.config.settings.get(
+                    "biomeHealthTimeoutMinutes", BIOME_HEALTH_TIMEOUT_MINUTES
+                )
+            )
+        except (TypeError, ValueError):
+            minutes = BIOME_HEALTH_TIMEOUT_MINUTES
+        return max(60.0, min(24 * 3600.0, minutes * 60.0))
+
+    def _notify_biome_health_resolved(self, acc_id):
+        callback = self.biome_health_resolver
+        if callable(callback):
+            try:
+                callback(acc_id)
+            except Exception as exc:
+                print(f"[Engine] Biome-health resolve callback failed: {exc}")
+
+    def _resolve_biome_health(self, st, recovered=False):
+        if not st.health_warned:
+            return
+        st.health_warned = False
+        self._notify_biome_health_resolved(st.acc_id)
+        if recovered:
+            acc = self._account_by_id(st.acc_id)
+            name = (acc or {}).get("name") or st.username
+            activity_log.push(
+                f"Biome detection recovered for {name}", kind="good", account=name,
+                account_id=st.acc_id,
+            )
+            status_events.push_event(
+                f"Biome detection recovered · {name}", kind="good", ttl=5.0
+            )
+
+    def _mark_biome_signal(self, st, now=None):
+        
+        now = time.time() if now is None else float(now)
+        recovered = st.health_warned
+        st.last_biome_signal_ts = now
+        st.health_start_ts = now
+        st.online = True
+        if recovered:
+            self._resolve_biome_health(st, recovered=True)
+
+    def _check_biome_health(self, st, now=None):
+        
+        if not self._running:
+            return
+        if not self._biome_health_enabled():
+            self._resolve_biome_health(st)
+            return
+
+
+        if st.was_disconnected:
+            self._resolve_biome_health(st)
+            return
+        now = time.time() if now is None else float(now)
+        anchor = st.last_biome_signal_ts or st.health_start_ts or self._start_ts or now
+        silent_seconds = max(0.0, now - anchor)
+        if silent_seconds < self._biome_health_timeout() or st.health_warned:
+            return
+
+        st.health_warned = True
+        acc = self._account_by_id(st.acc_id)
+        name = (acc or {}).get("name") or st.username
+        silent_minutes = max(1, int(silent_seconds // 60))
+        payload = {
+            "id": f"biome-health-{st.acc_id}",
+            "accountId": st.acc_id,
+            "account": name,
+            "silentMinutes": silent_minutes,
+        }
+        callback = self.biome_health_notifier
+        if callable(callback):
+            try:
+                callback(payload)
+            except Exception as exc:
+                print(f"[Engine] Could not show biome-health warning: {exc}")
+        activity_log.push(
+            f"Biome detection may be broken for {name} · no signal for {silent_minutes} min",
+            kind="warn",
+            account=name,
+            account_id=st.acc_id,
+        )
+        status_events.push_event(
+            f"Biomes broken? No signal for {name}", kind="warn", ttl=10.0
+        )
+        print(
+            f"[Engine] Biome-health warning for '{st.username}': "
+            f"no valid biome signal for {silent_minutes} minutes."
+        )
+        self._notify_windows(
+            "windowsNotifyBiomeHealth",
+            "Biome detection may be broken",
+            f"{name} has sent no biome signal for {silent_minutes} minutes. "
+            "Try Clear Roblox Logs.",
+            kind="warning",
+        )
 
     def _notify_rare_ping_resolved(self, pending_id):
         callback = self.rare_ping_resolver
@@ -544,17 +769,36 @@ class MacroEngine:
 
     def _expire_blocked_ping(self, st):
         pending_id = st.blocked_ping_id
+        blocked_biome = st.blocked_biome
         if pending_id:
             with self._lock:
                 self._pending_rare_pings.pop(pending_id, None)
             self._notify_rare_ping_resolved(pending_id)
+            acc = self._account_by_id(st.acc_id)
+            account_name = (acc or {}).get("name") or st.username
+            activity_log.push(
+                f"Anti Fake Ping decision expired · {biomes.display_name(blocked_biome)}",
+                account=account_name, account_id=st.acc_id, kind="info",
+                category="biome", biome=blocked_biome,
+                decision=decision_trace.make(
+                    "cancelled", "blocked_ping_expired", "Anti Fake Ping",
+                    "The blocked biome was not released because another biome update arrived first.",
+                    checks=[
+                        decision_trace.check("Suspicious rare biome was blocked", True),
+                        decision_trace.check("User approved the ping before it expired", False),
+                    ],
+                    facts=[decision_trace.fact("Blocked biome", biomes.display_name(blocked_biome))],
+                    next_step={"label": "Open Anti Fake Ping Settings", "tab": "modules", "drawer": "misc"},
+                ),
+            )
         st.blocked_biome = None
         st.blocked_ping_id = None
 
     def _block_rare_ping(self, st, acc, biome_key, urls):
         st.blocked_biome = biome_key
         webhooks.fake_rare_ping(urls, acc, self._current_version())
-        if self.config.settings.get("fakePingPrompt", True):
+        show_prompt = self.config.settings.get("fakePingPrompt", True)
+        if show_prompt:
             with self._lock:
                 self._rare_ping_seq += 1
                 pending_id = f"rare-{self._rare_ping_seq}-{time.time_ns()}"
@@ -572,6 +816,29 @@ class MacroEngine:
                     })
                 except Exception as e:
                     print(f"[Engine] Rare-ping warning callback failed: {e}")
+        account_name = (acc or {}).get("name") or st.username
+        seconds_after_disconnect = max(0.0, time.time() - st.disconnect_ts)
+        activity_log.push(
+            f"Anti Fake Ping blocked {biomes.display_name(biome_key)}",
+            account=account_name, account_id=st.acc_id, kind="warn",
+            category="biome", biome=biome_key,
+            decision=decision_trace.make(
+                "blocked", "rare_biome_after_disconnect", "Anti Fake Ping",
+                f"The normal {biomes.display_name(biome_key)} biome ping was blocked because it appeared immediately after a disconnect.",
+                checks=[
+                    decision_trace.check("Anti Fake Ping is enabled", True),
+                    decision_trace.check("Detected biome uses a rare ping", True),
+                    decision_trace.check(f"Detection arrived within the {int(FAKE_PING_WINDOW)} second safety window", True),
+                    decision_trace.check("Normal biome webhook was sent", False),
+                ],
+                facts=[
+                    decision_trace.fact("Detected biome", biomes.display_name(biome_key)),
+                    decision_trace.fact("Time after disconnect", f"{seconds_after_disconnect:.1f} seconds"),
+                    decision_trace.fact("Confirmation", "Waiting for user" if show_prompt else "Disabled"),
+                ],
+                next_step={"label": "Open Anti Fake Ping Settings", "tab": "modules", "drawer": "misc"},
+            ),
+        )
         print(
             f"[Engine] Suppressed fake '{biome_key}' ping for "
             f"'{st.username}' (just after disconnect)."
@@ -594,6 +861,34 @@ class MacroEngine:
             self._current_version(),
             ping_content="@everyone",
         )
+        self._notify_windows_biome(
+            (acc or {}).get("name") or st.username,
+            biome_key,
+        )
+
+
+        account_name = (acc or {}).get("name") or st.username
+        self._handle_biome_clipping(st, acc, biome_key)
+        activity_log.push(
+            f"{account_name} approved the blocked {biomes.display_name(biome_key)} ping",
+            account=account_name, account_id=st.acc_id, kind="warn",
+            biome=biome_key, category="biome",
+            decision=decision_trace.make(
+                "acted", "blocked_ping_manually_approved", "Anti Fake Ping",
+                f"The blocked {biomes.display_name(biome_key)} ping was sent after the user completed both confirmations.",
+                checks=[
+                    decision_trace.check("Anti Fake Ping blocked the original detection", True),
+                    decision_trace.check("First confirmation completed", True),
+                    decision_trace.check("Final confirmation completed", True),
+                    decision_trace.check("Normal biome webhook was released", True),
+                ],
+                facts=[
+                    decision_trace.fact("Biome", biomes.display_name(biome_key)),
+                    decision_trace.fact("Discord mention", "@everyone"),
+                ],
+                next_step={"label": "Open Anti Fake Ping Settings", "tab": "modules", "drawer": "misc"},
+            ),
+        )
         st.current_biome = biome_key
         st.biome_since = time.time()
         st.online = True
@@ -611,6 +906,25 @@ class MacroEngine:
             st = self._states.get(pending.get("accountId")) if pending else None
         if st and st.blocked_ping_id == str(pending_id):
             st.blocked_ping_id = None
+            acc = self._account_by_id(st.acc_id)
+            account_name = (acc or {}).get("name") or st.username
+            biome_key = pending.get("biome")
+            activity_log.push(
+                f"{account_name} kept the blocked {biomes.display_name(biome_key)} ping blocked",
+                account=account_name, account_id=st.acc_id, kind="good",
+                biome=biome_key, category="biome",
+                decision=decision_trace.make(
+                    "cancelled", "blocked_ping_kept_blocked", "Anti Fake Ping",
+                    f"The user chose not to release the suspicious {biomes.display_name(biome_key)} biome ping.",
+                    checks=[
+                        decision_trace.check("Suspicious rare biome was blocked", True),
+                        decision_trace.check("User approved sending @everyone", False),
+                        decision_trace.check("Normal biome webhook stayed blocked", True),
+                    ],
+                    facts=[decision_trace.fact("Biome", biomes.display_name(biome_key))],
+                    next_step={"label": "Open Anti Fake Ping Settings", "tab": "modules", "drawer": "misc"},
+                ),
+            )
         self._notify_rare_ping_resolved(str(pending_id))
         return {"ok": bool(pending)}
 
@@ -620,14 +934,83 @@ class MacroEngine:
                 st.online = False
                 st.disconnect_ts = time.time()
                 st.was_disconnected = True
+                self._resolve_biome_health(st)
                 acc = self._account_by_id(st.acc_id)
                 webhooks.roblox_disconnected(self._urls_for_account(st.acc_id), acc, self._current_version())
+                account_name = (acc or {}).get("name") or st.username
+                activity_log.push(
+                    f"{account_name} disconnected from Roblox",
+                    account=account_name, account_id=st.acc_id, kind="bad",
+                    category="connection",
+                )
+                self._notify_windows(
+                    "windowsNotifyDisconnects",
+                    "Roblox disconnected",
+                    f"{(acc or {}).get('name') or st.username} lost connection.",
+                    kind="error",
+                )
                 print(f"[Engine] Disconnect detected for '{st.username}'.")
             return
+
+        acc = self._account_by_id(st.acc_id)
+        aura_enabled = bool((acc or {}).get("modules", {}).get("auraDetection"))
+        if aura_enabled or self.clipping.enabled():
+            aura_event = self.aura.process_line(
+                st.acc_id,
+                (acc or {}).get("name") or st.username,
+                line,
+                biome_key=st.current_biome,
+            )
+            if aura_event:
+                self.clipping.on_aura(aura_event)
+                if aura_enabled:
+                    delivery = aura_delivery(aura_event, self.config.settings)
+                    urls = self._urls_for_account(st.acc_id)
+                    decision = aura_delivery_decision(
+                        aura_event, self.config.settings, delivery,
+                        webhook_available=bool(urls),
+                    )
+                    status_events.push_event(
+                        f"Aura: {aura_event['account']} equipped {aura_event['aura']} · "
+                        f"webhook {'queued' if decision['status'] == 'acted' else 'skipped'}",
+                        kind="good" if decision["status"] == "acted" else "info",
+                        ttl=4.0,
+                        account=aura_event.get("account"),
+                        account_id=aura_event.get("accountId"),
+                        category="aura",
+                        decision=decision,
+                    )
+                    if delivery["send"] and urls:
+                        self._notify_windows_aura(aura_event)
+                        try:
+                            webhooks.aura_found(
+                                urls,
+                                acc,
+                                aura_event["aura"],
+                                aura_event["rarity"],
+                                self._current_version(),
+                                category=aura_event["category"],
+                                color=aura_event["color"],
+                                condition_label=aura_event["conditionLabel"],
+                                session_time=self._session_report(),
+                                ping_user_id=delivery["pingUserId"],
+                            )
+                        except Exception as e:
+                            print(f"[Aura] Webhook failed: {e}")
+                    else:
+                        print(
+                            f"[Aura] Notification for '{aura_event['rawAura']}' "
+                            "was below the configured minimum rarity."
+                        )
+                print(
+                    f"[Aura] '{st.username}' equipped "
+                    f"'{aura_event['rawAura']}'."
+                )
 
         biome_key = biomes.biome_from_rpc_line(line)
         if not biome_key:
             return
+        self._mark_biome_signal(st)
 
         if st.blocked_biome:
             if biome_key == st.blocked_biome:
@@ -646,6 +1029,12 @@ class MacroEngine:
 
         if st.was_disconnected:
             webhooks.roblox_reconnected(urls, acc, self._current_version())
+            account_name = (acc or {}).get("name") or st.username
+            activity_log.push(
+                f"{account_name} reconnected to Roblox",
+                account=account_name, account_id=st.acc_id, kind="good",
+                category="connection",
+            )
             st.was_disconnected = False
             st.disconnect_ts = 0.0
             st.online = True
@@ -662,7 +1051,8 @@ class MacroEngine:
         if biome_key != "normal":
             acc_name = (acc or {}).get("name") or st.username
             activity_log.push(f"{acc_name} rolled {biomes.display_name(biome_key)}",
-                              account=acc_name, kind="biome", biome=biome_key)
+                              account=acc_name, account_id=st.acc_id,
+                              kind="biome", biome=biome_key)
 
         report = "00:00:00"
         if self._running:
@@ -670,10 +1060,21 @@ class MacroEngine:
 
         if old_biome and old_biome != "normal":
             webhooks.biome_ended(urls, acc, old_biome, report, self._current_version())
+            account_name = (acc or {}).get("name") or st.username
+            activity_log.push(
+                f"{account_name}'s {biomes.display_name(old_biome)} biome ended",
+                account=account_name, account_id=st.acc_id, kind="info",
+                biome=old_biome, category="biome",
+            )
 
         if biome_key == "normal":
             print(f"[Engine] '{st.username}' back in Normal. Sent biome_ended for '{old_biome}'.")
             return
+
+        self._notify_windows_biome(
+            (acc or {}).get("name") or st.username,
+            biome_key,
+        )
 
         if biomes.is_unknown(biome_key):
             name = biomes.unknown_name(biome_key)
@@ -687,6 +1088,7 @@ class MacroEngine:
             return
 
         self.config.increment_biome(biome_key, st.acc_id)
+        self._handle_biome_clipping(st, acc, biome_key)
         webhooks.biome_started(urls, acc, biome_key, report, self._current_version(),
                                ping_content=self.config.biome_ping_content(biome_key))
         try:

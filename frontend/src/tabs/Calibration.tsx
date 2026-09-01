@@ -10,6 +10,7 @@ import { useStore } from "../store";
 import { callPy, callPyWithTimeout } from "../bridge";
 import { CaptureRow } from "../components/CaptureRow";
 import { PresetPicker } from "../components/PresetPicker";
+import { CustomSelect } from "../components/CustomSelect";
 import { PIXEL_SLOTS, FISHING_PIXEL_SLOTS, FISHING_REGION_SLOTS } from "../data/slots";
 import { MERCHANT_CALIB_GROUPS, EXTRA_CALIB_GROUPS, type CalibGroup } from "../data/calibGroups";
 import { TesseractInstallButton } from "../components/TesseractInstallButton";
@@ -18,6 +19,41 @@ import type { BackendState } from "../types";
 
 
 type Pos = number[] | undefined;
+type DetectedMonitor = {
+  id: number;
+  device: string;
+  width: number;
+  height: number;
+  scale: number;
+  dpi: number;
+  primary: boolean;
+  robloxWindows: number;
+};
+type DisplayCalibrationInfo = {
+  ok: boolean;
+  error?: string | null;
+  monitors: DetectedMonitor[];
+  target?: {
+    displayId: number;
+    width: number;
+    height: number;
+    scale: number;
+    mode: "WINDOWED" | "FULLSCREEN";
+    source: "roblox" | "primary";
+    robloxWindows: number;
+  } | null;
+  preset?: string | null;
+  reason?: "no_preset" | "mixed_displays" | "unsupported" | null;
+};
+type RecommendationFeedback = { kind: "success" | "warning" | "error"; text: string } | null;
+type CalibrationTestState = "idle" | "starting" | "active" | "stopping" | "error";
+const CALIBRATION_TEST_SCOPES = [
+  { value: "automation", label: "Inventory & Auto Pop" },
+  { value: "fishing", label: "Fishing" },
+  { value: "merchants", label: "Merchants" },
+  ...EXTRA_CALIB_GROUPS.map((group) => ({ value: group.key, label: group.label })),
+  { value: "all", label: "All calibrations" },
+];
 const CALIBRATION_RPC_TIMEOUT_MS = 70_000;
 const pixelInfo = (pos: Pos) => {
   const isSet = Array.isArray(pos) && pos.length === 2;
@@ -43,30 +79,51 @@ export function Calibration() {
   const [copyFeedback, setCopyFeedback] = useState<Record<string, "ok" | "fail">>({});
   const [showBusy, setShowBusy] = useState<Set<string>>(new Set());
   const [loadedPreset, setLoadedPreset] = useState<string | null>(null);
+  const [displayInfo, setDisplayInfo] = useState<DisplayCalibrationInfo | null>(null);
+  const [displayBusy, setDisplayBusy] = useState(true);
+  const [recommendationFeedback, setRecommendationFeedback] = useState<RecommendationFeedback>(null);
+  const [testScope, setTestScope] = useState("automation");
+  const [testState, setTestState] = useState<CalibrationTestState>("idle");
+  const [testMessage, setTestMessage] = useState("Choose a module to preview its saved targets.");
 
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [invRes, fishRes, merchRes, extraRes] = await Promise.all([
+      const [invRes, fishRes, merchRes, extraRes, displayRes] = await Promise.all([
         callPy<{ presets?: string[] }>("get_automation_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_fishing_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_merchant_presets").catch(() => null),
         callPy<{ presets?: string[] }>("get_extra_presets").catch(() => null),
+        callPy<DisplayCalibrationInfo>("get_display_calibration_info").catch(() => null),
       ]);
       if (!alive) return;
       const invNames = invRes?.presets || [], fishNames = fishRes?.presets || [], merchNames = merchRes?.presets || [], extraNames = extraRes?.presets || [];
       const seen = new Set<string>(), allNames: string[] = [];
       [invNames, fishNames, merchNames, extraNames].forEach((names) => names.forEach((name) => { if (!seen.has(name)) { seen.add(name); allNames.push(name); } }));
       setPresets({ inv: invNames, fish: fishNames, merch: merchNames, extra: extraNames, global: allNames });
+      setDisplayInfo(displayRes);
+      setDisplayBusy(false);
     })();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => () => {
+    void callPy("stop_calibration_test").catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    void callPy("stop_calibration_test").catch(() => {});
+    setTestState("idle");
+    setTestMessage("Test Mode stops automatically when the macro starts.");
+  }, [running]);
 
   const togglePanel = (id: string) =>
     setCollapsed((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
   async function runCapture(name: string, ...args: unknown[]) {
+    if (testState === "active") await stopCalibrationTest(true);
     const response = await callPyWithTimeout<{ ok?: boolean; error?: string }>(
       CALIBRATION_RPC_TIMEOUT_MS,
       name,
@@ -78,12 +135,89 @@ export function Calibration() {
 
   async function loadGlobal(name: string) {
     if (running || !name) return;
+    if (testState === "active") await stopCalibrationTest(true);
     await Promise.all([
       callPy("load_automation_preset", name), callPy("load_fishing_preset", name),
       callPy("load_merchant_preset", name), callPy("load_extra_preset", name),
     ]);
     applyState(await callPy<BackendState>("get_state"));
     setLoadedPreset(name);
+  }
+
+  async function applyRecommendedPreset() {
+    if (running || displayBusy) return;
+    setDisplayBusy(true);
+    setRecommendationFeedback(null);
+    const result = await callPy<DisplayCalibrationInfo>("get_display_calibration_info").catch(() => null);
+    setDisplayInfo(result);
+
+    if (!result?.ok) {
+      setRecommendationFeedback({ kind: "error", text: "SolRich couldn't read your display setup." });
+    } else if (result.reason === "mixed_displays") {
+      setRecommendationFeedback({
+        kind: "warning",
+        text: "Your Roblox windows use different display setups. Choose a preset manually.",
+      });
+    } else if (!result.preset) {
+      setRecommendationFeedback({
+        kind: "warning",
+        text: "Your resolution doesn't have a preset right now.",
+      });
+    } else {
+      try {
+        await loadGlobal(result.preset);
+        setRecommendationFeedback({ kind: "success", text: `Applied ${result.preset}` });
+      } catch {
+        setRecommendationFeedback({ kind: "error", text: "The recommended preset couldn't be applied." });
+      }
+    }
+    setDisplayBusy(false);
+  }
+
+  async function startCalibrationTest() {
+    if (running || testState === "starting" || testState === "stopping") return;
+    if (testState === "active") {
+      await stopCalibrationTest();
+      return;
+    }
+
+    setTestState("starting");
+    setTestMessage("Preparing the preview…");
+    const result = await callPy<{
+      ok?: boolean;
+      error?: string;
+      count?: number;
+      points?: number;
+      regions?: number;
+    }>("start_calibration_test", testScope).catch(() => null);
+
+    if (result?.ok) {
+      const points = Number(result.points) || 0;
+      const regions = Number(result.regions) || 0;
+      setTestState("active");
+      setTestMessage(`Showing ${points} point${points === 1 ? "" : "s"} and ${regions} region${regions === 1 ? "" : "s"}. No clicks are being performed.`);
+    } else if (result?.error === "no_points") {
+      setTestState("error");
+      setTestMessage("This module has no saved calibration targets yet.");
+    } else if (result?.error === "tracking_active") {
+      setTestState("error");
+      setTestMessage("Stop the macro before starting Calibration Test Mode.");
+    } else {
+      setTestState("error");
+      setTestMessage("The calibration preview couldn't be opened.");
+    }
+  }
+
+  async function stopCalibrationTest(silent = false) {
+    setTestState("stopping");
+    const result = await callPy<{ ok?: boolean }>("stop_calibration_test").catch(() => null);
+    if (result?.ok) {
+      setTestState("idle");
+      setTestMessage(silent ? "Choose a module to preview its saved targets." : "Calibration preview stopped.");
+    } else {
+      setTestState("error");
+      setTestMessage("The calibration preview couldn't be closed.");
+    }
   }
 
   async function copyCalibration(scope: string) {
@@ -96,6 +230,7 @@ export function Calibration() {
   }
   async function showPoints(scope: string) {
     if (running || showBusy.has(scope)) return;
+    if (testState === "active") await stopCalibrationTest(true);
     setShowBusy((prev) => new Set(prev).add(scope));
     await callPy("show_calibration_points", scope, 4.0).catch(() => {});
     setTimeout(() => setShowBusy((prev) => { const next = new Set(prev); next.delete(scope); return next; }), 4000);
@@ -171,12 +306,75 @@ export function Calibration() {
         <div className="panel-head">
           <div className="panel-title"><i className="fa-solid fa-layer-group"></i> Load preset</div>
         </div>
+        <div className="calib-display-detect">
+          <div className="calib-display-head">
+            <div>
+              <span className="afk-setting-name">Detected displays</span>
+              <span className="afk-setting-desc">SolRich reads the resolution and Windows scale of every connected screen.</span>
+            </div>
+            <button
+              className="btn-add calib-recommend-btn"
+              disabled={running || displayBusy}
+              onClick={() => void applyRecommendedPreset()}
+            >
+              <i className={`fa-solid ${displayBusy ? "fa-spinner fa-spin" : "fa-wand-magic-sparkles"}`}></i>
+              {displayBusy ? "Checking displays…" : "Get recommended preset"}
+            </button>
+          </div>
+
+          <div className="calib-monitor-grid">
+            {displayBusy && !displayInfo && (
+              <div className="calib-monitor-empty"><i className="fa-solid fa-spinner fa-spin"></i> Detecting your displays…</div>
+            )}
+            {!displayBusy && displayInfo?.monitors.length === 0 && (
+              <div className="calib-monitor-empty"><i className="fa-solid fa-circle-exclamation"></i> No display information available.</div>
+            )}
+            {displayInfo?.monitors.map((monitor) => (
+              <div
+                key={`${monitor.device}-${monitor.id}`}
+                className={`calib-monitor ${displayInfo.target?.displayId === monitor.id ? "recommended-target" : ""}`}
+              >
+                <div className="calib-monitor-icon"><i className="fa-solid fa-display"></i></div>
+                <div className="calib-monitor-copy">
+                  <div className="calib-monitor-title">
+                    Display {monitor.id}
+                    {monitor.primary && <span className="calib-monitor-badge">Primary</span>}
+                    {monitor.robloxWindows > 0 && <span className="calib-monitor-badge roblox">Roblox ×{monitor.robloxWindows}</span>}
+                  </div>
+                  <div className="calib-monitor-details">
+                    <span>{monitor.width} × {monitor.height}</span>
+                    <span>{monitor.scale}% scale</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {displayInfo?.target?.source === "primary" && !recommendationFeedback && (
+            <div className="calib-display-note">
+              <i className="fa-solid fa-circle-info"></i>
+              No Roblox window found. The recommendation uses your primary display and assumes Windowed mode.
+            </div>
+          )}
+          {recommendationFeedback && (
+            <div className={`calib-recommend-result ${recommendationFeedback.kind}`} role="status">
+              <i className={`fa-solid ${recommendationFeedback.kind === "success" ? "fa-circle-check" : recommendationFeedback.kind === "warning" ? "fa-triangle-exclamation" : "fa-circle-xmark"}`}></i>
+              {recommendationFeedback.text}
+            </div>
+          )}
+        </div>
+        <div className="afk-divider"></div>
         <div className="afk-setting">
           <div className="afk-setting-info">
             <span className="afk-setting-name">Resolution preset</span>
             <span className="afk-setting-desc">Pick your resolution, scale and window mode, then load. Applied to every calibration panel at once. Fine-tune each panel below.</span>
           </div>
-          <PresetPicker presetNames={presets.global} disabled={running} onLoad={(name) => void loadGlobal(name)} />
+          <PresetPicker
+            presetNames={presets.global}
+            disabled={running}
+            selectedName={loadedPreset}
+            onLoad={(name) => void loadGlobal(name)}
+          />
         </div>
         {loadedPreset && presetGaps.length > 0 && (
           <div className="glass-warning auto-note" style={{ marginTop: 10 }} data-reveal>
@@ -198,6 +396,48 @@ export function Calibration() {
         <div className="calib-foot">
           <p className="pixel-hint"><i className="fa-solid fa-clipboard"></i> Copy every panel's calibration to clipboard at once.</p>
           <CopyButton state={copyFeedback.all} onClick={() => void copyCalibration("all")} label="Copy all calibrations" />
+        </div>
+      </div>
+
+      {}
+      <div className={`glass card panel calib-test-panel${testState === "active" ? " active" : ""}`} data-reveal>
+        <div className="panel-head">
+          <div className="panel-title"><i className="fa-solid fa-crosshairs"></i> Calibration Test Mode</div>
+          <span className={`badge badge-soft calib-test-badge ${testState === "active" ? "active" : ""}`}>
+            {testState === "active" ? "Preview active" : "Preview only"}
+          </span>
+        </div>
+        <div className="calib-test-layout">
+          <div className="calib-test-copy">
+            <span className="afk-setting-name">Check targets without running the macro</span>
+            <span className="afk-setting-desc">Saved click points and OCR regions appear as a click-through overlay. SolRich will not press any buttons.</span>
+          </div>
+          <div className="calib-test-controls">
+            <div className="custom-select-wrap calib-test-select">
+              <CustomSelect
+                options={CALIBRATION_TEST_SCOPES}
+                value={testScope}
+                onChange={(value) => {
+                  if (testState === "active") void stopCalibrationTest(true);
+                  setTestScope(value);
+                }}
+                disabled={running || testState === "starting" || testState === "stopping"}
+                aria-label="Calibration test module"
+              />
+            </div>
+            <button
+              className={`btn-add calib-test-button${testState === "active" ? " stop" : ""}`}
+              disabled={running || testState === "starting" || testState === "stopping"}
+              onClick={() => void startCalibrationTest()}
+            >
+              <i className={`fa-solid ${testState === "starting" || testState === "stopping" ? "fa-spinner fa-spin" : testState === "active" ? "fa-stop" : "fa-play"}`}></i>
+              {testState === "starting" ? "Starting…" : testState === "stopping" ? "Stopping…" : testState === "active" ? "Stop preview" : "Start preview"}
+            </button>
+          </div>
+        </div>
+        <div className={`calib-test-status ${testState}`} role="status">
+          <i className={`fa-solid ${testState === "active" ? "fa-circle-check" : testState === "error" ? "fa-triangle-exclamation" : "fa-circle-info"}`}></i>
+          {testMessage}
         </div>
       </div>
 

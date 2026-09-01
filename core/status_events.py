@@ -12,12 +12,16 @@ _event_seq = 0
 
 _detail = None
 
-def push_event(text, kind="info", ttl=2.0):
+def push_event(text, kind="info", ttl=2.0, account=None, account_id=None,
+               category=None, decision=None):
     
     global _event, _event_seq
     if not text:
         return
-    activity_log.push(text, kind=kind)
+    activity_log.push(
+        text, kind=kind, account=account, account_id=account_id,
+        category=category, decision=decision,
+    )
     with _lock:
         _event_seq += 1
         _event = {

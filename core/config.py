@@ -17,7 +17,7 @@ from .config_calib import CalibConfigMixin
 from .config_autopop import AutopopConfigMixin
 from .config_fishing import FishingConfigMixin
 from .config_cycle import CycleConfigMixin
-from .secure_store import SecureStore
+from .secure_store import SecureStore, SecureStoreError
 from .time_tracking import (
     default_tracking as _default_time_tracking,
     TIME_MODULES as _TIME_MODULES,
@@ -26,7 +26,7 @@ from .time_tracking import (
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.2.0"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"
@@ -95,19 +95,26 @@ def get_config_dir(folder: str = None) -> Path:
             try:
                 if not path.exists():
                     shutil.copytree(legacy_path, path)
-                elif not (path / CONFIG_FILENAME).exists() and (
-                    legacy_path / CONFIG_FILENAME
-                ).is_file():
+                elif (
+                    not (path / CONFIG_FILENAME).exists()
+                    and (legacy_path / CONFIG_FILENAME).is_file()
+                ):
 
 
 
                     path.mkdir(parents=True, exist_ok=True)
-                    for filename in (CONFIG_FILENAME, CONFIG_BACKUP_FILENAME, "tokens.dat"):
+                    for filename in (
+                        CONFIG_FILENAME,
+                        CONFIG_BACKUP_FILENAME,
+                        "tokens.dat",
+                    ):
                         source = legacy_path / filename
                         target = path / filename
                         if source.is_file() and not target.exists():
                             shutil.copy2(source, target)
-                    print(f"[Config] Recovered user data from legacy folder '{legacy}'.")
+                    print(
+                        f"[Config] Recovered user data from legacy folder '{legacy}'."
+                    )
             except Exception as exc:
                 print(f"[Config] Legacy migration failed: {exc}")
     path.mkdir(parents=True, exist_ok=True)
@@ -251,6 +258,27 @@ def _default_config() -> dict:
             "fakePingPrompt": True,
             "monitorDimEnabled": False,
             "monitorDimLevel": 40,
+            "windowsNotificationsEnabled": True,
+            "windowsNotifyBiomes": False,
+            "windowsNotifyDisconnects": True,
+            "windowsNotifyAuras": False,
+            "windowsNotifyBiomeHealth": True,
+            "windowsAuraMinimumRarity": "1000000",
+            "biomeHealthMonitorEnabled": True,
+            "biomeHealthTimeoutMinutes": 30,
+            "auraPushNotify": False,
+            "auraMinimumRarity": "",
+            "auraAlwaysSendNames": "",
+            "auraPingUserId": "",
+            "auraPingMinimumRarity": "",
+            "auraAlwaysPingNames": "",
+            "clippingEnabled": False,
+            "clipHotkey": "F8",
+            "clipBiomes": ["glitched", "dreamspace", "cyberspace", "singularity"],
+            "clipBiomeDelay": "60",
+            "clipAuraMinimumRarity": "99999999",
+            "clipAuraNames": "Illusionary",
+            "clipAuraDelay": "60",
             "hotkey": "F5",
         },
         "automation": _default_automation(),
@@ -287,12 +315,20 @@ class ConfigManager(
     def _validate_saved_config(saved) -> dict:
         if not isinstance(saved, dict) or not saved:
             raise ValueError("config root is empty or not an object")
-        if not any(key in saved for key in ("accounts", "webhooks", "settings", "automation")):
+        if not any(
+            key in saved for key in ("accounts", "webhooks", "settings", "automation")
+        ):
             raise ValueError("config has no recognized data sections")
 
         expected_dicts = (
-            "settings", "automation", "biomeCounts", "unknownBiomes",
-            "merchantCounts", "moduleCounts", "moduleUseStats", "edenStats",
+            "settings",
+            "automation",
+            "biomeCounts",
+            "unknownBiomes",
+            "merchantCounts",
+            "moduleCounts",
+            "moduleUseStats",
+            "edenStats",
             "timeTracking",
         )
         for key in expected_dicts:
@@ -385,7 +421,9 @@ class ConfigManager(
         if primary_error is not None:
             self.recovery_notice = "unrecoverable"
             self._unrecoverable_load_error = True
-            print("[Config] No valid backup found; using defaults without deleting the quarantined file.")
+            print(
+                "[Config] No valid backup found; using defaults without deleting the quarantined file."
+            )
         return None
 
     def _load(self) -> dict:
@@ -522,6 +560,25 @@ class ConfigManager(
                 self._unrecoverable_load_error = True
 
         settings = cfg["settings"]
+
+
+        if not settings.get("auraMinimumRarity") and settings.get("auraSendRarity"):
+            settings["auraMinimumRarity"] = settings.get("auraSendRarity")
+            self._needs_save = True
+        if not settings.get("auraAlwaysSendNames") and settings.get(
+            "auraNoRarityNames"
+        ):
+            settings["auraAlwaysSendNames"] = settings.get("auraNoRarityNames")
+            self._needs_save = True
+        for legacy_aura_key in (
+            "auraCheckInterval",
+            "auraSendRarity",
+            "auraNoRarityNames",
+            "auraScreenshot",
+        ):
+            if legacy_aura_key in settings:
+                settings.pop(legacy_aura_key, None)
+                self._needs_save = True
         if migrate_legacy_cpu_limiter:
 
 
@@ -548,11 +605,20 @@ class ConfigManager(
                 "biomeRandomizer": bool(mods.get("biomeRandomizer", False)),
                 "merchantTeleporter": bool(mods.get("merchantTeleporter", False)),
                 "fishing": bool(mods.get("fishing", False)),
+                "auraDetection": bool(mods.get("auraDetection", False)),
             }
-            legacy_token = acc.pop("token", None)
+            legacy_token = acc.get("token")
             if legacy_token and str(legacy_token).strip():
-                self.tokens.set(acc.get("id"), str(legacy_token).strip())
-                self._needs_save = True
+                try:
+                    self.tokens.set(acc.get("id"), str(legacy_token).strip())
+                    acc.pop("token", None)
+                    self._needs_save = True
+                except SecureStoreError as exc:
+
+
+                    print(
+                        f"[Config] Legacy token migration is waiting for secure storage: {exc}"
+                    )
         cfg["automation"].setdefault("fishing", {}).setdefault("account", None)
         eden = cfg["automation"].setdefault("eden", {})
         eden.setdefault("account", None)
@@ -667,14 +733,21 @@ class ConfigManager(
     def _write_now(self) -> None:
         with self._lock:
             try:
-                payload = json.dumps(
-                    self.data, indent=2, ensure_ascii=False
-                ).encode("utf-8")
+                payload = json.dumps(self.data, indent=2, ensure_ascii=False).encode(
+                    "utf-8"
+                )
                 if self.path.exists():
                     try:
                         self._refresh_backup_from(self.path)
-                    except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
-                        print(f"[Config] Kept existing backup; current file was not valid ({exc}).")
+                    except (
+                        json.JSONDecodeError,
+                        OSError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        print(
+                            f"[Config] Kept existing backup; current file was not valid ({exc})."
+                        )
                 self._atomic_replace_bytes(self.path, payload)
 
 
@@ -857,7 +930,9 @@ class ConfigManager(
                 "configRecovery": {
                     "status": self.recovery_notice,
                     "preservedFile": self.recovery_file,
-                } if self.recovery_notice else None,
+                }
+                if self.recovery_notice
+                else None,
             }
 
     def _find(self, items, item_id):
@@ -917,8 +992,13 @@ class ConfigManager(
             )
 
     def add_account(
-        self, name: str, link: str = "", avatar: str = "", acc_id=None,
-        roblox_user_id=None, roblox_username: str = "",
+        self,
+        name: str,
+        link: str = "",
+        avatar: str = "",
+        acc_id=None,
+        roblox_user_id=None,
+        roblox_username: str = "",
     ) -> dict:
         with self._lock:
             if self.account_name_owner(name):
@@ -1082,7 +1162,9 @@ class ConfigManager(
             self.save()
             return True
 
-    def set_account_profile(self, acc_id, user_id=None, username="", avatar=None) -> bool:
+    def set_account_profile(
+        self, acc_id, user_id=None, username="", avatar=None
+    ) -> bool:
         with self._lock:
             acc = self._find(self.accounts, acc_id)
             if not acc:
@@ -1105,6 +1187,35 @@ class ConfigManager(
             acc["tokenValid"] = False
             self.save()
             return True
+
+    def clear_all_account_tokens(self) -> int:
+        
+        with self._lock:
+            count = sum(
+                1
+                for acc in self.accounts
+                if self.tokens.has(acc.get("id")) or str(acc.get("token") or "").strip()
+            )
+            self.tokens.clear()
+            for acc in self.accounts:
+                acc.pop("token", None)
+                acc["tokenUser"] = ""
+                acc["tokenValid"] = False
+            self.save()
+            return count
+
+    def token_security_status(self) -> dict:
+        with self._lock:
+            status = self.tokens.status()
+            plaintext_legacy = sum(
+                1 for acc in self.accounts if str(acc.get("token") or "").strip()
+            )
+            status["legacyConfigTokens"] = plaintext_legacy
+            if plaintext_legacy:
+                status["storedTokens"] += plaintext_legacy
+                status["status"] = "warning"
+                status["encrypted"] = False
+            return status
 
     def account_token(self, acc_id) -> str:
         with self._lock:

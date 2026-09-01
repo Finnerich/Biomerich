@@ -321,6 +321,32 @@ def _read_token_cdp(profile_dir: str) -> str:
     return ""
 
 
+def _delete_temp_profile(path: str) -> bool:
+    
+    if not path:
+        return True
+    temp_root = os.path.normcase(os.path.realpath(tempfile.gettempdir()))
+    target = os.path.normcase(os.path.realpath(path))
+    if (
+        os.path.dirname(target) != temp_root
+        or not os.path.basename(target).startswith("solrich-login-")
+    ):
+        print("[BrowserLogin] Refused to delete an unexpected profile path.")
+        return False
+    for attempt in range(6):
+        try:
+            shutil.rmtree(target)
+        except FileNotFoundError:
+            return True
+        except OSError:
+            pass
+        if not os.path.exists(target):
+            return True
+        time.sleep(0.25 * (attempt + 1))
+    print("[BrowserLogin] Temporary login profile could not be fully deleted.")
+    return False
+
+
 class BrowserLogin:
     
 
@@ -353,6 +379,7 @@ class BrowserLogin:
 
     def _run(self, exe, name, on_done):
         token, error = "", None
+        cleanup_ok = True
         try:
             self._tmp = tempfile.mkdtemp(prefix="solrich-login-")
             args = [
@@ -362,6 +389,7 @@ class BrowserLogin:
                 "--no-default-browser-check",
                 "--no-service-autorun",
                 "--disable-sync",
+                "--remote-debugging-address=127.0.0.1",
                 "--remote-debugging-port=0",
                 "--remote-allow-origins=*",
                 "--new-window",
@@ -391,7 +419,12 @@ class BrowserLogin:
             error = str(e)
             print(f"[BrowserLogin] Failed: {e}")
         finally:
-            self._cleanup()
+            cleanup_ok = self._cleanup()
+        if not cleanup_ok:
+
+
+            token = ""
+            error = "cleanup_failed"
         on_done(token or None, None if token else error)
 
     def _cleanup(self):
@@ -412,6 +445,8 @@ class BrowserLogin:
                 except Exception:
                     pass
         time.sleep(0.5)
+        deleted = True
         if self._tmp:
-            shutil.rmtree(self._tmp, ignore_errors=True)
+            deleted = _delete_temp_profile(self._tmp)
             self._tmp = None
+        return deleted

@@ -20,6 +20,7 @@ const TABS: Record<string, ComponentType> = {
   home: lazyTab(() => import("./Home"), "Home"),
   stats: lazyTab(() => import("./Stats"), "Stats"),
   monitor: lazyTab(() => import("./Monitor"), "Monitor"),
+  timeline: lazyTab(() => import("./Timeline"), "Timeline"),
   modules: lazyTab(() => import("./ModuleBuilder"), "ModuleBuilder"),
   safety: lazyTab(() => import("./Safety"), "Safety"),
   accounts: lazyTab(() => import("./Accounts"), "Accounts"),

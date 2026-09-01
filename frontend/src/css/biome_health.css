@@ -1,0 +1,50 @@
+.biome-health-alert {
+    position: relative;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 22px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(242, 109, 120, 0.34);
+    border-radius: var(--r-md);
+    background: linear-gradient(105deg, rgba(242, 109, 120, 0.11), rgba(242, 109, 120, 0.035)), var(--glass-strong);
+    box-shadow: var(--shadow-sm);
+    animation: revealUp2 0.24s var(--ease-out) both;
+}
+.biome-health-alert__icon {
+    width: 36px; height: 36px; flex: 0 0 36px;
+    display: grid; place-items: center;
+    border-radius: var(--r-sm);
+    color: var(--danger);
+    background: rgba(242, 109, 120, 0.11);
+    border: 1px solid rgba(242, 109, 120, 0.22);
+}
+.biome-health-alert__copy {
+    display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px;
+}
+.biome-health-alert__copy strong { color: var(--text); font-size: 13px; font-weight: 700; }
+.biome-health-alert__copy span { color: var(--text-dim); font-size: 12px; line-height: 1.4; }
+.biome-health-alert__action,
+.biome-health-alert__dismiss {
+    flex-shrink: 0; cursor: pointer; color: var(--text-dim);
+    border: 1px solid var(--stroke-soft); background: rgba(255,255,255,0.035);
+    transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.biome-health-alert__action {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 11px; border-radius: var(--r-xs); font: 650 12px var(--font);
+}
+.biome-health-alert__action:hover { color: #fff; border-color: rgba(242,109,120,0.42); background: rgba(242,109,120,0.12); }
+.biome-health-alert__dismiss {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border-color: transparent; border-radius: var(--r-xs);
+}
+.biome-health-alert__dismiss:hover { color: var(--danger); background: rgba(242,109,120,0.08); }
+
+@media (max-width: 760px) {
+    .biome-health-alert { margin: 10px 12px 0; align-items: flex-start; flex-wrap: wrap; }
+    .biome-health-alert__copy { min-width: calc(100% - 50px); }
+    .biome-health-alert__action { margin-left: 48px; }
+    .biome-health-alert__dismiss { position: absolute; right: 8px; top: 8px; }
+}

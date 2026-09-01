@@ -622,10 +622,6 @@ class AutomationEngine:
             if ev.is_set():
                 break
 
-
-            if ev.is_set():
-                break
-
             if eden_mode:
                 main_acc = self.config.effective_eden_account_id()
                 runnable_ids = {a.get("id") for a in self.config.enabled_accounts()}
@@ -1047,11 +1043,9 @@ class AutomationEngine:
 
 
 
-
     @staticmethod
     def _norm_name(s):
         return detection.norm_name(s)
-
 
     def _capture_click(self, timeout=30.0):
         if not win_input.IS_WINDOWS:

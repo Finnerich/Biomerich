@@ -53,10 +53,12 @@ function buildTree(names: string[]): ResEntry[] {
 export function PresetPicker({
   presetNames,
   disabled,
+  selectedName,
   onLoad,
 }: {
   presetNames: string[];
   disabled?: boolean;
+  selectedName?: string | null;
   onLoad: (name: string) => void;
 }) {
   const resolutions = useMemo(() => buildTree(presetNames), [presetNames]);
@@ -70,6 +72,21 @@ export function PresetPicker({
   const scaleEntry = resEntry?.scales.find((s) => s.scale === scale);
   const modeEntry = scaleEntry?.modes.find((m) => m.mode === mode);
   const resolvedName = isLoose ? resEntry!.looseName! : modeEntry?.name;
+
+  useEffect(() => {
+    if (!selectedName || !presetNames.includes(selectedName)) return;
+    const match = PRESET_RE.exec(selectedName.trim());
+    if (!match) {
+      setRes(LOOSE_PREFIX + selectedName);
+      setScale("");
+      setMode("");
+      return;
+    }
+    const [, , nextMode, width, height, nextScale] = match;
+    setRes(`${width}x${height}`);
+    setScale(nextScale);
+    setMode(nextMode.toUpperCase());
+  }, [selectedName, presetNames]);
 
   useEffect(() => {
     if (!resolutions.some((r) => r.value === res)) {

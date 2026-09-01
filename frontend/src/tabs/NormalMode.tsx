@@ -27,6 +27,8 @@ import { BindButton, useWindowBindPoll } from "../windowBind";
 import {
   AntiAfkSettings,
   ApModal,
+  AuraSettings,
+  ClippingSettings,
   AutopopSettings,
   FISHING_REQUIRED_SLOTS,
   FishingSettings,
@@ -48,8 +50,9 @@ type ModKey =
   | "strangeController"
   | "biomeRandomizer"
   | "merchantTeleporter"
+  | "auraDetection"
   ;
-type DrawerKind = ModKey | "merchant" | "aura" | "antiafk" | "autopop" | "fishing" | "biomelog" | "ramtrim" | "misc" | null;
+type DrawerKind = ModKey | "merchant" | "aura" | "clipping" | "antiafk" | "autopop" | "fishing" | "biomelog" | "ramtrim" | "misc" | null;
 type AutobuyModalState = { mid: AutobuyMerchant; title: string; items: { name: string; amount?: number; all?: boolean }[] } | null;
 
 interface ModuleDef { key: ModKey; name: string; desc: string; icon: string; drawer: DrawerKind; lock: keyof Locks; beta?: boolean }
@@ -59,6 +62,7 @@ const MODULES: ModuleDef[] = [
   { key: "strangeController", name: "Strange Controller", desc: "Use Strange Controllers automatically to reroll your biome.", icon: "fa-gamepad", drawer: "strangeController", lock: "item" },
   { key: "biomeRandomizer", name: "Biome Randomizer", desc: "Use Biome Randomizers automatically to shuffle the biome.", icon: "fa-shuffle", drawer: "biomeRandomizer", lock: "item" },
   { key: "merchantTeleporter", name: "Merchant Detection", desc: "Teleport to merchants, read who arrived, and optionally auto-buy.", icon: "fa-store", drawer: "merchant", lock: "merchant" },
+  { key: "auraDetection", name: "Aura Detection", desc: "Detect equipped auras directly from the Roblox logs.", icon: "fa-star", drawer: "aura", lock: "aura" },
 ];
 
 
@@ -84,8 +88,23 @@ export function NormalMode() {
   const [autopopUnknownKeys, setAutopopUnknownKeys] = useState<string[]>([]);
   const [routeNames, setRouteNames] = useState<string[]>([]);
 
+  const tutorialDrawer = useStore((state) => state.tutorialDrawer);
+  const setTutorialDrawer = useStore((state) => state.setTutorialDrawer);
+
   const selectedId = getNormalAccountId(settings) ?? accounts[0]?.id ?? null;
   const account = accounts.find((candidate) => candidate.id === selectedId) || null;
+
+  useEffect(() => {
+    if (!tutorialDrawer) return;
+    const { kind, accId } = tutorialDrawer;
+    if (accId != null && accId !== selectedId && accounts.some((candidate) => candidate.id === accId)) {
+      void setNormalAccount(accId);
+    }
+    setDrawer(kind as DrawerKind);
+    
+    
+    setTutorialDrawer(null);
+  }, [tutorialDrawer, selectedId, accounts, setTutorialDrawer]);
 
   useEffect(() => {
     if (getNormalAccountId(settings) == null && accounts[0]) void setNormalAccount(accounts[0].id);
@@ -112,17 +131,15 @@ export function NormalMode() {
   const inventoryReady = PIXEL_SLOTS.every(([slotKey]) => isPoint(pixels[slotKey]));
   const merchGeneral = (automation.merchants?.calib || {}).general || {};
   const merchantReady = isPoint(merchGeneral.pixels?.dialogue_skip) && isRegion(merchGeneral.regions?.merchant_name);
-  const chatCalib = (automation.calib || {}).chat || {};
-  const auraReady = isPoint(chatCalib.pixels?.chat_button) && isPoint(chatCalib.pixels?.server_messages_button) && isRegion(chatCalib.regions?.chat_region);
   const autopopAmountReady = isRegion(autopop.amountRegion);
   const fishingReady = FISHING_REQUIRED_SLOTS.every((slotKey) => isPoint(fishing.pixels?.[slotKey]));
   const locks: Locks = useMemo(() => ({
     item: inventoryReady ? null : "Set the Inventory calibration first (Calibration tab).",
     merchant: !ocrAvailable ? "Needs Tesseract (not installed)." : !inventoryReady ? "Set the Inventory calibration first." : !merchantReady ? "Set the Merchant calibration first." : null,
-    aura: !ocrAvailable ? "Needs Tesseract (not installed)." : !auraReady ? "Set the Chat calibration first." : null,
+    aura: null,
     autopop: !inventoryReady ? "Set the Inventory calibration first." : !autopopAmountReady ? "Set the Auto Pop amount region first." : null,
     fishing: fishingReady ? null : "Set the Fishing calibration first (Calibration tab).",
-  }), [inventoryReady, merchantReady, auraReady, autopopAmountReady, fishingReady, ocrAvailable]);
+  }), [inventoryReady, merchantReady, autopopAmountReady, fishingReady, ocrAvailable]);
 
   const afkOn = !!settings.antiAfkEnabled;
   const intervals = automation.intervals || {};
@@ -143,6 +160,7 @@ export function NormalMode() {
   }, [accounts, webhooks]);
   const loggingOn = !!settings.biomeLogging;
   const ramTrimOn = !!settings.ramTrimEnabled;
+  const clippingOn = !!settings.clippingEnabled;
   const ramInterval = Math.max(1, Math.min(1440, parseInt(String(settings.ramTrimInterval), 10) || 60));
   const slowResetOn = !!settings.slowReset;
   const fakePingOn = settings.fakePingGuard !== false;
@@ -174,6 +192,10 @@ export function NormalMode() {
   async function toggleRamTrim(checked: boolean) {
     patchSettings({ ramTrimEnabled: checked });
     applyState(await callPy<BackendState>("set_setting", "ramTrimEnabled", checked));
+  }
+  async function toggleClipping(checked: boolean) {
+    patchSettings({ clippingEnabled: checked });
+    applyState(await callPy<BackendState>("set_setting", "clippingEnabled", checked));
   }
   const onNotif = async (key: string, checked: boolean) => applyState(await callPy<BackendState>("set_notification", key, checked));
   const onFailsafe = async (task: string, checked: boolean) => applyState(await callPy<BackendState>("set_ocr_failsafe", task, checked));
@@ -229,7 +251,7 @@ export function NormalMode() {
           {ocrAvailable === false && (
             <div className="glass glass-warning card auto-note" data-reveal>
               <i className="fa-solid fa-lock"></i>
-              <p><b>Tesseract not installed.</b> Merchant &amp; Aura Detection are locked. One click installs it.</p>
+              <p><b>Tesseract not installed.</b> Merchant Detection and OCR failsafes are locked. One click installs it.</p>
               <TesseractInstallButton />
             </div>
           )}
@@ -279,6 +301,10 @@ export function NormalMode() {
           <div className="glass card panel" data-reveal>
             <div className="panel-head"><div className="panel-title"><i className="fa-solid fa-shield-halved"></i> Extras</div></div>
             <div className="nm-modules">
+              <NmModule icon="fa-film" name="Automatic Clipping" on={clippingOn} lock={null}
+                desc="Presses your Medal hotkey after selected rare biomes or auras."
+                onGear={() => setDrawer("clipping")} onToggle={() => void toggleClipping(!clippingOn)} />
+
               <NmModule icon="fa-person-running" name="Anti-AFK" on={afkOn} lock={null}
                 desc="Keeps the Roblox window awake so it never kicks you."
                 onGear={() => setDrawer("antiafk")} onToggle={() => void toggleAfk(!afkOn)} disabled={running} />
@@ -309,6 +335,12 @@ export function NormalMode() {
       </ModuleDrawer>
       <ModuleDrawer open={drawer === "biomeRandomizer"} icon="fa-shuffle" title="Biome Randomizer" sub="Item module: uses the inventory click points" onClose={() => setDrawer(null)}>
         <ItemModuleSettings task="biomeRandomizer" running={running} ocrAvailable={ocrAvailable} ocrFailsafe={ocrFailsafe} notif={notifications} onNotif={onNotif} onFailsafe={onFailsafe} />
+      </ModuleDrawer>
+      <ModuleDrawer open={drawer === "aura"} icon="fa-star" title="Aura Detection" wide sub="Reads equipped aura changes directly from Roblox logs" onClose={() => setDrawer(null)}>
+        <AuraSettings open={drawer === "aura"} />
+      </ModuleDrawer>
+      <ModuleDrawer open={drawer === "clipping"} icon="fa-film" title="Automatic Clipping" wide sub="Global Medal hotkey triggers for trusted biomes and equipped auras" onClose={() => setDrawer(null)}>
+        <ClippingSettings />
       </ModuleDrawer>
       <ModuleDrawer open={drawer === "antiafk"} icon="fa-person-running" title="Anti-AFK" sub="Keeps the Roblox window awake" onClose={() => setDrawer(null)}>
         <AntiAfkSettings />

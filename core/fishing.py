@@ -2,7 +2,7 @@ import os
 import threading
 import time
 
-from . import win_input, win_pixel, fishing_presets, ocr, status_events, webhooks
+from . import decision_trace, win_input, win_pixel, fishing_presets, ocr, status_events, webhooks
 from .anti_afk import focus_roblox
 
 WHITE = (255, 255, 255)
@@ -54,6 +54,7 @@ class FishingEngine:
         self._primed_account_id = None
         self._rotation_index = 0
         self._rotation_started_at = None
+        self._decision_last = {}
 
 
 
@@ -213,6 +214,9 @@ class FishingEngine:
         }
 
     def ready(self):
+        return not self._missing_required_slots()
+
+    def _missing_required_slots(self):
         required_slots = (
             "cast_point",
             "bite_indicator",
@@ -222,7 +226,41 @@ class FishingEngine:
             "reel_click",
             "claim_button",
         )
-        return all(self._point(slot) is not None for slot in required_slots)
+        return [slot for slot in required_slots if self._point(slot) is None]
+
+    def _decision_account(self):
+        active_account = getattr(self, "_active_account", None)
+        account = active_account if isinstance(active_account, dict) else {}
+        account_id = getattr(self, "_active_account_id", None)
+        if account_id is None:
+            account_id = account.get("id")
+        return account.get("name") or "Fishing account", account_id
+
+    def _fishing_next_step(self, label="Open Fishing Settings"):
+        _name, account_id = self._decision_account()
+        result = {"label": label, "tab": "modules", "drawer": "fishing"}
+        if account_id is not None:
+            result["accountId"] = account_id
+        return result
+
+    def _push_fishing_decision(self, text, kind, decision, *, dedupe_key=None,
+                               cooldown=20.0):
+        
+        if dedupe_key:
+            now = time.monotonic()
+            recent = getattr(self, "_decision_last", None)
+            if not isinstance(recent, dict):
+                recent = {}
+                self._decision_last = recent
+            if now - float(recent.get(dedupe_key, 0.0)) < cooldown:
+                return False
+            recent[dedupe_key] = now
+        account_name, account_id = self._decision_account()
+        status_events.push_event(
+            text, kind=kind, ttl=5.0, account=account_name,
+            account_id=account_id, category="fishing", decision=decision,
+        )
+        return True
 
     def reset(self):
         with self._lock:
@@ -235,6 +273,7 @@ class FishingEngine:
             self._active_account_id = None
             self._rotation_index = 0
             self._rotation_started_at = None
+            self._decision_last = {}
 
     def status(self):
         return {
@@ -571,7 +610,23 @@ class FishingEngine:
         ]
         if not readable_variants:
             print("[Fishing][OCR] No readable text in region — NOT counting catch.")
-            status_events.push_event("No catch detected", kind="warn", ttl=2.0)
+            self._push_fishing_decision(
+                "No catch detected",
+                "warn",
+                decision_trace.make(
+                    "skipped", "catch_ocr_unreadable", "Fishing",
+                    "The catch was not counted because OCR could not read enough text from the Fishing Result region.",
+                    checks=[
+                        decision_trace.check("Fishing Failed failsafe is enabled", True),
+                        decision_trace.check("Tesseract is available", True),
+                        decision_trace.check("Fishing Result region is calibrated", True),
+                        decision_trace.check("Readable result text was found", False),
+                    ],
+                    facts=[decision_trace.fact("OCR reads", "No readable text")],
+                    next_step={"label": "Open Fishing Calibration", "tab": "calibration"},
+                ),
+                dedupe_key="catch_ocr_unreadable",
+            )
             return False
         failed_score = 0.0
         caught_score = 0.0
@@ -584,7 +639,24 @@ class FishingEngine:
                 f"(failed={failed_score:.2f}, caught={caught_score:.2f}) — "
                 "NOT counting catch."
             )
-            status_events.push_event("Fishing Failed", kind="bad", ttl=4.0)
+            self._push_fishing_decision(
+                "Fishing Failed",
+                "bad",
+                decision_trace.make(
+                    "skipped", "fishing_failed_detected", "Fishing",
+                    "The catch was not counted because OCR detected Fishing Failed.",
+                    checks=[
+                        decision_trace.check("Fishing result was readable", True),
+                        decision_trace.check("Fish Caught was detected", False),
+                        decision_trace.check("Catch counter was increased", False),
+                    ],
+                    facts=[
+                        decision_trace.fact("Fishing Failed score", f"{failed_score:.0%}"),
+                        decision_trace.fact("Fish Caught score", f"{caught_score:.0%}"),
+                    ],
+                    next_step=self._fishing_next_step(),
+                ),
+            )
             return False
         if caught_score >= OCR_TEXT_THRESHOLD:
             print(
@@ -592,7 +664,23 @@ class FishingEngine:
                 f"(caught={caught_score:.2f}, failed={failed_score:.2f}) — "
                 "counting catch."
             )
-            status_events.push_event("Fish Caught", kind="good", ttl=4.0)
+            self._push_fishing_decision(
+                "Fish Caught",
+                "good",
+                decision_trace.make(
+                    "acted", "fish_caught_detected", "Fishing",
+                    "OCR detected Fish Caught, so SolRich accepted the catch and continued the fishing cycle.",
+                    checks=[
+                        decision_trace.check("Fishing result was readable", True),
+                        decision_trace.check("Fish Caught was detected", True),
+                        decision_trace.check("Catch can be counted", True),
+                    ],
+                    facts=[
+                        decision_trace.fact("Fish Caught score", f"{caught_score:.0%}"),
+                        decision_trace.fact("Fishing Failed score", f"{failed_score:.0%}"),
+                    ],
+                ),
+            )
             return True
 
         print(
@@ -600,7 +688,26 @@ class FishingEngine:
             f"(failed={failed_score:.2f}, caught={caught_score:.2f}) — "
             "NOT counting catch."
         )
-        status_events.push_event("Catch unclear — not counting", kind="warn", ttl=2.0)
+        self._push_fishing_decision(
+            "Catch unclear — not counting",
+            "warn",
+            decision_trace.make(
+                "skipped", "catch_ocr_unclear", "Fishing",
+                "The catch was not counted because neither Fishing Failed nor Fish Caught reached the required OCR confidence.",
+                checks=[
+                    decision_trace.check("Fishing result was readable", True),
+                    decision_trace.check("A result reached the OCR threshold", False),
+                    decision_trace.check("Catch counter was increased", False),
+                ],
+                facts=[
+                    decision_trace.fact("Required confidence", f"{OCR_TEXT_THRESHOLD:.0%}"),
+                    decision_trace.fact("Fishing Failed score", f"{failed_score:.0%}"),
+                    decision_trace.fact("Fish Caught score", f"{caught_score:.0%}"),
+                ],
+                next_step={"label": "Open Fishing Calibration", "tab": "calibration"},
+            ),
+            dedupe_key="catch_ocr_unclear",
+        )
         return False
 
     def _shop_name_ok(self):
@@ -646,7 +753,30 @@ class FishingEngine:
         self._active_account_id = (
             (account or {}).get("id") if isinstance(account, dict) else None
         )
-        if not win_input.IS_WINDOWS or not self.ready():
+        missing_slots = self._missing_required_slots()
+        if not win_input.IS_WINDOWS or missing_slots:
+            summary = (
+                "Fishing did not start because this platform cannot control the Roblox window."
+                if not win_input.IS_WINDOWS
+                else "Fishing did not start because required calibration points are missing."
+            )
+            self._push_fishing_decision(
+                "Fishing did not start",
+                "warn",
+                decision_trace.make(
+                    "blocked", "fishing_calibration_incomplete" if missing_slots else "unsupported_platform",
+                    "Fishing", summary,
+                    checks=[
+                        decision_trace.check("Windows input control is available", win_input.IS_WINDOWS),
+                        decision_trace.check("Required fishing calibration is complete", not missing_slots),
+                    ],
+                    facts=[
+                        decision_trace.fact("Missing calibration", ", ".join(missing_slots) if missing_slots else "None"),
+                    ],
+                    next_step={"label": "Open Fishing Calibration", "tab": "calibration"},
+                ),
+                dedupe_key="fishing_not_ready", cooldown=60.0,
+            )
             stop_event.wait(1.0)
             return False
 
@@ -711,11 +841,6 @@ class FishingEngine:
                     f"[Fishing] No bite for {NO_BITE_TIMEOUT:.0f}s — "
                     "running sell route WITHOUT opening the shop."
                 )
-                status_events.push_event(
-                    "No bite — running sell route (no shop)",
-                    kind="warn",
-                    ttl=5.0,
-                )
                 status_events.set_detail("Running sell route — no shop")
                 self._send_failsafe_webhook(
                     "No Bite Failsafe",
@@ -729,6 +854,26 @@ class FishingEngine:
                 route_steps = fishing_presets.get_route(route_name)
                 if route_steps:
                     sell_cycles = max(1, self._account_int("sellCycle", 1))
+                    self._push_fishing_decision(
+                        "No bite — running sell route (no shop)",
+                        "warn",
+                        decision_trace.make(
+                            "acted", "no_bite_failsafe_started_route", "Fishing",
+                            "No bite was detected before the timeout, so the No Bite failsafe started the configured route without opening the shop.",
+                            checks=[
+                                decision_trace.check("No Bite failsafe is enabled", True),
+                                decision_trace.check("Bite arrived before timeout", False),
+                                decision_trace.check("Configured sell route was found", True),
+                                decision_trace.check("Shop steps will be skipped", True),
+                            ],
+                            facts=[
+                                decision_trace.fact("Timeout", f"{NO_BITE_TIMEOUT:.0f} seconds"),
+                                decision_trace.fact("Route", route_name),
+                                decision_trace.fact("Route cycles", sell_cycles),
+                            ],
+                            next_step=self._fishing_next_step(),
+                        ),
+                    )
                     self._send_sell_route_webhook(route_name, shop=False)
                     self._run_route_steps(
                         route_steps,
@@ -741,9 +886,40 @@ class FishingEngine:
                         f"[Fishing] No-bite failsafe: route '{route_name}' "
                         "not found — skipping."
                     )
+                    self._push_fishing_decision(
+                        "Sell route did not run · route not found",
+                        "bad",
+                        decision_trace.make(
+                            "failed", "sell_route_not_found", "Fishing",
+                            "The No Bite failsafe wanted to run a route, but the configured sell route could not be found.",
+                            checks=[
+                                decision_trace.check("No Bite failsafe is enabled", True),
+                                decision_trace.check("No bite timeout was reached", True),
+                                decision_trace.check("Configured sell route was found", False),
+                                decision_trace.check("Sell route was started", False),
+                            ],
+                            facts=[decision_trace.fact("Configured route", route_name or "Not selected")],
+                            next_step=self._fishing_next_step(),
+                        ),
+                    )
             elif bite_result == "timeout":
                 print(f"[Fishing] No bite for {BITE_TIMEOUT:.0f}s — recasting.")
-                status_events.push_event("No bite — recasting", kind="warn", ttl=2.0)
+                self._push_fishing_decision(
+                    "No bite — recasting",
+                    "warn",
+                    decision_trace.make(
+                        "acted", "bite_timeout_recast", "Fishing",
+                        "No bite was detected before the timeout, so SolRich ended this attempt and will cast again.",
+                        checks=[
+                            decision_trace.check("Bite arrived before timeout", False),
+                            decision_trace.check("No Bite sell-route failsafe is enabled", False),
+                            decision_trace.check("Fishing cycle will retry", True),
+                        ],
+                        facts=[decision_trace.fact("Timeout", f"{BITE_TIMEOUT:.0f} seconds")],
+                        next_step=self._fishing_next_step(),
+                    ),
+                    dedupe_key="bite_timeout_recast", cooldown=60.0,
+                )
             self.phase = "idle"
             return False
 
@@ -945,7 +1121,24 @@ class FishingEngine:
         self._active_account_id = (
             (account or {}).get("id") if isinstance(account, dict) else None
         )
-        if not win_input.IS_WINDOWS or not self.ready():
+        missing_slots = self._missing_required_slots()
+        if not win_input.IS_WINDOWS or missing_slots:
+            self._push_fishing_decision(
+                "Sell route did not run",
+                "bad",
+                decision_trace.make(
+                    "blocked", "sell_route_fishing_not_ready", "Fishing",
+                    "The sell route did not run because Fishing is not fully calibrated or Windows input control is unavailable.",
+                    checks=[
+                        decision_trace.check("Windows input control is available", win_input.IS_WINDOWS),
+                        decision_trace.check("Required fishing calibration is complete", not missing_slots),
+                        decision_trace.check("Sell route was started", False),
+                    ],
+                    facts=[decision_trace.fact("Missing calibration", ", ".join(missing_slots) if missing_slots else "None")],
+                    next_step={"label": "Open Fishing Calibration", "tab": "calibration"},
+                ),
+                dedupe_key="manual_sell_not_ready", cooldown=30.0,
+            )
             return False
 
         if focus_fn is not None:
@@ -967,6 +1160,21 @@ class FishingEngine:
         route_steps = fishing_presets.get_route(route_name)
         if not route_steps:
             print(f"[Fishing] Sell skipped: route '{route_name}' not found.")
+            self._push_fishing_decision(
+                "Sell route did not run · route not found",
+                "bad",
+                decision_trace.make(
+                    "failed", "sell_route_not_found", "Fishing",
+                    "The sell route did not run because the selected route could not be found.",
+                    checks=[
+                        decision_trace.check("A sell route is selected", bool(route_name)),
+                        decision_trace.check("Selected route exists", False),
+                        decision_trace.check("Sell route was started", False),
+                    ],
+                    facts=[decision_trace.fact("Selected route", route_name or "Not selected")],
+                    next_step=self._fishing_next_step(),
+                ),
+            )
             return False
 
         sell_cycles = max(1, self._account_int("sellCycle", 1))
@@ -978,9 +1186,44 @@ class FishingEngine:
                 f"[Fishing] Running sell route '{route_name}' "
                 f"(sell cycle x{sell_cycles})."
             )
-            return self._run_route_steps(
+            route_result = self._run_route_steps(
                 route_steps, stop_event, sell_cycles, skip_shop=False
             )
+            if route_result:
+                self._push_fishing_decision(
+                    f"Sell route completed · {route_name}",
+                    "good",
+                    decision_trace.make(
+                        "acted", "sell_route_completed", "Fishing",
+                        "The configured sell route finished successfully. Shop verification was disabled.",
+                        checks=[
+                            decision_trace.check("Selected route exists", True),
+                            decision_trace.check("Sell Fish Shop verification is enabled", False),
+                            decision_trace.check("Route finished", True),
+                        ],
+                        facts=[
+                            decision_trace.fact("Route", route_name),
+                            decision_trace.fact("Sell cycles", sell_cycles),
+                        ],
+                        next_step=self._fishing_next_step(),
+                    ),
+                )
+            else:
+                self._push_fishing_decision(
+                    f"Sell route stopped · {route_name}",
+                    "warn",
+                    decision_trace.make(
+                        "cancelled", "sell_route_stopped", "Fishing",
+                        "The sell route started but did not finish because Fishing stopped or was disabled.",
+                        checks=[
+                            decision_trace.check("Selected route exists", True),
+                            decision_trace.check("Route finished", False),
+                        ],
+                        facts=[decision_trace.fact("Route", route_name)],
+                        next_step=self._fishing_next_step(),
+                    ),
+                )
+            return bool(route_result)
 
         attempt = 0
         while not stop_event.is_set() and self.enabled():
@@ -1009,11 +1252,25 @@ class FishingEngine:
                     "[Fishing] Captain Flarg not found on attempt "
                     f"{attempt} — retrying route."
                 )
-                status_events.push_event(
-                    "Sell Fish Shop failsafe failed — retrying shop route "
+                self._push_fishing_decision(
+                    "Sell Fish Shop not found — retrying route "
                     f"(try {attempt})",
-                    kind="warn",
-                    ttl=2.5,
+                    "warn",
+                    decision_trace.make(
+                        "waiting", "sell_shop_not_verified_retrying", "Fishing",
+                        "The route ran, but Captain Flarg was not detected. SolRich will retry instead of claiming that the fish were sold.",
+                        checks=[
+                            decision_trace.check("Sell route was started", True),
+                            decision_trace.check("Captain Flarg was verified", False),
+                            decision_trace.check("Sale was counted", False),
+                            decision_trace.check("Another route attempt will run", True),
+                        ],
+                        facts=[
+                            decision_trace.fact("Route", route_name),
+                            decision_trace.fact("Failed attempt", attempt),
+                        ],
+                        next_step=self._fishing_next_step(),
+                    ),
                 )
                 self._release_all()
                 continue
@@ -1021,6 +1278,24 @@ class FishingEngine:
             if route_result != "shop_verified":
 
                 self._release_all()
+                self._push_fishing_decision(
+                    f"Sell route stopped · {route_name}",
+                    "warn",
+                    decision_trace.make(
+                        "cancelled", "sell_route_stopped_before_verification", "Fishing",
+                        "The sell route did not complete because it stopped before Captain Flarg could be verified.",
+                        checks=[
+                            decision_trace.check("Sell route was started", True),
+                            decision_trace.check("Captain Flarg was verified", False),
+                            decision_trace.check("Sale was counted", False),
+                        ],
+                        facts=[
+                            decision_trace.fact("Route", route_name),
+                            decision_trace.fact("Last attempt", attempt),
+                        ],
+                        next_step=self._fishing_next_step(),
+                    ),
+                )
                 return False
 
             self._send_failsafe_webhook(
@@ -1028,9 +1303,46 @@ class FishingEngine:
                 True,
                 detail="Captain Flarg verified",
             )
+            self._push_fishing_decision(
+                f"Sell route completed · {route_name}",
+                "good",
+                decision_trace.make(
+                    "acted", "sell_route_shop_verified", "Fishing",
+                    "The sell route finished and Captain Flarg was verified before SolRich counted the sale.",
+                    checks=[
+                        decision_trace.check("Sell route was started", True),
+                        decision_trace.check("Captain Flarg was verified", True),
+                        decision_trace.check("Sale can be counted", True),
+                    ],
+                    facts=[
+                        decision_trace.fact("Route", route_name),
+                        decision_trace.fact("Successful attempt", attempt),
+                        decision_trace.fact("Sell cycles", sell_cycles),
+                    ],
+                    next_step=self._fishing_next_step(),
+                ),
+            )
             return True
 
         self._release_all()
+        self._push_fishing_decision(
+            f"Sell route stopped · {route_name}",
+            "warn",
+            decision_trace.make(
+                "cancelled", "sell_route_disabled_or_stopped", "Fishing",
+                "The sell route did not run again because the macro stopped or Fishing was disabled.",
+                checks=[
+                    decision_trace.check("Sell Fish Shop was verified", False),
+                    decision_trace.check("Fishing remained enabled", self.enabled()),
+                    decision_trace.check("Stop was requested", stop_event.is_set(), detail="A requested stop safely cancels the route."),
+                ],
+                facts=[
+                    decision_trace.fact("Route", route_name),
+                    decision_trace.fact("Attempts", attempt),
+                ],
+                next_step=self._fishing_next_step(),
+            ),
+        )
         return False
 
     def _run_route_steps(

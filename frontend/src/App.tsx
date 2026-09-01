@@ -18,6 +18,7 @@ import { Dialog } from "./components/Dialog";
 import { TooltipLayer } from "./components/Tooltip";
 import { ToastLayer } from "./components/Toast";
 import { RarePingWarning } from "./components/RarePingWarning";
+import { BiomeHealthAlert } from "./components/BiomeHealthAlert";
 
 export function App() {
   const currentTab = useStore((s) => s.currentTab);
@@ -48,6 +49,7 @@ export function App() {
         <div className="right-col">
           {}
           {currentTab !== "monitor" && <Topbar />}
+          <BiomeHealthAlert />
           <GlobalSearch />
           <main className="main" ref={mainRef}>
             <ErrorBoundary key={currentTab}>

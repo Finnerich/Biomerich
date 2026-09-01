@@ -32,6 +32,8 @@ import {
   AccountRow,
   AntiAfkSettings,
   ApModal,
+  AuraSettings,
+  ClippingSettings,
   AutopopSettings,
   DrawerState,
   EdenModePanel,
@@ -131,8 +133,6 @@ function MultiMacroBuilder() {
   const merchGeneral = (automation.merchants?.calib || {}).general || {};
   const merchReady = isPoint(merchGeneral.pixels?.dialogue_skip) && isRegion(merchGeneral.regions?.merchant_name);
   const fishReady = FISHING_REQUIRED_SLOTS.every((slotKey) => isPoint(fishing.pixels?.[slotKey]));
-  const chatCalibAll = (automation.calib || {}).chat || {};
-  const auraReady = isPoint(chatCalibAll.pixels?.chat_button) && isPoint(chatCalibAll.pixels?.server_messages_button) && isRegion(chatCalibAll.regions?.chat_region);
   const apAmountReady = isRegion(autopop.amountRegion);
   const locks: ModuleLocks = useMemo(() => ({
     item: invReady ? null : "Needs the Inventory calibration (all 6 click points)",
@@ -149,12 +149,8 @@ function MultiMacroBuilder() {
         ? "Needs the Amount Scan Region (set it in the Auto Pop settings or Calibration)"
         : null,
     fishing: fishReady ? null : "Needs the Fishing calibration (the 7 core click points)",
-    aura: !ocrAvailable
-      ? "Needs Tesseract OCR (not installed)"
-      : !auraReady
-        ? "Needs the Chat calibration (Chat + Server Messages buttons and Chat Region)"
-        : null,
-  }), [invReady, merchReady, apAmountReady, fishReady, auraReady, ocrAvailable]);
+    aura: null,
+  }), [invReady, merchReady, apAmountReady, fishReady, ocrAvailable]);
   const locksRef = useRef(locks);
   locksRef.current = locks;
   const anyLocked = !!(locks.item || locks.merchant || locks.autopop || locks.fishing);
@@ -163,6 +159,7 @@ function MultiMacroBuilder() {
   const loggingOn = !!settings.biomeLogging;
   const afkOn = !!settings.antiAfkEnabled;
   const ramTrimOn = !!settings.ramTrimEnabled;
+  const clippingOn = !!settings.clippingEnabled;
   const ramInterval = Math.max(1, Math.min(1440, parseInt(String(settings.ramTrimInterval), 10) || 60));
   const slowResetOn = !!settings.slowReset;
   const fakePingOn = settings.fakePingGuard !== false;
@@ -178,6 +175,10 @@ function MultiMacroBuilder() {
   async function toggleRamTrim(checked: boolean) {
     patchSettings({ ramTrimEnabled: checked });
     applyState(await callPy<BackendState>("set_setting", "ramTrimEnabled", checked));
+  }
+  async function toggleClipping(checked: boolean) {
+    patchSettings({ clippingEnabled: checked });
+    applyState(await callPy<BackendState>("set_setting", "clippingEnabled", checked));
   }
   const toggleAccountEnabled = useCallback(async (accId: number, enabled: boolean) => {
     const state = useStore.getState();
@@ -233,6 +234,7 @@ function MultiMacroBuilder() {
     const chips: Array<{ icon: string; label: string }> = [];
     [...ITEM_TASKS,
      { key: "merchantTeleporter", name: "Merchant Det.", full: "Merchant Detection", icon: "fa-store" },
+     { key: "auraDetection", name: "Aura Det.", full: "Aura Detection", icon: "fa-star" },
      { key: "fishing", name: "Fishing", full: "Fishing", icon: "fa-fish" },
     ].forEach((task) => {
       enabledAccounts
@@ -282,6 +284,23 @@ function MultiMacroBuilder() {
               <button className="mb-chip-gear mb-chip-single" title="Biome ping settings" onClick={() => setDrawer({ kind: "biomelog" })}>
                 <i className="fa-solid fa-gear"></i>
               </button>
+            </div>
+          </div>
+
+          <div className={`mb-global${clippingOn ? " on" : ""}`}>
+            <div className="mb-global-ico"><i className="fa-solid fa-film"></i></div>
+            <div className="mb-global-meta">
+              <span className="mb-global-name">Automatic Clipping</span>
+              <span className="mb-global-desc">Presses your Medal hotkey after selected rare biomes or auras.</span>
+            </div>
+            <div className="mb-global-actions">
+              <button className="mb-chip-gear mb-chip-single" title="Automatic Clipping settings" onClick={() => setDrawer({ kind: "clipping" })}>
+                <i className="fa-solid fa-gear"></i>
+              </button>
+              <label className="switch">
+                <input type="checkbox" checked={clippingOn} onChange={(e) => void toggleClipping(e.target.checked)} />
+                <span className="slider"></span>
+              </label>
             </div>
           </div>
 
@@ -467,6 +486,19 @@ function MultiMacroBuilder() {
         <BiomePingSettings />
       </ModuleDrawer>
 
+      <ModuleDrawer
+        open={drawer?.kind === "clipping"} icon="fa-film" title="Automatic Clipping" wide
+        sub="Global Medal hotkey triggers for trusted biomes and equipped auras" onClose={() => setDrawer(null)}
+      >
+        <ClippingSettings />
+      </ModuleDrawer>
+
+      <ModuleDrawer
+        open={drawer?.kind === "aura"} icon="fa-star" title="Aura Detection" wide
+        sub="Global settings: reads equipped aura changes directly from Roblox logs" onClose={() => setDrawer(null)}
+      >
+        <AuraSettings open={drawer?.kind === "aura"} />
+      </ModuleDrawer>
 
       <ModuleDrawer
         open={drawer?.kind === "ramtrim"} icon="fa-memory" title="Auto-Trim RAM"
