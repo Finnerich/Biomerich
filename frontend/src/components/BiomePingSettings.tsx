@@ -5,16 +5,13 @@ import { BIOMES, TIERS, type Biome } from "../data/biomes";
 import type { BackendState } from "../types";
 
 interface PingCfg {
-  type: "user" | "role" | "everyone";
+  type: "none" | "user" | "role" | "everyone";
   id: string;
 }
 type PingMap = Record<string, PingCfg>;
 
-function isForcedEveryone(biome: Biome): boolean {
-  return biome.tier === "rare";
-}
-function defaultFor(): PingCfg {
-  return { type: "user", id: "" };
+function defaultFor(biome: Biome): PingCfg {
+  return biome.tier === "rare" ? { type: "everyone", id: "" } : { type: "none", id: "" };
 }
 function isOn(config: PingCfg): boolean {
   return config.type === "everyone" || /\d/.test(config.id);
@@ -27,7 +24,7 @@ export function BiomePingSettings() {
   const pings = (automation.biomePings as PingMap) || {};
 
   function cfgFor(biome: Biome): PingCfg {
-    return pings[biome.key] || defaultFor();
+    return pings[biome.key] || defaultFor(biome);
   }
   function save(key: string, next: PingCfg) {
     patchAutomation({ biomePings: { ...pings, [key]: next } });
@@ -53,8 +50,8 @@ export function BiomePingSettings() {
   return (
     <div className="bl-list">
       <p className="bl-note">
-        Pick who gets pinged per biome. Enter a numeric Discord ID to turn one on. Rare biomes always
-        ping <b>@everyone</b>.
+        Pick who gets pinged per biome. Rare biomes default to <b>@everyone</b>, but can use a custom
+        role, user, or no ping at all.
       </p>
       {groups.map((group) => (
         <div className="bl-group" key={group.tier.key}>
@@ -72,15 +69,6 @@ export function BiomePingSettings() {
           </div>
 
           {group.rows.map((biome) => {
-            if (isForcedEveryone(biome)) {
-              return (
-                <div className="bl-row on" key={biome.key}>
-                  <span className="bl-dot" style={{ background: biome.grad, boxShadow: "none" }}></span>
-                  <span className="bl-name">{biome.name}</span>
-                  <span className="bl-everyone"><i className="fa-solid fa-bullhorn"></i> @everyone</span>
-                </div>
-              );
-            }
             const cfg = cfgFor(biome);
             return (
               <div className={`bl-row${isOn(cfg) ? " on" : ""}`} key={biome.key}>
@@ -88,17 +76,29 @@ export function BiomePingSettings() {
                 <span className="bl-name">{biome.name}</span>
                 <CustomSelect
                   className="bl-select"
-                  options={[{ value: "user", label: "User ID" }, { value: "role", label: "Role ID" }]}
-                  value={cfg.type === "everyone" ? "user" : cfg.type}
+                  options={[
+                    { value: "everyone", label: "@everyone" },
+                    { value: "role", label: "Role ID" },
+                    { value: "user", label: "User ID" },
+                    { value: "none", label: "No ping" },
+                  ]}
+                  value={cfg.type}
                   onChange={(v) => onType(biome, v)}
                 />
-                <input
-                  className="bl-input"
-                  inputMode="numeric"
-                  placeholder="ID (numbers only)"
-                  value={cfg.id}
-                  onChange={(e) => onId(biome, e.target.value)}
-                />
+                {cfg.type === "user" || cfg.type === "role" ? (
+                  <input
+                    className="bl-input"
+                    inputMode="numeric"
+                    placeholder="ID (numbers only)"
+                    value={cfg.id}
+                    onChange={(e) => onId(biome, e.target.value)}
+                  />
+                ) : (
+                  <span className={`bl-target ${cfg.type}`}>
+                    <i className={`fa-solid ${cfg.type === "everyone" ? "fa-bullhorn" : "fa-bell-slash"}`}></i>
+                    {cfg.type === "everyone" ? "Default" : "Disabled"}
+                  </span>
+                )}
               </div>
             );
           })}

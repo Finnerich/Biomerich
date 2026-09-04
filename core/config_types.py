@@ -21,6 +21,7 @@ class FishingAccCfg(TypedDict, total=False):
     sellCycle: int
     route: str
     primeRoute: bool
+    sellOnStart: bool
 
 
 class CalibGroup(TypedDict, total=False):

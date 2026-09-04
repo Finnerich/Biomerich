@@ -1153,6 +1153,13 @@ export function FishingSettings(props: {
         onChange={(c) => void commit("primeRoute", c)}
       />
       <div className="afk-divider"></div>
+      <ToggleRow
+        name="Sell inventory on start"
+        desc="Before the first cast, run the complete route and open Captain Flarg's shop to clear fish already in the inventory. Runs once per account and macro start."
+        checked={!!cfg.sellOnStart} disabled={running || !cfg.route || cfg.route === "None"}
+        onChange={(c) => void commit("sellOnStart", c)}
+      />
+      <div className="afk-divider"></div>
       <p className="section-hint" style={{ margin: "4px 0" }}>
         The catch-result webhook toggle lives in the <b>Webhooks</b> tab. Failsafes below are global.
       </p>

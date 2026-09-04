@@ -813,6 +813,7 @@ class MacroEngine:
                     callback({
                         "id": pending_id,
                         "account": (acc or {}).get("name") or st.username,
+                        "pingTarget": self._biome_ping_target_label(biome_key),
                     })
                 except Exception as e:
                     print(f"[Engine] Rare-ping warning callback failed: {e}")
@@ -853,13 +854,14 @@ class MacroEngine:
 
         biome_key = pending["biome"]
         acc = self._account_by_id(st.acc_id)
+        ping_content = self.config.biome_ping_content(biome_key)
         webhooks.biome_started(
             self._urls_for_account(st.acc_id),
             acc,
             biome_key,
             self._session_report(),
             self._current_version(),
-            ping_content="@everyone",
+            ping_content=ping_content,
         )
         self._notify_windows_biome(
             (acc or {}).get("name") or st.username,
@@ -884,7 +886,7 @@ class MacroEngine:
                 ],
                 facts=[
                     decision_trace.fact("Biome", biomes.display_name(biome_key)),
-                    decision_trace.fact("Discord mention", "@everyone"),
+                    decision_trace.fact("Discord mention", ping_content or "No ping"),
                 ],
                 next_step={"label": "Open Anti Fake Ping Settings", "tab": "modules", "drawer": "misc"},
             ),
@@ -899,6 +901,16 @@ class MacroEngine:
         self._notify_rare_ping_resolved(str(pending_id))
         print(f"[Engine] User manually approved blocked '{biome_key}' ping.")
         return {"ok": True}
+
+    def _biome_ping_target_label(self, biome_key):
+        content = self.config.biome_ping_content(biome_key)
+        if content == "@everyone":
+            return "@everyone"
+        if str(content or "").startswith("<@&"):
+            return "the configured role"
+        if str(content or "").startswith("<@"):
+            return "the configured user"
+        return "no one"
 
     def dismiss_blocked_rare_ping(self, pending_id):
         with self._lock:

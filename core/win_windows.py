@@ -5,6 +5,28 @@ from . import roblox_logs
 IS_WINDOWS = sys.platform == "win32"
 ROBLOX_EXE = "robloxplayerbeta.exe"
 
+
+def fit_client_size(width, height, work_width, work_height, frame=(16, 39), margin=12):
+    
+    width = max(1, int(width))
+    height = max(1, int(height))
+    work_width = max(1, int(work_width))
+    work_height = max(1, int(work_height))
+    frame_width, frame_height = (max(0, int(value)) for value in frame)
+    usable_width = max(1, work_width - (2 * int(margin)) - frame_width)
+    usable_height = max(1, work_height - (2 * int(margin)) - frame_height)
+    factor = min(1.0, usable_width / width, usable_height / height)
+    client_width = max(1, round(width * factor))
+    client_height = max(1, round(height * factor))
+    return {
+        "clientWidth": client_width,
+        "clientHeight": client_height,
+        "outerWidth": client_width + frame_width,
+        "outerHeight": client_height + frame_height,
+        "fitted": factor < 0.9999,
+        "factor": factor,
+    }
+
 if IS_WINDOWS:
     import ctypes
     from ctypes import wintypes
@@ -19,10 +41,14 @@ if IS_WINDOWS:
     SWP_NOZORDER = 0x0004
     SWP_NOACTIVATE = 0x0010
     SWP_SHOWWINDOW = 0x0040
+    SWP_NOSIZE = 0x0001
+    SWP_NOMOVE = 0x0002
     HWND_TOP = 0
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
     PROCESS_TERMINATE = 0x0001
     ASFW_ANY = 0xFFFFFFFF
+    VK_MENU = 0x12
+    KEYEVENTF_KEYUP = 0x0002
 
     CCH_RM_SESSION_KEY = 32
     CCH_RM_MAX_APP_NAME = 255
@@ -89,6 +115,12 @@ if IS_WINDOWS:
     user32.SetActiveWindow.restype = wintypes.HWND
     user32.SetFocus.argtypes = (wintypes.HWND,)
     user32.SetFocus.restype = wintypes.HWND
+    user32.AttachThreadInput.argtypes = (wintypes.DWORD, wintypes.DWORD, wintypes.BOOL)
+    user32.AttachThreadInput.restype = wintypes.BOOL
+    user32.AllowSetForegroundWindow.argtypes = (wintypes.DWORD,)
+    user32.AllowSetForegroundWindow.restype = wintypes.BOOL
+    user32.keybd_event.argtypes = (wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ctypes.c_void_p)
+    user32.SwitchToThisWindow.argtypes = (wintypes.HWND, wintypes.BOOL)
     user32.SetWindowPos.argtypes = (
         wintypes.HWND, wintypes.HWND,
         ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
@@ -97,6 +129,26 @@ if IS_WINDOWS:
     user32.SetWindowPos.restype = wintypes.BOOL
     user32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.c_void_p)
     user32.GetWindowRect.restype = wintypes.BOOL
+    user32.GetClientRect.argtypes = (wintypes.HWND, ctypes.c_void_p)
+    user32.GetClientRect.restype = wintypes.BOOL
+    user32.ClientToScreen.argtypes = (wintypes.HWND, ctypes.c_void_p)
+    user32.ClientToScreen.restype = wintypes.BOOL
+    user32.GetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int)
+    user32.GetWindowLongW.restype = ctypes.c_long
+    user32.AdjustWindowRectEx.argtypes = (
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.BOOL,
+        wintypes.DWORD,
+    )
+    user32.AdjustWindowRectEx.restype = wintypes.BOOL
+    user32.SystemParametersInfoW.argtypes = (
+        wintypes.UINT,
+        wintypes.UINT,
+        ctypes.c_void_p,
+        wintypes.UINT,
+    )
+    user32.SystemParametersInfoW.restype = wintypes.BOOL
     user32.PostMessageW.argtypes = (
         wintypes.HWND,
         wintypes.UINT,
@@ -395,8 +447,7 @@ if IS_WINDOWS:
         hwnd = int(hwnd)
 
         if user32.IsIconic(hwnd):
-
-            user32.ShowWindow(hwnd, SW_SHOW)
+            user32.ShowWindow(hwnd, SW_RESTORE)
             _time.sleep(0.12)
         if _fg_int() == hwnd:
             return True
@@ -406,24 +457,51 @@ if IS_WINDOWS:
         except Exception:
             pass
 
-        this_thread = kernel32.GetCurrentThreadId()
+        this_thread = int(kernel32.GetCurrentThreadId())
+        target_thread = int(user32.GetWindowThreadProcessId(hwnd, None) or 0)
 
         ok = False
         for attempt in range(8):
 
             cur_fg = _fg_int()
             fg_thread = user32.GetWindowThreadProcessId(cur_fg, None) if cur_fg else 0
-            attached = False
-            if fg_thread and fg_thread != this_thread:
-                attached = bool(user32.AttachThreadInput(fg_thread, this_thread, True))
+            attached_threads = []
+            for other_thread in dict.fromkeys((int(fg_thread or 0), target_thread)):
+                if other_thread and other_thread != this_thread:
+                    if user32.AttachThreadInput(this_thread, other_thread, True):
+                        attached_threads.append(other_thread)
 
-            user32.BringWindowToTop(hwnd)
-            user32.SetForegroundWindow(hwnd)
-            user32.SetActiveWindow(hwnd)
-            user32.SetFocus(hwnd)
+            try:
+                user32.BringWindowToTop(hwnd)
+                user32.SetWindowPos(
+                    hwnd, HWND_TOP, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+                )
+                user32.SetForegroundWindow(hwnd)
+                user32.SetActiveWindow(hwnd)
+                user32.SetFocus(hwnd)
+            finally:
+                for other_thread in reversed(attached_threads):
+                    user32.AttachThreadInput(this_thread, other_thread, False)
 
-            if attached:
-                user32.AttachThreadInput(fg_thread, this_thread, False)
+
+
+
+
+
+            if _fg_int() != hwnd:
+                user32.keybd_event(VK_MENU, 0, 0, None)
+                try:
+                    user32.SetForegroundWindow(hwnd)
+                    user32.BringWindowToTop(hwnd)
+                finally:
+                    user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, None)
+
+            if _fg_int() != hwnd:
+                try:
+                    user32.SwitchToThisWindow(hwnd, True)
+                except Exception:
+                    pass
 
             _time.sleep(0.12)
             if _fg_int() == hwnd:
@@ -457,6 +535,86 @@ if IS_WINDOWS:
         if user32.GetWindowRect(hwnd, ctypes.byref(r)):
             return (r.left, r.top, r.right - r.left, r.bottom - r.top)
         return None
+
+    def resize_roblox_for_calibration(width, height):
+        
+        windows = roblox_windows()
+        if not windows:
+            return {"ok": False, "error": "roblox_not_found"}
+        handles = {int(hwnd) for hwnd, _pid in windows}
+        foreground = foreground_hwnd()
+        hwnd = foreground if foreground in handles else int(windows[0][0])
+
+        try:
+            requested_width = max(640, min(3840, int(width)))
+            requested_height = max(360, min(2160, int(height)))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "invalid_size"}
+
+        work = _RECT()
+        if not user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(work), 0):
+            return {"ok": False, "error": "work_area_failed"}
+        work_width = int(work.right - work.left)
+        work_height = int(work.bottom - work.top)
+
+        style = int(user32.GetWindowLongW(hwnd, -16))
+        extended_style = int(user32.GetWindowLongW(hwnd, -20))
+        requested_outer = _RECT(0, 0, requested_width, requested_height)
+        if not user32.AdjustWindowRectEx(
+            ctypes.byref(requested_outer), style, False, extended_style
+        ):
+            return {"ok": False, "error": "frame_measure_failed"}
+        frame_width = (
+            requested_outer.right - requested_outer.left - requested_width
+        )
+        frame_height = (
+            requested_outer.bottom - requested_outer.top - requested_height
+        )
+        fitted = fit_client_size(
+            requested_width,
+            requested_height,
+            work_width,
+            work_height,
+            frame=(frame_width, frame_height),
+        )
+        outer_width = fitted["outerWidth"]
+        outer_height = fitted["outerHeight"]
+        x = int(work.left + max(0, (work_width - outer_width) // 2))
+        y = int(work.top + max(0, (work_height - outer_height) // 2))
+
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        ok = bool(user32.SetWindowPos(
+            hwnd, HWND_TOP, x, y, outer_width, outer_height, SWP_SHOWWINDOW
+        ))
+        if not ok:
+            return {"ok": False, "error": "resize_failed"}
+
+        client = _RECT()
+        origin = wintypes.POINT(0, 0)
+        user32.GetClientRect(hwnd, ctypes.byref(client))
+        user32.ClientToScreen(hwnd, ctypes.byref(origin))
+        from . import calibration_presets
+
+        client_width = int(client.right - client.left)
+        client_height = int(client.bottom - client.top)
+        return {
+            "ok": True,
+            "hwnd": hwnd,
+            "requestedWidth": requested_width,
+            "requestedHeight": requested_height,
+            "clientWidth": client_width,
+            "clientHeight": client_height,
+            "outerWidth": outer_width,
+            "outerHeight": outer_height,
+            "x": x,
+            "y": y,
+            "clientX": int(origin.x),
+            "clientY": int(origin.y),
+            "aspectRatio": calibration_presets.aspect_ratio(
+                client_width, client_height
+            ),
+            "fitted": fitted["fitted"],
+        }
 
 else:
     def roblox_windows():
@@ -497,6 +655,9 @@ else:
 
     def normalize_window(hwnd, x=None, y=None, w=None, h=None):
         return False
+
+    def resize_roblox_for_calibration(width, height):
+        return {"ok": False, "error": "not_windows"}
 
     def hwnd_from_click(timeout=30.0, cancel_flag=None):
         return None, None

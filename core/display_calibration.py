@@ -6,6 +6,8 @@ import re
 import sys
 from typing import Iterable, Optional
 
+from . import calibration_presets
+
 
 _PRESET_RE = re.compile(
     r"^\[[^\]]+\]\s+(WINDOWED|FULLSCREEN)\s+(\d+)\s*[x×]\s*(\d+)\s+\((\d+)%\)\s*$",
@@ -28,26 +30,52 @@ def parse_preset_name(name: str) -> Optional[dict]:
     }
 
 
-def recommend_preset(preset_names: Iterable[str], target: Optional[dict]) -> Optional[str]:
+def _preset_entries(presets):
+    entries = []
+    for item in presets:
+        raw = item if isinstance(item, dict) else {"name": item}
+        parsed = parse_preset_name(raw.get("name"))
+        if not parsed:
+            continue
+        entries.append(parsed)
+    return entries
+
+
+def recommend_preset_details(presets: Iterable, target: Optional[dict]) -> Optional[dict]:
     
     if not target:
         return None
-    wanted = (
-        int(target.get("width") or 0),
-        int(target.get("height") or 0),
-        int(target.get("scale") or 0),
-        str(target.get("mode") or "").upper(),
-    )
-    for name in preset_names:
-        parsed = parse_preset_name(name)
-        if not parsed:
-            continue
+    target_width = int(target.get("width") or 0)
+    target_height = int(target.get("height") or 0)
+    target_scale = int(target.get("scale") or 0)
+    target_mode = str(target.get("mode") or "").upper()
+    entries = _preset_entries(presets)
+
+    wanted = (target_width, target_height, target_scale, target_mode)
+    for entry in entries:
         signature = (
-            parsed["width"], parsed["height"], parsed["scale"], parsed["mode"]
+            entry["width"], entry["height"], entry["scale"], entry["mode"]
         )
         if signature == wanted:
-            return str(name)
+            return {
+                "name": entry["name"],
+                "strategy": "absolute",
+                "sourceWidth": entry["width"],
+                "sourceHeight": entry["height"],
+                "targetWidth": target_width,
+                "targetHeight": target_height,
+                "aspectRatio": calibration_presets.aspect_ratio(
+                    target_width, target_height
+                ),
+                "scaled": False,
+            }
     return None
+
+
+def recommend_preset(preset_names: Iterable[str], target: Optional[dict]) -> Optional[str]:
+    
+    match = recommend_preset_details(preset_names, target)
+    return match["name"] if match else None
 
 
 def _unsupported(error: str = "unsupported") -> dict:
@@ -57,6 +85,7 @@ def _unsupported(error: str = "unsupported") -> dict:
         "monitors": [],
         "target": None,
         "preset": None,
+        "match": None,
         "reason": "unsupported",
     }
 
@@ -92,6 +121,8 @@ def inspect_displays(preset_names: Iterable[str]) -> dict:
         target = {
             "displayId": primary["id"],
             "device": primary["device"],
+            "x": primary["x"],
+            "y": primary["y"],
             "width": primary["width"],
             "height": primary["height"],
             "scale": primary["scale"],
@@ -100,7 +131,12 @@ def inspect_displays(preset_names: Iterable[str]) -> dict:
             "robloxWindows": 0,
         }
 
-    preset = recommend_preset(preset_names, target)
+    if target:
+        target["aspectRatio"] = calibration_presets.aspect_ratio(
+            target["width"], target["height"]
+        )
+    match = recommend_preset_details(preset_names, target)
+    preset = match["name"] if match else None
     if target and not preset:
         reason = "no_preset"
 
@@ -110,6 +146,7 @@ def inspect_displays(preset_names: Iterable[str]) -> dict:
         "monitors": monitors,
         "target": target,
         "preset": preset,
+        "match": match,
         "reason": reason,
     }
 
@@ -197,6 +234,9 @@ def _read_windows_displays():
             "y": int(rect.top),
             "width": int(rect.right - rect.left),
             "height": int(rect.bottom - rect.top),
+            "aspectRatio": calibration_presets.aspect_ratio(
+                int(rect.right - rect.left), int(rect.bottom - rect.top)
+            ),
             "workWidth": int(work.right - work.left),
             "workHeight": int(work.bottom - work.top),
             "dpi": dpi,
@@ -229,6 +269,8 @@ def _read_windows_displays():
         targets.append({
             "displayId": monitor["id"],
             "device": monitor["device"],
+            "x": monitor["x"],
+            "y": monitor["y"],
             "width": monitor["width"],
             "height": monitor["height"],
             "scale": monitor["scale"],

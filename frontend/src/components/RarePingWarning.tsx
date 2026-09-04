@@ -42,6 +42,7 @@ export function RarePingWarning() {
   }, [warning?.id]);
 
   if (!warning) return null;
+  const pingTarget = warning.pingTarget || "@everyone";
 
   async function keepBlocked() {
     if (!warning || busy) return;
@@ -121,7 +122,7 @@ export function RarePingWarning() {
         <div className="rare-ping-warning__body">
           <div className="rare-ping-warning__eyebrow">
             {confirmationStep
-              ? "FINAL @EVERYONE CONFIRMATION"
+              ? "FINAL PING CONFIRMATION"
               : "ANTI FAKE PING SAFETY STOP"}
             {warningCount > 1 ? ` · ${warningCount} PENDING` : ""}
           </div>
@@ -131,7 +132,7 @@ export function RarePingWarning() {
           {confirmationStep ? (
             <p id="rare-ping-warning-copy">
               Your next red click will send the normal Biome Started embed and alert
-              <strong> @everyone</strong>. Continue only if you personally verified that the rare biome is real.
+              <strong> {pingTarget}</strong>. Continue only if you personally verified that the rare biome is real.
             </p>
           ) : (
             <p id="rare-ping-warning-copy">
@@ -152,7 +153,7 @@ export function RarePingWarning() {
             )}
             <button className="rare-ping-btn rare-ping-btn--danger" disabled={busy} onClick={() => void releasePing()}>
               <i className={`fa-solid ${confirmationStep ? "fa-bullhorn" : "fa-arrow-right"}`}></i>
-              {confirmationStep ? "YES — PING @EVERYONE" : "Ping everyone"}
+              {confirmationStep ? "YES — RELEASE PING" : "Review ping"}
             </button>
           </div>
         </div>

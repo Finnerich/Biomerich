@@ -51,7 +51,7 @@ class FishingEngine:
         self._active_account = None
         self._active_account_id = None
         self._module_active = False
-        self._primed_account_id = None
+        self._primed_account_ids = set()
         self._rotation_index = 0
         self._rotation_started_at = None
         self._decision_last = {}
@@ -269,7 +269,7 @@ class FishingEngine:
             self.total_caught = 0
             self.phase = "idle"
             self._session_start = time.time()
-            self._primed_account_id = None
+            self._primed_account_ids = set()
             self._active_account_id = None
             self._rotation_index = 0
             self._rotation_started_at = None
@@ -786,10 +786,36 @@ class FishingEngine:
             focus_roblox()
 
         account_config = self._active_account_config()
-        if account_config.get("primeRoute", False):
-            account_id = self._current_account_id()
-            if account_id is not None and self._primed_account_id != account_id:
-                route_name = account_config.get("route", "")
+        prime_route = bool(account_config.get("primeRoute", False))
+        sell_on_start = bool(account_config.get("sellOnStart", False))
+        account_id = self._current_account_id()
+        if (
+            account_id is not None
+            and account_id not in self._primed_account_ids
+            and (prime_route or sell_on_start)
+        ):
+            route_name = account_config.get("route", "")
+            if sell_on_start:
+                print(
+                    f"[Fishing] Startup sale: running complete route "
+                    f"'{route_name}' before the first cast."
+                )
+                status_events.push_event(
+                    "Clearing fish inventory before fishing…",
+                    kind="info",
+                    ttl=2.5,
+                )
+                status_events.set_detail("Selling existing fish before first cast")
+                self.phase = "selling"
+                sell_succeeded = self._run_sell_route(stop_event)
+                if sell_succeeded:
+                    with self._lock:
+                        self.catch_count = 0
+                        self.sell_count += 1
+                if stop_event.is_set() or not self.enabled():
+                    self.phase = "idle"
+                    return False
+            else:
                 route_steps = fishing_presets.get_route(route_name)
                 if route_steps:
                     print(
@@ -815,7 +841,7 @@ class FishingEngine:
                         f"[Fishing] Route prime skipped: route '{route_name}' "
                         "not found."
                     )
-                self._primed_account_id = account_id
+            self._primed_account_ids.add(account_id)
 
         self.phase = "casting"
         status_events.set_detail("Casting the line")

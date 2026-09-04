@@ -24,6 +24,7 @@ export interface Toast {
 export interface RarePingWarning {
   id: string;
   account?: string;
+  pingTarget?: string;
   test?: boolean;
 }
 export interface BiomeHealthWarning {

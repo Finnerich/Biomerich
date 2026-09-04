@@ -473,7 +473,7 @@ def create_support_bundle():
         return support_bundle.create(
             config.dir,
             config.data,
-            str(config.data.get("version") or "1.2.0"),
+            str(config.data.get("version") or "1.2.1"),
             dev_build="dev" in config.dir.name.casefold(),
         )
     except Exception as exc:
@@ -1364,6 +1364,27 @@ def set_setting(key, value):
 
 
 @eel.expose
+def save_custom_theme_background(data_url):
+    from core import custom_theme
+
+    return custom_theme.save_background(config, data_url)
+
+
+@eel.expose
+def get_custom_theme_background():
+    from core import custom_theme
+
+    return custom_theme.load_background(config)
+
+
+@eel.expose
+def clear_custom_theme_background():
+    from core import custom_theme
+
+    return custom_theme.clear_background(config)
+
+
+@eel.expose
 def test_clip_hotkey():
     
     return engine.clipping.test_hotkey()
@@ -1420,6 +1441,30 @@ def get_display_calibration_info():
         + _extra_presets.preset_names()
     ))
     return display_calibration.inspect_displays(names)
+
+
+@eel.expose
+def apply_recommended_calibration_preset():
+    
+    if _guard():
+        return {"ok": False, "error": "tracking_active"}
+    info = get_display_calibration_info()
+    name = info.get("preset")
+    if not info.get("ok") or not name:
+        return {**info, "ok": False, "error": info.get("reason") or "no_preset"}
+
+    applied = {
+        "automation": config.load_preset_pixels(name),
+        "fishing": config.load_fishing_preset(name),
+        "merchants": config.load_merchant_preset(name),
+        "extra": config.load_extra_preset(name),
+    }
+    return {
+        **info,
+        "ok": any(applied.values()),
+        "applied": applied,
+        "error": None if any(applied.values()) else "preset_empty",
+    }
 
 
 @eel.expose
@@ -1493,10 +1538,15 @@ def _capture_guided_point(scope, slot, *, group=None, timeout=30.0):
     if not shown.get("ok"):
         return None, shown.get("error", "guide_failed")
 
+    from core import calibration_magnifier
+
+    calibration_magnifier.show()
+
     try:
         position = engine.automation._capture_click(timeout=timeout)
         return position, None if position else "timeout"
     finally:
+        calibration_magnifier.hide()
         overlay.hide_calibration_guide()
 
 
@@ -1511,6 +1561,10 @@ def _capture_guided_region(scope, slot, *, group=None, timeout=30.0):
     )
     if not shown.get("ok"):
         return None, None, shown.get("error", "guide_failed")
+
+    from core import calibration_magnifier
+
+    calibration_magnifier.show()
 
     try:
         top_left = engine.automation._capture_click(timeout=timeout)
@@ -1529,6 +1583,7 @@ def _capture_guided_region(scope, slot, *, group=None, timeout=30.0):
             return top_left, None, "timeout"
         return top_left, bottom_right, None
     finally:
+        calibration_magnifier.hide()
         overlay.hide_calibration_guide()
 
 
@@ -2296,6 +2351,7 @@ _VALID_CALIBRATION_SCOPES = {
     "fishing",
     "merchants",
     "chat",
+    "eden",
     "aura_storage",
     "fischl",
     "crafting",
@@ -2328,6 +2384,7 @@ def _collect_points(scope):
                 )
     if scope in (
         "chat",
+        "eden",
         "aura_storage",
         "fischl",
         "crafting",
@@ -2338,7 +2395,6 @@ def _collect_points(scope):
         import core.extra_calibrations as _ec
 
         all_pts = _collect_extra_points()
-        all_rgns_extra = _collect_extra_regions()
         if scope == "all":
             points.extend(all_pts)
         else:
@@ -2402,6 +2458,7 @@ def _collect_regions(scope):
                 )
     if scope in (
         "chat",
+        "eden",
         "aura_storage",
         "fischl",
         "crafting",
@@ -2540,9 +2597,12 @@ def get_calibration_text(scope):
     elif scope == "merchants":
         return _merchant_calibration_text()
     elif scope == "all":
-        return _all_calibration_text()
+        from core import calibration_transfer
+
+        return calibration_transfer.export_text(config.automation)
     elif scope in (
         "chat",
+        "eden",
         "aura_storage",
         "fischl",
         "crafting",
@@ -2571,6 +2631,122 @@ def get_calibration_text(scope):
             lines.append(f'        "{name}": None,')
     lines.append("    },")
     return "\n".join(lines)
+
+
+def _public_calibration_report(report):
+    return {
+        key: value
+        for key, value in report.items()
+        if key != "normalized"
+    }
+
+
+@eel.expose
+def preview_calibration_import(text):
+    
+    from core import calibration_transfer
+
+    return _public_calibration_report(calibration_transfer.inspect_text(text))
+
+
+@eel.expose
+def apply_calibration_import(text):
+    
+    if _guard():
+        return {"ok": False, "error": "tracking_active", "canApply": False}
+    from core import calibration_transfer
+
+    report = calibration_transfer.inspect_text(text)
+    if not report.get("ok") or not report.get("canApply"):
+        return _public_calibration_report(report)
+    with config._lock:
+        applied = calibration_transfer.apply_to_automation(
+            config.automation,
+            report.get("normalized") or {},
+        )
+        config.save()
+    return {
+        **_public_calibration_report(report),
+        "ok": True,
+        "appliedCount": applied,
+    }
+
+
+@eel.expose
+def set_calibration_value(scope, key, value, group=None):
+    
+    if _guard():
+        return {"ok": False, "error": "tracking_active"}
+    selected_scope = str(scope or "").strip().casefold()
+    selected_key = str(key or "").strip()
+    selected_group = str(group or "").strip()
+
+    expected = None
+    if selected_scope == "inventory":
+        if selected_key in presets.slot_keys():
+            expected = 2
+        elif selected_key in {"first_item_region", "autopop_amount_region"}:
+            expected = 4
+    elif selected_scope == "fishing":
+        if selected_key in fishing_presets.slot_keys():
+            expected = 2
+        elif selected_key in fishing_presets.region_keys():
+            expected = 4
+    elif selected_scope == "merchants":
+        import core.merchants_data as _md
+
+        if selected_group in _md.calib_group_keys():
+            if selected_key in _md.calib_point_keys(selected_group):
+                expected = 2
+            elif selected_key in _md.calib_region_keys(selected_group):
+                expected = 4
+    elif selected_scope == "extra":
+        import core.extra_calibrations as _ec
+
+        if _ec.group(selected_group):
+            if selected_key in _ec.point_keys(selected_group):
+                expected = 2
+            elif selected_key in _ec.region_keys(selected_group):
+                expected = 4
+
+    if expected is None:
+        return {"ok": False, "error": "unknown_calibration"}
+    if not isinstance(value, (list, tuple)) or len(value) != expected:
+        return {"ok": False, "error": "invalid_coordinate"}
+    try:
+        clean = [int(round(float(item))) for item in value]
+    except (TypeError, ValueError, OverflowError):
+        return {"ok": False, "error": "invalid_coordinate"}
+    if expected == 4 and (clean[2] <= 0 or clean[3] <= 0):
+        return {"ok": False, "error": "invalid_coordinate"}
+
+    def corners(box):
+        x, y, width, height = box
+        return [x, y], [x + width, y + height]
+
+    if selected_scope == "inventory":
+        if selected_key == "first_item_region":
+            config.set_first_item_region(*corners(clean))
+        elif selected_key == "autopop_amount_region":
+            config.set_autopop_amount_region(*corners(clean))
+        else:
+            config.set_pixel(selected_key, clean)
+    elif selected_scope == "fishing":
+        if expected == 2:
+            config.set_fishing_pixel(selected_key, clean)
+        else:
+            config.set_fishing_region(selected_key, *corners(clean))
+    elif selected_scope == "merchants":
+        if expected == 2:
+            config.set_merchant_pixel(selected_group, selected_key, clean)
+        else:
+            config.set_merchant_region(selected_group, selected_key, *corners(clean))
+    else:
+        if expected == 2:
+            config.set_extra_pixel(selected_group, selected_key, clean)
+        else:
+            config.set_extra_region(selected_group, selected_key, *corners(clean))
+    return {"ok": True, "value": clean}
 
 
 def _extra_calibration_text(scope):
@@ -2716,15 +2892,6 @@ def get_aura_log(since_id=0):
 def run():
     
     print(f"[Finnerich] Config folder: {config.dir}")
-
-
-
-    threading.Thread(
-        target=windows_search.repair_if_installed,
-        args=(_windows_search_dev_build(),),
-        name="windows-search-repair",
-        daemon=True,
-    ).start()
 
     saved_hotkey = config.settings.get("hotkey", "F5")
     _register_hotkey(saved_hotkey)

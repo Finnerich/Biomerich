@@ -26,7 +26,7 @@ from .time_tracking import (
 if TYPE_CHECKING:
     from .config_types import Automation, AppSettings, BackendState
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 STABLE_FOLDER = "SolRich"
 DEV_FOLDER = "SolRich-dev"
 CONFIG_FILENAME = "config.json"
@@ -232,6 +232,7 @@ def _default_config() -> dict:
             "streakCount": 0,
             "streakLastDate": "",
             "themeId": "none",
+            "customThemeBackgroundFile": "",
             "creatorNotes": "fortnite",
             "antiAfkEnabled": True,
             "antiAfkAction": "space",
@@ -1452,20 +1453,20 @@ class ConfigManager(
         
         with self._lock:
             bp = self._biome_pings()
-            if ptype not in ("user", "role", "everyone"):
-                ptype = "user"
+            if ptype not in ("none", "user", "role", "everyone"):
+                ptype = "none"
             digits = "".join(c for c in str(pid or "") if c.isdigit())
+            if ptype in ("none", "everyone"):
+                digits = ""
             bp[biome_key] = {"type": ptype, "id": digits}
             self.save()
             return dict(bp)
 
     def biome_ping_content(self, biome_key: str):
         
-        if biome_key in biomes.PING_BIOMES:
-            return "@everyone"
         cfg = self._biome_pings().get(biome_key)
         if not isinstance(cfg, dict):
-            return None
+            return "@everyone" if biome_key in biomes.PING_BIOMES else None
         ptype = cfg.get("type")
         pid = "".join(c for c in str(cfg.get("id") or "") if c.isdigit())
         if ptype == "everyone":

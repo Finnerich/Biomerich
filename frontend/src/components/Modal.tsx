@@ -5,10 +5,14 @@ interface ModalProps {
   title: string;
   onCancel: () => void;
   onSave: () => boolean | void | Promise<boolean | void>;
+  saveLabel?: string;
+  saveDisabled?: boolean;
+  cancelLabel?: string;
+  className?: string;
   children: ReactNode;
 }
 
-export function Modal({ open, title, onCancel, onSave, children }: ModalProps) {
+export function Modal({ open, title, onCancel, onSave, saveLabel = "Save", saveDisabled = false, cancelLabel = "Cancel", className = "", children }: ModalProps) {
   async function handleSave() {
     const ok = await onSave();
     if (ok !== false) onCancel();
@@ -21,7 +25,7 @@ export function Modal({ open, title, onCancel, onSave, children }: ModalProps) {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="modal glass" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`modal glass${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-head">
           <span className="modal-title">{title}</span>
           <button className="modal-close" onClick={onCancel}>
@@ -31,10 +35,10 @@ export function Modal({ open, title, onCancel, onSave, children }: ModalProps) {
         <div className="modal-body">{children}</div>
         <div className="modal-foot">
           <button className="btn-cancel" onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </button>
-          <button className="btn-save" onClick={() => void handleSave()}>
-            Save
+          <button className="btn-save" disabled={saveDisabled} onClick={() => void handleSave()}>
+            {saveLabel}
           </button>
         </div>
       </div>

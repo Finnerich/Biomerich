@@ -16,6 +16,7 @@ export interface Theme {
 
 export const THEMES: Theme[] = [
   { id: "none", name: "None", image: null, anim: "none", overlay: 0, blur: 0 },
+  { id: "custom", name: "Custom", image: null, anim: "drift", overlay: 0.52, blur: 1 },
   { id: "nebula", name: "Nebula", image: "assets/themes/nebula.jpg", anim: "kenburns", overlay: 0.58, blur: 2 },
   { id: "aurora", name: "Aurora", image: "assets/themes/aurora.jpg", anim: "drift", overlay: 0.52, blur: 1 },
   {
@@ -25,6 +26,25 @@ export const THEMES: Theme[] = [
   { id: "fuh", name: "Fuh", image: "assets/themes/fuh.jpg", anim: "drift", overlay: 0.52, blur: 1 },
   { id: "mr_car", name: "Mr. Car", image: "assets/themes/mr_car.jpg", anim: "drift", overlay: 0.52, blur: 1 },
 ];
+
+let customThemeImage = "";
+
+export function setCustomThemeImage(dataUrl: string): void {
+  customThemeImage = String(dataUrl || "");
+}
+
+export function getCustomThemeImage(): string {
+  return customThemeImage;
+}
+
+export async function loadCustomThemeImage(): Promise<string> {
+  const result = await callPy<{ ok?: boolean; available?: boolean; dataUrl?: string }>("get_custom_theme_background").catch(() => null);
+  customThemeImage = result?.ok && result.available ? String(result.dataUrl || "") : "";
+  if (getCurrentThemeId(useStore.getState().settings.themeId) === "custom") {
+    applyTheme("custom", false);
+  }
+  return customThemeImage;
+}
 
 function ensureThemeBg(): HTMLElement {
   let el = document.getElementById("themeBg");
@@ -43,16 +63,17 @@ export function getCurrentThemeId(settingsThemeId?: unknown): string {
 
 export function applyTheme(id: string, persist: boolean): void {
   const theme = THEMES.find((t) => t.id === id) || THEMES[0];
+  const image = theme.id === "custom" ? customThemeImage : theme.image;
   const el = ensureThemeBg();
   el.className = "theme-anim-" + (theme.anim || "none");
 
-  if (!theme.image) {
+  if (!image) {
     el.style.opacity = "0";
     el.style.backgroundImage = "";
   } else {
     const ov = theme.overlay == null ? 0.5 : theme.overlay;
     const ov2 = Math.min(0.92, ov + 0.18);
-    el.style.backgroundImage = `linear-gradient(rgba(6,6,12,${ov}), rgba(6,6,12,${ov2})), url("${theme.image}")`;
+    el.style.backgroundImage = `linear-gradient(rgba(6,6,12,${ov}), rgba(6,6,12,${ov2})), url("${image}")`;
     el.style.filter = theme.blur ? `blur(${theme.blur}px)` : "";
     el.style.opacity = "1";
   }

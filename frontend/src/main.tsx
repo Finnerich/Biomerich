@@ -7,7 +7,7 @@ import { App } from "./App";
 import { useStore } from "./store";
 import { callPy, expose, waitReady } from "./bridge";
 import { applyAccent, getAccentIndex } from "./data/accents";
-import { applyTheme, getCurrentThemeId } from "./data/themes";
+import { applyTheme, getCurrentThemeId, loadCustomThemeImage } from "./data/themes";
 import { maybeStartTutorial } from "./tutorial";
 import { useAgreement, agreementAccepted } from "./agreement";
 import { useTesseract } from "./tesseract";
@@ -158,6 +158,7 @@ expose((result) => {
       }
       applyAccent(getAccentIndex(state.settings?.accentIndex));
       applyTheme(getCurrentThemeId(state.settings?.themeId), false);
+      void loadCustomThemeImage();
     }
     
     

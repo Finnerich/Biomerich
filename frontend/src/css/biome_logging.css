@@ -100,6 +100,20 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+.bl-target {
+  width: 180px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: var(--r-xs);
+  color: var(--text-faint);
+  background: var(--inset);
+  font-size: 12px;
+}
+.bl-target.everyone { color: var(--danger); }
 
 @media (max-width: 720px) {
   .bl-row { flex-wrap: wrap; }

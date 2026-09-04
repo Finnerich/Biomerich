@@ -14,6 +14,15 @@ for /f "usebackq delims=" %%v in (`python -c "import re,io;print(re.search('APP_
 if not defined VERSION set "VERSION=unknown"
 echo Building SolRich version %VERSION%
 
+REM Keep the reviewed PyInstaller bootloader reproducible. Run
+REM "python -m pip install -r requirements-dev.txt" if this check fails.
+python -c "import importlib.metadata as m, sys; v=m.version('pyinstaller'); print('PyInstaller', v); sys.exit(0 if v == '6.22.2' else 1)"
+if errorlevel 1 (
+    echo ERROR: This release requires PyInstaller 6.22.2.
+    echo Run: python -m pip install -r requirements-dev.txt
+    exit /b 1
+)
+
 REM RELEASE build: strip dev-only features (Remote, Plugins, Link Extractor, Cycle
 REM Builder, Limbo & Eden). Vite reads SOLRICH_RELEASE -> __RELEASE__ (tree-shakes the
 REM frontend); the PyInstaller --runtime-hook below sets the same var for the exe so

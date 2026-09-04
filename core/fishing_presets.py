@@ -60,6 +60,44 @@ PRESETS = {
         "fishing_failed": [783, 318, 354, 61],
         "shop_name": [726, 684, 245, 54],
     },
+    "[WUXGA] WINDOWED 1920x1200 (125%)": {
+        "cast_point": [834, 930],
+        "bite_indicator": [1199, 930],
+        "bar_sample": [941, 850],
+        "zone_left": [735, 869],
+        "zone_right": [1183, 846],
+        "reel_click": [948, 957],
+        "claim_button": [1141, 364],
+        "collection_button": [35, 519],
+        "collection_close_button": [383, 146],
+        "fish_dialogue": [967, 911],
+        "sell_fish_button": [962, 1037],
+        "first_fish_slot": [831, 447],
+        "sell_all_button": [664, 890],
+        "sell_confirm_button": [805, 679],
+        "fish_shop_close_button": [1457, 295],
+        "fishing_failed": [752, 338, 369, 78],
+        "shop_name": [711, 772, 249, 42],
+    },
+    "[UWQHD] WINDOWED 3440x1440 (150%)": {
+        "cast_point": [1510, 1045],
+        "bite_indicator": [2078, 1058],
+        "bar_sample": [1699, 940],
+        "zone_left": [1386, 966],
+        "zone_right": [2054, 934],
+        "reel_click": [1714, 1120],
+        "claim_button": [1931, 428],
+        "collection_button": [62, 576],
+        "collection_close_button": [690, 201],
+        "fish_dialogue": [1753, 1049],
+        "sell_fish_button": [1713, 1189],
+        "first_fish_slot": [1477, 570],
+        "sell_all_button": [1191, 1018],
+        "sell_confirm_button": [1461, 828],
+        "fish_shop_close_button": [2627, 363],
+        "fishing_failed": [1477, 411, 469, 70],
+        "shop_name": [1438, 897, 271, 48],
+    },
     "[WUXGA] FULLSCREEN 1920x1200 (100%)": {
         "cast_point": [848, 927],
         "bite_indicator": [1176, 929],
@@ -238,6 +276,11 @@ SELL_ROUTES = {
         {"up": "space"},
         {"wait": 0.472},
         {"up": "w"},
+
+
+
+        {"tap": "e", "shop_step": True},
+        {"wait": 0.3, "shop_step": True},
     ]
     + _SELL_AT_SHOP
     + [

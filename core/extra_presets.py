@@ -9,6 +9,12 @@ PRESETS: dict = {
     "[1080p] FULLSCREEN 1920x1080 (100%)": {
         "eden": {"pixels": {"eden_click": [745, 969]}, "regions": {}},
     },
+    "[WUXGA] WINDOWED 1920x1200 (125%)": {
+        "eden": {"pixels": {"eden_click": [718, 1018]}, "regions": {}},
+    },
+    "[UWQHD] WINDOWED 3440x1440 (150%)": {
+        "eden": {"pixels": {"eden_click": [1376, 1185]}, "regions": {}},
+    },
 }
 
 def preset_names():

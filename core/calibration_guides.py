@@ -87,7 +87,12 @@ def build_guide(scope, slot, *, group=None, is_region=False, step=1):
         )
         progress = f"REGION · STEP {step} OF 2"
     else:
-        instruction = "Click the exact target once."
+        if scope == "fishing" and slot in {"bite_indicator", "bar_sample"}:
+            instruction = (
+                "Use the pixel magnifier, then click the exact pixel in its centre."
+            )
+        else:
+            instruction = "Click the exact target once."
         progress = "CLICK POINT"
 
     return {

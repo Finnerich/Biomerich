@@ -43,6 +43,25 @@
   gap: 12px;
 }
 
+.custom-theme-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.custom-theme-actions > span {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.custom-theme-actions .custom-theme-remove {
+  color: var(--danger);
+  border-color: rgba(242, 109, 120, 0.25);
+}
+
 .theme-card {
   display: flex;
   flex-direction: column;

@@ -46,6 +46,7 @@ export interface FishingAccCfg {
   sellCycle?: number;
   route?: string;
   primeRoute?: boolean;
+  sellOnStart?: boolean;
 }
 
 export interface CalibGroup {

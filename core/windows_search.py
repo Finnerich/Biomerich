@@ -236,18 +236,3 @@ def uninstall(dev_build: bool = False) -> dict:
     except Exception as exc:
         print(f"[Windows Search] Could not remove shortcut: {exc}")
         return {**status(dev_build), "ok": False, "error": "shortcut_remove_failed"}
-
-
-def repair_if_installed(
-    dev_build: bool = False,
-    *,
-    writer: Callable[[Path, Path, bool], None] = _write_shell_link,
-) -> dict:
-    
-    current = status(dev_build)
-    if not current.get("installed") or not current.get("available"):
-        return current
-    repaired = install(dev_build, writer=writer)
-    if repaired.get("ok"):
-        print("[Windows Search] Existing Start menu shortcut points to this version.")
-    return repaired

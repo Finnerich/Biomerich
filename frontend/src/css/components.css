@@ -898,6 +898,7 @@ body.locked #antiAfkToggle + .slider { opacity: 0.5; cursor: not-allowed; }
 }
 .btn-save:hover { filter: brightness(1.08); }
 .btn-save:active { filter: brightness(0.92); }
+.btn-save:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 
 
 .update-modal { max-width: 420px; text-align: center; }

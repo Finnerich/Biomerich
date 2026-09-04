@@ -26,8 +26,15 @@ class FishingConfigMixin:
             entry = self._fishing_account_entry(acc_id)
             if entry is None:
                 return False
-            if key in ("autoSell", "primeRoute"):
+            if key in ("autoSell", "primeRoute", "sellOnStart"):
                 entry[key] = bool(value)
+
+
+
+                if bool(value) and key == "primeRoute":
+                    entry["sellOnStart"] = False
+                elif bool(value) and key == "sellOnStart":
+                    entry["primeRoute"] = False
             elif key == "sellAfter":
                 try:
                     entry[key] = max(1, min(500, int(value)))

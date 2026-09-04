@@ -76,7 +76,7 @@ class MerchantConfigMixin:
                 gr = g.setdefault("regions", {})
                 for nm, box in (gdata.get("regions") or {}).items():
                     if isinstance(box, (list, tuple)) and len(box) == 4:
-                        gr[nm] = [int(v) for v in box]
+                        gr[nm] = [int(value) for value in box]
             self.automation.setdefault("merchants", {})["preset"] = name
             self.save()
             return True

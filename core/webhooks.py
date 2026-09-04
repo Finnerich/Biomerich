@@ -635,6 +635,16 @@ def merchant_detected(
             "attachment://merchant.png",
             description="Merchant capture",
         )
+    private_server_link = str((account or {}).get("link") or "").strip()
+    if found and private_server_link:
+        container.separator(spacing=SPACING_SMALL)
+        container.action_row(
+            cv2.Button.link(
+                "Join Private Server",
+                private_server_link,
+                emoji={"name": "📬"},
+            )
+        )
     _add_support_footer(container, version)
     message = _message(container)
     event_log.maybe_log(message, image_bytes=image_bytes, account=account)

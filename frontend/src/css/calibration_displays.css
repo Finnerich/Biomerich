@@ -220,6 +220,32 @@
 .calib-test-status.active { color: var(--accent); }
 .calib-test-status.error { color: var(--warning); }
 
+.calib-transfer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.calib-import-modal { max-width: 720px; max-height: calc(100vh - 40px); overflow: auto; }
+.calib-import-intro { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.55; }
+.calib-import-text {
+    min-height: 230px; resize: vertical;
+    font-family: var(--mono); font-size: 11px; line-height: 1.5;
+    white-space: pre; tab-size: 2;
+}
+.calib-import-check-row { display: flex; justify-content: flex-end; }
+.calib-import-report { padding: 12px; border: 1px solid var(--stroke-soft); border-radius: var(--r-sm); background: var(--glass-soft); }
+.calib-import-report.ready { border-color: rgba(62, 207, 142, 0.22); }
+.calib-import-report.error { border-color: rgba(242, 109, 120, 0.3); }
+.calib-import-error, .calib-import-applied { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.calib-import-error { color: var(--danger); }
+.calib-import-applied { margin-top: 10px; color: var(--success); }
+.calib-import-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.calib-import-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 9px; border-radius: var(--r-xs); color: var(--text-faint); background: rgba(255, 255, 255, 0.025); font-size: 11px; }
+.calib-import-stat b { color: var(--text); font-size: 17px; }
+.calib-import-stat.valid b { color: var(--success); }
+.calib-import-stat.missing b { color: var(--warning); }
+.calib-import-stat.invalid b { color: var(--danger); }
+.calib-import-details { margin-top: 9px; font-size: 12px; color: var(--text-dim); }
+.calib-import-details summary { cursor: pointer; user-select: none; }
+.calib-import-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; max-height: 130px; overflow: auto; }
+.calib-import-list code { padding: 4px 6px; border: 1px solid var(--stroke-soft); border-radius: 5px; color: var(--text-dim); background: rgba(0, 0, 0, 0.13); font-size: 10px; }
+
 @media (max-width: 820px) {
     .calib-test-layout { align-items: stretch; flex-direction: column; }
     .calib-test-controls { width: 100%; }
@@ -229,4 +255,5 @@
 @media (max-width: 560px) {
     .calib-test-controls { align-items: stretch; flex-direction: column; }
     .calib-test-button { width: 100%; }
+    .calib-import-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

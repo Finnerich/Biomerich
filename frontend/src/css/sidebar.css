@@ -165,6 +165,20 @@
 .px-set-btn:hover:not(:disabled) { filter: brightness(1.08); }
 .px-set-btn:active:not(:disabled) { filter: brightness(0.92); }
 .px-set-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.px-edit-btn {
+    width: 32px; height: 32px; flex: 0 0 32px;
+    display: inline-grid; place-items: center;
+    border: 1px solid var(--stroke-soft); border-radius: var(--r-xs);
+    background: rgba(var(--ar), var(--ag), var(--ab), 0.06);
+    color: var(--text-dim); cursor: pointer;
+    transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.px-edit-btn:hover:not(:disabled) { color: var(--accent); border-color: rgba(var(--ar), var(--ag), var(--ab), 0.42); background: rgba(var(--ar), var(--ag), var(--ab), 0.11); }
+.px-edit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.calib-manual-label { display: block; margin-bottom: 8px; color: var(--text); font-size: 13px; font-weight: 600; }
+.calib-manual-input { width: 100%; font-family: var(--mono); }
+.calib-manual-hint { margin: 8px 0 0; color: var(--text-faint); font-size: 12px; }
+.calib-manual-error { margin-top: 12px; color: var(--danger); font-size: 12px; }
 .px-clear-btn {
     background: transparent;
     border: 1px solid var(--stroke-soft);

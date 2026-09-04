@@ -14,6 +14,7 @@ import { CustomSelect } from "../components/CustomSelect";
 import { PIXEL_SLOTS, FISHING_PIXEL_SLOTS, FISHING_REGION_SLOTS } from "../data/slots";
 import { MERCHANT_CALIB_GROUPS, EXTRA_CALIB_GROUPS, type CalibGroup } from "../data/calibGroups";
 import { TesseractInstallButton } from "../components/TesseractInstallButton";
+import { Modal } from "../components/Modal";
 import type { BackendState } from "../types";
 
 
@@ -24,6 +25,7 @@ type DetectedMonitor = {
   device: string;
   width: number;
   height: number;
+  aspectRatio: string;
   scale: number;
   dpi: number;
   primary: boolean;
@@ -37,15 +39,40 @@ type DisplayCalibrationInfo = {
     displayId: number;
     width: number;
     height: number;
+    aspectRatio: string;
+    x: number;
+    y: number;
     scale: number;
     mode: "WINDOWED" | "FULLSCREEN";
     source: "roblox" | "primary";
     robloxWindows: number;
   } | null;
   preset?: string | null;
+  match?: {
+    name: string;
+    strategy: "absolute";
+    sourceWidth: number;
+    sourceHeight: number;
+    targetWidth: number;
+    targetHeight: number;
+    aspectRatio: string;
+    scaled: boolean;
+  } | null;
   reason?: "no_preset" | "mixed_displays" | "unsupported" | null;
 };
 type RecommendationFeedback = { kind: "success" | "warning" | "error"; text: string } | null;
+type CalibrationImportReport = {
+  ok: boolean;
+  canApply: boolean;
+  validCount: number;
+  expectedCount: number;
+  missing: string[];
+  invalid: string[];
+  unknown: string[];
+  error?: string | null;
+  message?: string | null;
+  appliedCount?: number;
+};
 type CalibrationTestState = "idle" | "starting" | "active" | "stopping" | "error";
 const CALIBRATION_TEST_SCOPES = [
   { value: "automation", label: "Inventory & Auto Pop" },
@@ -57,11 +84,11 @@ const CALIBRATION_TEST_SCOPES = [
 const CALIBRATION_RPC_TIMEOUT_MS = 70_000;
 const pixelInfo = (pos: Pos) => {
   const isSet = Array.isArray(pos) && pos.length === 2;
-  return { isSet, coord: isSet ? `${pos![0]}, ${pos![1]}` : "Not set" };
+  return { isSet, value: isSet ? pos : undefined, coord: isSet ? `${pos![0]}, ${pos![1]}` : "Not set" };
 };
 const regionInfo = (box: Pos) => {
   const isSet = Array.isArray(box) && box.length === 4;
-  return { isSet, coord: isSet ? `${box![0]},${box![1]} · ${box![2]}×${box![3]}` : "Not set" };
+  return { isSet, value: isSet ? box : undefined, coord: isSet ? `${box![0]},${box![1]} · ${box![2]}×${box![3]}` : "Not set" };
 };
 
 
@@ -85,6 +112,10 @@ export function Calibration() {
   const [testScope, setTestScope] = useState("automation");
   const [testState, setTestState] = useState<CalibrationTestState>("idle");
   const [testMessage, setTestMessage] = useState("Choose a module to preview its saved targets.");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importReport, setImportReport] = useState<CalibrationImportReport | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
 
 
   useEffect(() => {
@@ -165,8 +196,15 @@ export function Calibration() {
       });
     } else {
       try {
-        await loadGlobal(result.preset);
-        setRecommendationFeedback({ kind: "success", text: `Applied ${result.preset}` });
+        const applied = await callPy<DisplayCalibrationInfo>("apply_recommended_calibration_preset");
+        if (!applied?.ok || !applied.preset) throw new Error("preset apply failed");
+        setDisplayInfo(applied);
+        applyState(await callPy<BackendState>("get_state"));
+        setLoadedPreset(applied.preset);
+        setRecommendationFeedback({
+          kind: "success",
+          text: `Applied ${applied.preset}`,
+        });
       } catch {
         setRecommendationFeedback({ kind: "error", text: "The recommended preset couldn't be applied." });
       }
@@ -227,6 +265,47 @@ export function Calibration() {
     try { await navigator.clipboard.writeText(text); copied = true; } catch { copied = false; }
     setCopyFeedback((prev) => ({ ...prev, [scope]: copied ? "ok" : "fail" }));
     setTimeout(() => setCopyFeedback((prev) => { const next = { ...prev }; delete next[scope]; return next; }), 1600);
+  }
+
+  async function saveManualCalibration(scope: string, key: string, value: number[], group?: string) {
+    const result = await callPy<{ ok?: boolean; error?: string }>("set_calibration_value", scope, key, value, group ?? null).catch(() => null);
+    if (result?.ok) applyState(await callPy<BackendState>("get_state"));
+    return result;
+  }
+
+  async function openCalibrationImport() {
+    setImportOpen(true);
+    setImportReport(null);
+    try {
+      const clipboard = await navigator.clipboard.readText();
+      if (clipboard.trim()) setImportText(clipboard);
+    } catch {
+      
+    }
+  }
+
+  async function checkCalibrationImport() {
+    if (!importText.trim()) return;
+    setImportBusy(true);
+    const report = await callPy<CalibrationImportReport>("preview_calibration_import", importText).catch(() => null);
+    setImportReport(report ?? {
+      ok: false, canApply: false, validCount: 0, expectedCount: 0,
+      missing: [], invalid: [], unknown: [], message: "SolRich could not validate this text.",
+    });
+    setImportBusy(false);
+  }
+
+  async function applyCalibrationImport() {
+    if (!importReport?.canApply || importBusy) return false;
+    setImportBusy(true);
+    const report = await callPy<CalibrationImportReport>("apply_calibration_import", importText).catch(() => null);
+    if (report?.ok) applyState(await callPy<BackendState>("get_state"));
+    setImportReport(report ?? {
+      ok: false, canApply: false, validCount: 0, expectedCount: 0,
+      missing: [], invalid: [], unknown: [], message: "SolRich could not import this text.",
+    });
+    setImportBusy(false);
+    return false;
   }
   async function showPoints(scope: string) {
     if (running || showBusy.has(scope)) return;
@@ -310,7 +389,7 @@ export function Calibration() {
           <div className="calib-display-head">
             <div>
               <span className="afk-setting-name">Detected displays</span>
-              <span className="afk-setting-desc">SolRich reads the resolution and Windows scale of every connected screen.</span>
+              <span className="afk-setting-desc">SolRich reads resolution, aspect ratio and Windows scale for every connected screen.</span>
             </div>
             <button
               className="btn-add calib-recommend-btn"
@@ -343,6 +422,7 @@ export function Calibration() {
                   </div>
                   <div className="calib-monitor-details">
                     <span>{monitor.width} × {monitor.height}</span>
+                    <span>{monitor.aspectRatio}</span>
                     <span>{monitor.scale}% scale</span>
                   </div>
                 </div>
@@ -394,10 +474,71 @@ export function Calibration() {
           </div>
         )}
         <div className="calib-foot">
-          <p className="pixel-hint"><i className="fa-solid fa-clipboard"></i> Copy every panel's calibration to clipboard at once.</p>
-          <CopyButton state={copyFeedback.all} onClick={() => void copyCalibration("all")} label="Copy all calibrations" />
+          <div className="calib-transfer-actions">
+            <CopyButton state={copyFeedback.all} onClick={() => void copyCalibration("all")} label="Copy all calibrations" />
+            <button className="btn-show" disabled={running} onClick={() => void openCalibrationImport()}>
+              <i className="fa-solid fa-paste"></i> Paste all calibrations
+            </button>
+          </div>
         </div>
       </div>
+
+      <Modal
+        open={importOpen}
+        title="Paste all calibrations"
+        onCancel={() => setImportOpen(false)}
+        onSave={applyCalibrationImport}
+        saveLabel={importBusy ? "Working…" : importReport?.appliedCount != null ? `Applied ${importReport.appliedCount}` : "Apply valid calibrations"}
+        saveDisabled={importBusy || !importReport?.canApply || importReport?.appliedCount != null}
+        cancelLabel="Close"
+        className="calib-import-modal"
+      >
+        <p className="calib-import-intro">Paste the JSON created by <b>Copy all calibrations</b>. Check it first; missing values stay unchanged and unknown fields are ignored.</p>
+        <textarea
+          className="field calib-import-text"
+          value={importText}
+          spellCheck={false}
+          placeholder={'{\n  "format": "solrich-calibrations",\n  ...\n}'}
+          onChange={(event) => { setImportText(event.target.value); setImportReport(null); }}
+        />
+        <div className="calib-import-check-row">
+          <button className="btn-add" disabled={importBusy || !importText.trim()} onClick={() => void checkCalibrationImport()}>
+            <i className={`fa-solid ${importBusy ? "fa-spinner fa-spin" : "fa-magnifying-glass"}`}></i>
+            {importBusy ? "Checking…" : "Check pasted calibrations"}
+          </button>
+        </div>
+        {importReport && (
+          <div className={`calib-import-report${importReport.ok ? " ready" : " error"}`}>
+            {!importReport.ok ? (
+              <div className="calib-import-error"><i className="fa-solid fa-circle-xmark"></i> {importReport.message || importReport.error || "Invalid calibration export."}</div>
+            ) : (
+              <>
+                <div className="calib-import-summary">
+                  <span className="calib-import-stat valid"><b>{importReport.validCount}</b> valid</span>
+                  <span className="calib-import-stat missing"><b>{importReport.missing.length}</b> missing</span>
+                  <span className="calib-import-stat invalid"><b>{importReport.invalid.length}</b> invalid</span>
+                  <span className="calib-import-stat unknown"><b>{importReport.unknown.length}</b> unknown</span>
+                </div>
+                {importReport.appliedCount != null && (
+                  <div className="calib-import-applied"><i className="fa-solid fa-circle-check"></i> Imported {importReport.appliedCount} calibration values. Missing values were not cleared.</div>
+                )}
+                {[
+                  ["Missing", importReport.missing, "missing"],
+                  ["Invalid", importReport.invalid, "invalid"],
+                  ["Unknown (ignored)", importReport.unknown, "unknown"],
+                ].map(([label, entries, kind]) => Array.isArray(entries) && entries.length > 0 && (
+                  <details className={`calib-import-details ${kind}`} key={String(kind)} open={kind === "invalid"}>
+                    <summary>{String(label)} · {entries.length}</summary>
+                    <div className="calib-import-list">
+                      {entries.map((entry) => <code key={entry}>{entry}</code>)}
+                    </div>
+                  </details>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {}
       <div className={`glass card panel calib-test-panel${testState === "active" ? " active" : ""}`} data-reveal>
@@ -451,15 +592,15 @@ export function Calibration() {
         copyState={copyFeedback.automation} onCopy={() => void copyCalibration("automation")}
       >
         <div className="pixel-list">
-          <CaptureRow label="First Item Slot (Region)" region {...regionInfo(firstItemRegion)} disabled={running} onCapture={() => runCapture("capture_item_region")} />
+          <CaptureRow label="First Item Slot (Region)" region {...regionInfo(firstItemRegion)} disabled={running} onCapture={() => runCapture("capture_item_region")} onManual={(value) => saveManualCalibration("inventory", "first_item_region", value)} />
           {invPixelSlots.map(([key, label]) => (
-            <CaptureRow key={key} label={label} {...pixelInfo(pixels[key])} disabled={running} onCapture={() => runCapture("capture_pixel", key)} />
+            <CaptureRow key={key} label={label} {...pixelInfo(pixels[key])} disabled={running} onCapture={() => runCapture("capture_pixel", key)} onManual={(value) => saveManualCalibration("inventory", key, value)} />
           ))}
         </div>
         <div className="afk-divider"></div>
         <div className="px-section-label"><i className="fa-solid fa-vector-square"></i> Auto Pop: Amount Label <span className="ap-required">required for Auto Pop</span></div>
         <div className="pixel-list">
-          <CaptureRow label="Amount Label Region" region {...regionInfo(autopopRegion)} disabled={running} onCapture={() => runCapture("capture_autopop_amount_region")} />
+          <CaptureRow label="Amount Label Region" region {...regionInfo(autopopRegion)} disabled={running} onCapture={() => runCapture("capture_autopop_amount_region")} onManual={(value) => saveManualCalibration("inventory", "autopop_amount_region", value)} />
         </div>
       </CalibPanel>
 
@@ -473,14 +614,14 @@ export function Calibration() {
       >
         <div className="pixel-list">
           {FISHING_PIXEL_SLOTS.map(([key, label]) => (
-            <CaptureRow key={key} label={label} {...pixelInfo(fishing.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_pixel", key)} />
+            <CaptureRow key={key} label={label} {...pixelInfo(fishing.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_pixel", key)} onManual={(value) => saveManualCalibration("fishing", key, value)} />
           ))}
         </div>
         <div className="afk-divider"></div>
         <div className="px-section-label"><i className="fa-solid fa-vector-square"></i> OCR Regions</div>
         <div className="pixel-list">
           {FISHING_REGION_SLOTS.map(([key, label]) => (
-            <CaptureRow key={key} label={label} region {...regionInfo(fishing.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_region", key)} />
+            <CaptureRow key={key} label={label} region {...regionInfo(fishing.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_fishing_region", key)} onManual={(value) => saveManualCalibration("fishing", key, value)} />
           ))}
         </div>
       </CalibPanel>
@@ -503,10 +644,10 @@ export function Calibration() {
             <div className="px-section-label"><i className="fa-solid fa-layer-group"></i> {group.label}<span className="px-scope-hint">{group.scope}</span></div>
             <div className="pixel-list">
               {group.points.map(([key, label]) => (
-                <CaptureRow key={key} label={label} {...pixelInfo(merchCalib[group.key]?.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_pixel", group.key, key)} />
+                <CaptureRow key={key} label={label} {...pixelInfo(merchCalib[group.key]?.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_pixel", group.key, key)} onManual={(value) => saveManualCalibration("merchants", key, value, group.key)} />
               ))}
               {group.regions.map(([key, label]) => (
-                <CaptureRow key={key} label={label} region {...regionInfo(merchCalib[group.key]?.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_region", group.key, key)} />
+                <CaptureRow key={key} label={label} region {...regionInfo(merchCalib[group.key]?.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_merchant_region", group.key, key)} onManual={(value) => saveManualCalibration("merchants", key, value, group.key)} />
               ))}
             </div>
           </div>
@@ -518,10 +659,10 @@ export function Calibration() {
         const progress = extraProgress(group);
         const calib = extraCalib[group.key] || {};
         const pixelRow = (key: string, label: string) => (
-          <CaptureRow key={key} label={label} {...pixelInfo(calib.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_pixel", group.key, key)} />
+          <CaptureRow key={key} label={label} {...pixelInfo(calib.pixels?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_pixel", group.key, key)} onManual={(value) => saveManualCalibration("extra", key, value, group.key)} />
         );
         const regionRow = (key: string, label: string) => (
-          <CaptureRow key={key} label={label} region {...regionInfo(calib.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_region", group.key, key)} />
+          <CaptureRow key={key} label={label} region {...regionInfo(calib.regions?.[key])} disabled={running} onCapture={() => runCapture("capture_extra_region", group.key, key)} onManual={(value) => saveManualCalibration("extra", key, value, group.key)} />
         );
         return (
           <CalibPanel

@@ -4,7 +4,14 @@ from . import biomes
 
 
 def default_fishing_entry() -> dict:
-    return {"autoSell": False, "sellAfter": 20, "sellCycle": 1, "route": "None", "primeRoute": False}
+    return {
+        "autoSell": False,
+        "sellAfter": 20,
+        "sellCycle": 1,
+        "route": "None",
+        "primeRoute": False,
+        "sellOnStart": False,
+    }
 
 
 def migrate_unknown_biomes(cfg: dict) -> bool:
